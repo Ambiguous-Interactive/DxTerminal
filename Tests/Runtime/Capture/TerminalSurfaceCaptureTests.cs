@@ -482,7 +482,19 @@
                 AssertAcceptable(_lastOutcome);
                 Assert.That(root.Q("TerminalRoot").ClassListContains("terminal-root--narrow"), Is.True);
                 foreach (
-                    string name in new[] { "TerminalSizeButton", "TerminalCloseButton", "LogSearchInput", "LogSearchPrevious", "LogSearchNext", "LogSearchClear", "CommandInput" }
+                    string name in new[]
+                    {
+                        "TerminalSizeButton",
+                        "TerminalCloseButton",
+                        "LogSearchInput",
+                        "LogSearchPrevious",
+                        "LogSearchNext",
+                        "LogSearchClear",
+                        "LogMessages",
+                        "LogWarnings",
+                        "LogErrors",
+                        "CommandInput",
+                    }
                 )
                 {
                     VisualElement control = root.Q(name);
@@ -494,6 +506,16 @@
                 }
                 Assert.That(root.Q<TextField>("LogSearchInput").Q("unity-text-input").layout.width, Is.GreaterThanOrEqualTo(100), "Search keeps room for a query");
                 Assert.That(root.Q<ScrollView>("LogScrollView").layout.height, Is.GreaterThanOrEqualTo(30), "A narrow terminal keeps space for output");
+                VisualElement terminalRoot = root.Q("TerminalRoot");
+                terminalRoot.style.width = 220;
+                yield return SettleRenders();
+                Assert.That(root.Q<ScrollView>("LogScrollView").layout.height, Is.GreaterThanOrEqualTo(30), "Wrapped controls still leave a log row");
+                foreach (string name in new[] { "LogMessages", "LogWarnings", "LogErrors", "CommandInput" })
+                {
+                    VisualElement control = root.Q(name);
+                    Assert.That(control.worldBound.xMax, Is.LessThanOrEqualTo(terminalRoot.worldBound.xMax + 0.5f), name);
+                    Assert.That(control.worldBound.yMax, Is.LessThanOrEqualTo(root.Q("TerminalContainer").worldBound.yMax + 0.5f), name);
+                }
             }
             finally
             {

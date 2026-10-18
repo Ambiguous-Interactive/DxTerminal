@@ -102,6 +102,65 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return new TestCaseData(TerminalStackTraceMode.Disabled, TerminalLogType.ShellMessage, false).SetName("Mode.Disabled.SkipsRoutine");
         }
 
+        private static void AssertSeverityCounts(CommandLog log, LogItem[] window)
+        {
+            int count = log.CopyTo(window);
+            int messages = 0;
+            int warnings = 0;
+            int errors = 0;
+            for (int i = 0; i < count; ++i)
+            {
+                switch (window[i].type)
+                {
+                    case TerminalLogType.Warning:
+                        ++warnings;
+                        break;
+                    case TerminalLogType.Error:
+                    case TerminalLogType.Assert:
+                    case TerminalLogType.Exception:
+                        ++errors;
+                        break;
+                    default:
+                        ++messages;
+                        break;
+                }
+            }
+            log.ReadSeverityCounts(out int actualMessages, out int actualWarnings, out int actualErrors);
+            Assert.That(actualMessages, Is.EqualTo(messages));
+            Assert.That(actualWarnings, Is.EqualTo(warnings));
+            Assert.That(actualErrors, Is.EqualTo(errors));
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(5)]
+        public void SeverityCountsFollowTheRetainedWindow(int capacity)
+        {
+            CommandLog log = new(capacity, new[] { TerminalLogType.Input });
+            LogItem[] window = new LogItem[16];
+            for (int iteration = 0; iteration < 3; ++iteration)
+            {
+                foreach (TerminalLogType type in AllLogTypes)
+                {
+                    log.HandleLog("entry", string.Empty, type);
+                    AssertSeverityCounts(log, window);
+                }
+            }
+            log.Resize(2);
+            AssertSeverityCounts(log, window);
+            log.Resize(1);
+            AssertSeverityCounts(log, window);
+            Assert.Throws<ArgumentException>(() => log.Resize(-1));
+            AssertSeverityCounts(log, window);
+            log.Resize(0);
+            AssertSeverityCounts(log, window);
+            log.Resize(8);
+            log.HandleLog("warning", string.Empty, TerminalLogType.Warning);
+            AssertSeverityCounts(log, window);
+            log.Clear();
+            AssertSeverityCounts(log, window);
+        }
+
         [SetUp]
         public void SetUp()
         {

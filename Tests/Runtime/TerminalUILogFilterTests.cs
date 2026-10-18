@@ -214,6 +214,47 @@
         }
 
         [UnityTest]
+        public IEnumerator SeverityChipsCombineWithSearchAndSurviveRebuild()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Buffer.HandleLog("alpha info", string.Empty, TerminalLogType.Message);
+            Terminal.Buffer.HandleLog("alpha warning", string.Empty, TerminalLogType.Warning);
+            Terminal.Buffer.HandleLog("alpha error", string.Empty, TerminalLogType.Error);
+            Terminal.Buffer.HandleLog("beta exception", string.Empty, TerminalLogType.Exception);
+            yield return Settle();
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Button errors = root.Q<Button>("LogErrors");
+            Assert.That(errors, Is.Not.Null, "The header exposes severity filters");
+            Assert.That(errors.text, Is.EqualTo("Errors 2"));
+            long version = Terminal.Buffer.Version;
+            Submit(errors);
+            root.Q<TextField>("LogSearchInput").value = "alpha";
+            yield return Settle();
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"));
+            Assert.That(root.Q<ScrollView>("LogScrollView").contentContainer.childCount, Is.EqualTo(2));
+            Assert.That(errors.ClassListContains("terminal-type-chip--excluded"), Is.True);
+            Assert.That(errors.text, Is.EqualTo("Errors 2"), "Counts describe retained logs, independent of search and visibility");
+            root.Q<TextField>("LogSearchInput").value = string.Empty;
+            yield return Settle();
+            Assert.That(root.Q<ScrollView>("LogScrollView").contentContainer.childCount, Is.EqualTo(2), "Erasing text preserves severity choices");
+            _terminal.TeardownUI();
+            _terminal.EnsureUI();
+            yield return Settle();
+            Assert.That(root.Q<Button>("LogErrors").ClassListContains("terminal-type-chip--excluded"), Is.True);
+            Submit(root.Q<Button>("LogSearchClear"));
+            yield return Settle();
+            Assert.That(root.Q<ScrollView>("LogScrollView").contentContainer.childCount, Is.EqualTo(4));
+            Assert.That(root.Q<Button>("LogErrors").ClassListContains("terminal-type-chip--excluded"), Is.False);
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Header filtering does not write log entries");
+            Submit(root.Q<Button>("LogErrors"));
+            yield return RunCommand("find alpha");
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"), "The command uses the same severity scope as the header");
+            yield return RunCommand("clear-filter");
+            Assert.That(root.Q<Button>("LogErrors").ClassListContains("terminal-type-chip--excluded"), Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator HeaderControlsPreserveTheDraftUntilClose()
         {
             yield return SpawnOpenTerminal();

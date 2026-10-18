@@ -618,9 +618,13 @@ following. A log that has not been laid out - a headless editor, or a view with 
 
 ## Searching the log
 
-Use **Search** in the terminal header to filter output. **Prev**, **Next**, Enter, and Shift+Enter step matches. **Clear**, or an empty field, restores all lines. The count updates
-with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`. Searches persist when the terminal closes. Header and log focus preserve
-the command draft; return to the command line for history, completion, and submission.
+Use **Search** in the terminal header to filter output. **Prev**, **Next**, Enter, and Shift+Enter step matches. **Clear** restores all lines. An empty field clears only the text
+query. The count updates with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`. Searches persist when the terminal closes.
+Header and log focus preserve the command draft; return to the command line for history, completion, and submission.
+
+Use **Messages**, **Warnings**, and **Errors** to toggle severity groups. Errors include assertions and exceptions. Messages include command echoes and output. Chip counts describe
+all retained entries, independent of search or visibility. Search and `find` match only enabled groups. **Clear** and `clear-filter` reset all groups. The narrow small window grows
+to fit its controls and one log row, up to full height. A zero minimum height disables that floor.
 
 The count includes the current match. `2 of 3 (1/2)` means two matches among three searchable lines, with the first match selected.
 

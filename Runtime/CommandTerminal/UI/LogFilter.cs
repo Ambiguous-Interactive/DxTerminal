@@ -31,9 +31,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
         public string Query { get; private set; }
 
         /*
-            Bumped by every change to the filter's inputs - a query set or
-            cleared, and every own-reply registration. Readers that cache a
-            result computed from this filter key on it: a re-set of an equal
+            Bumped by query changes, severity toggles, and own-reply registration.
+            Readers that cache a result computed from this filter key on it: a re-set of an equal
             query changes nothing the window holds but resets the counts and
             the position, so the next Apply must run to restore them.
 
@@ -45,7 +44,9 @@ namespace WallstopStudios.DxCommandTerminal.UI
          */
         public long Generation { get; private set; }
 
-        public bool IsActive => !string.IsNullOrEmpty(Query);
+        public bool HasQuery => !string.IsNullOrEmpty(Query);
+
+        public bool IsActive => HasQuery || 0 < _excludedSeverities.Count;
 
         /* Kept lines, and the lines the window held, from the same pass. */
         public int MatchCount { get; private set; }
@@ -54,6 +55,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         /* One-based, so the number a developer reads is the number reported. */
         public int? CurrentMatch { get; private set; }
+
+        private readonly HashSet<TerminalLogType> _excludedSeverities = new();
 
         /*
             The console's own answers about the search, which are not results.
@@ -163,8 +166,28 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return true;
         }
 
-        public void Clear()
+        public bool IsSeverityEnabled(TerminalLogType type)
         {
+            return !_excludedSeverities.Contains(CommandLog.SeverityOf(type));
+        }
+
+        public void ToggleSeverity(TerminalLogType type)
+        {
+            TerminalLogType severity = CommandLog.SeverityOf(type);
+            if (!_excludedSeverities.Remove(severity))
+            {
+                _excludedSeverities.Add(severity);
+            }
+            CurrentMatch = null;
+            ++Generation;
+        }
+
+        public void Clear(bool clearSeverities = true)
+        {
+            if (clearSeverities)
+            {
+                _excludedSeverities.Clear();
+            }
             Query = null;
             CurrentMatch = null;
             MatchCount = 0;
@@ -201,6 +224,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
              */
             int searchableEnd = Math.Min(count, window.Length);
             string query = Query;
+            bool hasQuery = HasQuery;
 
             /*
                 Two counters, one pass, and the same exclusion from both.
@@ -224,13 +248,13 @@ namespace WallstopStudios.DxCommandTerminal.UI
             for (int i = 0; i < searchableEnd; ++i)
             {
                 LogItem item = window[i];
-                if (!IsSearchable(item) || _ownReplies.Contains(item.message))
+                if (!IsSeverityEnabled(item.type) || (hasQuery && (!IsSearchable(item) || _ownReplies.Contains(item.message))))
                 {
                     continue;
                 }
 
                 ++searchable;
-                if (kept < destination.Length && Matches(item, query))
+                if (kept < destination.Length && (!hasQuery || Matches(item, query)))
                 {
                     destination[kept] = item;
                     ++kept;

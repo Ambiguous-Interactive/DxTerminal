@@ -127,6 +127,16 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             yield return null;
 
             AllocationAssertions.AssertZeroAllocations("steady-state refresh pass while open", () => _terminal.RefreshUI());
+            _terminal.SetLogFilter("bench", false);
+            Button warnings = _terminal._uiDocument.rootVisualElement.Q<Button>("LogWarnings");
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = warnings;
+                warnings.SendEvent(evt);
+            }
+            yield return null;
+            yield return null;
+            AllocationAssertions.AssertZeroAllocations("steady-state refresh with search and severity filters", () => _terminal.RefreshUI());
         }
 
         [UnityTest]
