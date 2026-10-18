@@ -245,6 +245,60 @@
         }
 
         [UnityTest]
+        public IEnumerator FullRingKeepsSelectedEntryUntilEvictionWithIdenticalMessages()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Buffer.Resize(3);
+            const string message = "select part of this line";
+            Terminal.Log(message);
+            Terminal.Log(message);
+            Terminal.Log(message);
+            yield return WaitForDrawnCount(3, "The ring is full");
+
+            TextField row = (TextField)LogContent()[1];
+            int attempts = FrameBudget;
+            while (0 < attempts--)
+            {
+                row.Focus();
+                row.SelectRange(7, 11);
+                yield return null;
+                if (row.cursorIndex == 7 && row.selectIndex == 11 && _terminal.LogOwnsFocus)
+                {
+                    break;
+                }
+            }
+
+            if (row.cursorIndex != 7 || row.selectIndex != 11 || !_terminal.LogOwnsFocus)
+            {
+                Assert.Ignore("The host did not hold focus and log selection (#250).");
+            }
+
+            Terminal.Log(message);
+            attempts = FrameBudget;
+            while (0 < attempts-- && LogContent()[0] != row)
+            {
+                yield return null;
+            }
+
+            Assert.That(LogContent()[0], Is.SameAs(row), "The selected entry moves with the ring even when every message is identical");
+            Assert.That(row.cursorIndex, Is.EqualTo(7));
+            Assert.That(row.selectIndex, Is.EqualTo(11));
+            Assert.That(_terminal.LogOwnsFocus, Is.True, "Reordering the selected row keeps panel focus");
+
+            Terminal.Log(message);
+            attempts = FrameBudget;
+            while (0 < attempts-- && row.cursorIndex != row.selectIndex)
+            {
+                yield return null;
+            }
+
+            Assert.That(row.cursorIndex, Is.EqualTo(row.selectIndex), "An evicted entry cannot leave its selection on an identical replacement");
+            Assert.That(row.value, Is.EqualTo(message));
+            Assert.That(LogContent().childCount, Is.EqualTo(3), "Selection does not freeze updates to the ring");
+        }
+
+        [UnityTest]
         public IEnumerator ClearFilterPutsEveryLineBack()
         {
             yield return SpawnOpenTerminal();

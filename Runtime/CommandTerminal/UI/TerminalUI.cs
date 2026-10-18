@@ -1114,6 +1114,40 @@
             }
         }
 
+        private static void PreserveFocusedLog(VisualElement content, LogItem[] rendered, int logCount)
+        {
+            VisualElement focused = content.panel?.focusController?.focusedElement as VisualElement;
+            while (focused != null && focused.parent != content)
+            {
+                focused = focused.parent;
+            }
+
+            if (focused is not LogTextField field)
+            {
+                return;
+            }
+
+            for (int index = 0; index < logCount; ++index)
+            {
+                if (rendered[index].Sequence != field.Sequence)
+                {
+                    continue;
+                }
+
+                int previousIndex = content.IndexOf(field);
+                if (index < previousIndex)
+                {
+                    field.PlaceBehind(content[index]);
+                }
+                else if (previousIndex < index)
+                {
+                    field.PlaceInFront(content[index]);
+                }
+
+                return;
+            }
+        }
+
         private static bool TryHandOffToLivePeer(out TerminalUI peer)
         {
             int liveCount = LiveTerminals.Count;
@@ -2977,7 +3011,7 @@
                 {
                     while (content.childCount < logCount)
                     {
-                        TextField logText = new()
+                        LogTextField logText = new()
                         {
                             isReadOnly = true,
                             multiline = true,
@@ -3005,30 +3039,34 @@
                         content.Add(logText);
                     }
                 }
-                else if (logCount < content.childCount)
-                {
-                    for (int i = content.childCount - 1; logCount <= i; --i)
-                    {
-                        content.RemoveAt(i);
-                    }
-                }
             }
 
             if (dirty)
             {
+                PreserveFocusedLog(content, rendered, logCount);
+                for (int i = content.childCount - 1; logCount <= i; --i)
+                {
+                    content.RemoveAt(i);
+                }
+
                 int childCount = content.childCount;
                 for (int i = 0; i < logCount && i < childCount; ++i)
                 {
-                    if (content[i] is not TextField logText)
+                    if (content[i] is not LogTextField logText)
                     {
                         continue;
                     }
 
                     LogItem logItem = rendered[i];
                     SetupLogText(logText, logItem);
-                    if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
+                    if (logText.Sequence != logItem.Sequence)
                     {
-                        logText.SetValueWithoutNotify(logItem.message);
+                        if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
+                        {
+                            logText.SetValueWithoutNotify(logItem.message);
+                        }
+
+                        logText.Sequence = logItem.Sequence;
                         logText.SelectRange(0, 0);
                     }
                 }
@@ -3785,6 +3823,11 @@
                 _currentWindowHeight = _targetWindowHeight;
                 _isAnimating = false;
             }
+        }
+
+        private sealed class LogTextField : TextField
+        {
+            public long Sequence { get; set; }
         }
 
         private enum ScrollBarCaptureState

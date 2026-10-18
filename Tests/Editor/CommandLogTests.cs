@@ -108,6 +108,39 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             _log = new CommandLog(16);
         }
 
+        [TestCase(TerminalLogType.Message, "message", "trace", true)]
+        [TestCase(TerminalLogType.Warning, "message", "trace", false)]
+        [TestCase(TerminalLogType.Message, "Message", "trace", false)]
+        [TestCase(TerminalLogType.Message, "message", "Trace", false)]
+        public void LogItemEqualityUsesContent(TerminalLogType type, string message, string trace, bool expected)
+        {
+            LogItem original = new(TerminalLogType.Message, "message", "trace");
+            LogItem other = new(type, message, trace);
+
+            Assert.That(original.Sequence, Is.Not.EqualTo(other.Sequence));
+            Assert.That(original.Equals(other), Is.EqualTo(expected));
+            Assert.That(original.Equals((object)other), Is.EqualTo(expected));
+            HashSet<LogItem> entries = new() { original };
+            Assert.That(entries.Contains(other), Is.EqualTo(expected));
+            if (expected)
+            {
+                Assert.That(original.GetHashCode(), Is.EqualTo(other.GetHashCode()));
+            }
+        }
+
+        [Test]
+        public void DefaultLogItemEqualityHandlesNullFields()
+        {
+            LogItem original = default;
+            LogItem other = default;
+
+            Assert.That(original.Equals(other), Is.True);
+            Assert.That(original.GetHashCode(), Is.EqualTo(other.GetHashCode()));
+            Assert.That(original.Equals(null), Is.False);
+            Assert.That(original.Equals("message"), Is.False);
+            Assert.That(original.Equals(new LogItem(default, null, null)), Is.False);
+        }
+
         [TestCaseSource(nameof(Corpus))]
         public void ReduceMatchesSplitJoinReference(string fullStackTrace)
         {
