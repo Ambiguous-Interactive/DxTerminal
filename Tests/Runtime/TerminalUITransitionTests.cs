@@ -47,6 +47,16 @@
         private PanelSettings _panelSettings;
         private readonly List<GameObject> _spawnedObjects = new();
 
+#if ENABLE_INPUT_SYSTEM
+        private KeyboardTestScope _keyboardScope;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _keyboardScope = new KeyboardTestScope();
+        }
+#endif
+
         [TearDown]
         public void TearDown()
         {
@@ -81,6 +91,9 @@
             {
                 UnityEngine.Object.Destroy(_panelSettings);
             }
+#if ENABLE_INPUT_SYSTEM
+            _keyboardScope?.Dispose();
+#endif
         }
 
         [Test]

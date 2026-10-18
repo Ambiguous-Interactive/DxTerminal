@@ -8,7 +8,7 @@
      */
 #if ENABLE_INPUT_SYSTEM
     using System.Collections;
-    using System.Collections.Generic;
+    using Components;
     using Input;
     using NUnit.Framework;
     using UnityEngine.InputSystem;
@@ -42,10 +42,7 @@
          */
         private static readonly string[] DefaultHotkeys = { "`", "#`", "tab", "#tab", "up", "down", "enter", "return", "escape" };
 
-        private readonly List<Keyboard> _ownedKeyboards = new();
-        private Keyboard _originalKeyboard;
-        private int? _originalDeviceId;
-        private bool _originalKeyboardEnabled;
+        private KeyboardTestScope _keyboardScope;
 
         private static void PollAllDefaultHotkeys()
         {
@@ -82,46 +79,13 @@
         [SetUp]
         public void SetUp()
         {
-            _originalKeyboard = Keyboard.current;
-            _originalDeviceId = _originalKeyboard?.deviceId;
-            _originalKeyboardEnabled = _originalKeyboard?.enabled ?? false;
-            if (_originalKeyboard == null)
-            {
-                AddOwnedKeyboard();
-            }
-            InputHelpers.ResetControlMemoForTesting();
+            _keyboardScope = new KeyboardTestScope();
         }
 
         [TearDown]
         public void TearDown()
         {
-            foreach (Keyboard keyboard in _ownedKeyboards)
-            {
-                InputSystem.RemoveDevice(keyboard);
-            }
-            _ownedKeyboards.Clear();
-
-            if (_originalKeyboard != null)
-            {
-                InputSystem.AddDevice(_originalKeyboard);
-                if (_originalKeyboardEnabled)
-                {
-                    InputSystem.EnableDevice(_originalKeyboard);
-                }
-                else
-                {
-                    InputSystem.DisableDevice(_originalKeyboard);
-                }
-                _originalKeyboard.MakeCurrent();
-            }
-            InputHelpers.ResetControlMemoForTesting();
-
-            Assert.That(Keyboard.current, Is.SameAs(_originalKeyboard), "Device tests restore the original keyboard identity");
-            if (_originalKeyboard != null)
-            {
-                Assert.That(_originalKeyboard.deviceId, Is.EqualTo(_originalDeviceId));
-                Assert.That(_originalKeyboard.enabled, Is.EqualTo(_originalKeyboardEnabled));
-            }
+            _keyboardScope?.Dispose();
         }
 
         /*
@@ -136,7 +100,7 @@
         {
             if (Keyboard.current == null)
             {
-                AddOwnedKeyboard();
+                _keyboardScope.AddKeyboard();
             }
 
             /*
@@ -207,7 +171,7 @@
             Keyboard keyboard = Keyboard.current;
             Assert.That(keyboard != null, "Sanity: this host has no keyboard device to remove");
 
-            InputSystem.RemoveDevice(keyboard);
+            _keyboardScope.RemoveKeyboards();
             try
             {
                 Assert.That(Keyboard.current == null, "Sanity: the removal left no current keyboard");
@@ -219,7 +183,7 @@
             }
             finally
             {
-                AddOwnedKeyboard();
+                _keyboardScope.AddKeyboard();
             }
 
             Assert.That(Keyboard.current != null, "The re-added keyboard answers polls again");
@@ -232,7 +196,7 @@
         {
             if (Keyboard.current == null)
             {
-                AddOwnedKeyboard();
+                _keyboardScope.AddKeyboard();
             }
 
             PollAllDefaultHotkeys();
@@ -248,17 +212,12 @@
                 one device, and a stale control would read a dead device's
                 state.
              */
-            InputSystem.RemoveDevice(Keyboard.current);
-            AddOwnedKeyboard();
+            _keyboardScope.RemoveKeyboards();
+            _keyboardScope.AddKeyboard();
             PollAllDefaultHotkeys();
             Assert.That(resolutionsAfterFirstPass < InputHelpers.ControlResolutionsForTesting, "A different keyboard re-resolves the controls");
 
             yield return null;
-        }
-
-        private void AddOwnedKeyboard()
-        {
-            _ownedKeyboards.Add(InputSystem.AddDevice<Keyboard>());
         }
     }
 #endif
