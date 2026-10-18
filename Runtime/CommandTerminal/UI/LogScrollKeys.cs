@@ -1,28 +1,8 @@
-namespace WallstopStudios.DxCommandTerminal.UI
+﻿namespace WallstopStudios.DxCommandTerminal.UI
 {
-    using UnityEngine;
+    using UnityEngine.UIElements;
 
-    /*
-        How a key moves the log view, and what the view's scroll position
-        becomes.
-
-        The command line owns panel focus for as long as the console is open,
-        so Page Up, Page Down, Home, and End all arrive at the command field
-        instead of at the log. Routing them is the terminal's job, and it is
-        split out here so the decision is a table rather than a branch buried
-        in a key handler.
-
-        What the log does not take is as much of the rule as what it does.
-        Home and End move the caret in a text field, and a developer editing
-        the command they are about to run needs that, so plain Home and End
-        stay with the field and the log is reached with the platform's command
-        modifier held - Ctrl on Windows and Linux, Cmd on macOS. Page Up and
-        Page Down are free: a one-line field has nothing to page.
-
-        A key the log does not want resolves to None and is left alone, which
-        is what keeps typing, history recall, completion, and closing working
-        exactly as they did.
-     */
+    /* Routes configured log shortcuts without taking unbound keys from text editing. */
     internal static class LogScrollKeys
     {
         /*
@@ -42,35 +22,30 @@ namespace WallstopStudios.DxCommandTerminal.UI
             };
         }
 
-        /*
-            Which scroll a key asks for. False means the key is not the log's
-            to answer and the caller leaves it alone, which is what keeps
-            typing, history recall, completion, and closing untouched.
-
-            `commandKey` is the platform's own command modifier, so this is
-            Ctrl on Windows and Linux and Cmd on macOS without the terminal
-            having to know which.
-         */
-        public static bool TryResolve(KeyCode keyCode, bool commandKey, out LogScrollIntent intent)
+        public static bool TryResolve(KeyDownEvent evt, ConsoleKeyBindings bindings, out LogScrollIntent intent)
         {
-            switch (keyCode)
+            if (ConsoleKeyBindings.Matches(evt, bindings.pageUp))
             {
-                case KeyCode.PageUp:
-                    intent = LogScrollIntent.PageUp;
-                    return true;
-                case KeyCode.PageDown:
-                    intent = LogScrollIntent.PageDown;
-                    return true;
-                case KeyCode.Home when commandKey:
-                    intent = LogScrollIntent.ToStart;
-                    return true;
-                case KeyCode.End when commandKey:
-                    intent = LogScrollIntent.ToEnd;
-                    return true;
-                default:
-                    intent = default;
-                    return false;
+                intent = LogScrollIntent.PageUp;
+                return true;
             }
+            if (ConsoleKeyBindings.Matches(evt, bindings.pageDown))
+            {
+                intent = LogScrollIntent.PageDown;
+                return true;
+            }
+            if (ConsoleKeyBindings.Matches(evt, bindings.logStart))
+            {
+                intent = LogScrollIntent.ToStart;
+                return true;
+            }
+            if (ConsoleKeyBindings.Matches(evt, bindings.logEnd))
+            {
+                intent = LogScrollIntent.ToEnd;
+                return true;
+            }
+            intent = default;
+            return false;
         }
 
         /*

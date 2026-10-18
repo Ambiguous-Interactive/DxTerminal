@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System.Collections.Generic;
     using Backend;
@@ -137,6 +137,34 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         public void TearDown()
         {
             RestoreClipboard(_originalClipboard);
+        }
+
+        [Test]
+        public void RemappedPasteRejectsTheOldKeyAndDisabledAction()
+        {
+            ConsoleKeyBindings bindings = new() { paste = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) } };
+            TextField field = new() { value = "unchanged" };
+            ArrangeClipboard("replacement");
+            using KeyDownEvent previous = PasteKeyDown(EventModifiers.Control);
+            Assert.That(TextFieldPaste.TryApply(field, previous, out int caret, bindings), Is.False);
+            Assert.That(caret, Is.Zero);
+            bindings.paste = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
+            using KeyDownEvent custom = PasteKeyDown(KeyCode.F8, EventModifiers.None);
+            Assert.That(TextFieldPaste.TryApply(field, custom, out caret, bindings), Is.False);
+            Assert.That(caret, Is.Zero);
+            Assert.That(field.value, Is.EqualTo("unchanged"));
+        }
+
+        [Test]
+        public void CustomPasteKeyUsesTheConfiguredAction()
+        {
+            ConsoleKeyBindings bindings = new() { paste = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) } };
+            TextField field = new();
+            ArrangeClipboard("give\nitem");
+            using KeyDownEvent custom = PasteKeyDown(KeyCode.F8, EventModifiers.None);
+            Assert.That(TextFieldPaste.TryApply(field, custom, out int caret, bindings), Is.True);
+            Assert.That(caret, Is.EqualTo(9));
+            Assert.That(field.value, Is.EqualTo("give item"));
         }
 
         [TestCase("give item 42", "give item 42", Description = "Plain text is untouched")]

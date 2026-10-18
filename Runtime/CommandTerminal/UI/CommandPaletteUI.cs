@@ -51,12 +51,12 @@
         private const string RowNameLabel = "PaletteRowName";
         private const string RowHelpName = "PaletteRowHelp";
         private const string SelectedRowClass = "palette-row-selected";
-        private const string FooterText = "↑↓ select · Enter run · Tab apply · Esc close";
+        private const string FooterText = "Type a query to find a command.";
         private const int CaretStickPasses = 2;
 
-        public event Action Opened;
+        public event Action<CommandPaletteUI> Opened;
 
-        public event Action Closed;
+        public event Action<CommandPaletteUI> Closed;
 
         public static CommandPaletteUI Instance { get; private set; }
 
@@ -70,6 +70,8 @@
         private static readonly List<CommandPaletteUI> _livePalettes = new();
 
         public bool IsOpen => _isOpen;
+
+        private ConsoleKeyBindings KeyBindings => keyBindings ??= new ConsoleKeyBindings();
 
         [Header("Window")]
         [Tooltip("Width of the palette panel in pixels, clamped to the viewport")]
@@ -90,6 +92,8 @@
 
         [Tooltip("Close the palette when a command runs successfully")]
         public bool closeOnSuccessfulExecution = true;
+
+        public ConsoleKeyBindings keyBindings = new();
 
         [Header("Input")]
         public InputMode inputMode =
@@ -370,7 +374,7 @@
             _isOpen = true;
             SetQuery(string.Empty);
             FocusInput();
-            Opened?.Invoke();
+            Opened?.Invoke(this);
         }
 
         public void Close()
@@ -390,7 +394,7 @@
                 releases focus and no key press can reach the closed palette.
              */
             _paletteRoot?.RemoveFromHierarchy();
-            Closed?.Invoke();
+            Closed?.Invoke(this);
         }
 
         public void Toggle()
@@ -669,9 +673,8 @@
                 return false;
             }
 
-            bool commandOrCtrl = evt.commandKey || evt.ctrlKey;
-            bool forward = TextFieldUndo.IsRedo(evt.keyCode, commandOrCtrl, evt.shiftKey);
-            if (!forward && !TextFieldUndo.IsUndo(evt.keyCode, commandOrCtrl, evt.shiftKey))
+            bool forward = ConsoleKeyBindings.Matches(evt, KeyBindings.redo);
+            if (!forward && !ConsoleKeyBindings.Matches(evt, KeyBindings.undo))
             {
                 return false;
             }
@@ -685,6 +688,86 @@
             QueueCaret(caret);
             RefreshQuery(text, caret);
             return true;
+        }
+
+        internal void HandleKeyDown(KeyDownEvent evt)
+        {
+            if (!_isOpen)
+            {
+                return;
+            }
+
+            /*
+                History first, for the reason the terminal answers it first:
+                it is the key a developer reaches for while looking at the
+                query rather than at the rows under it. It writes the value
+                without notifying, so the query is re-derived here rather than
+                from a change event, and the caret is the one the state
+                carried - an append or a middle edit both land where the
+                developer was typing.
+             */
+            if (TryApplyHistoryKey(evt))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                return;
+            }
+
+            /*
+                Pasted before the switch, and consumed the way every other
+                handled key is. The query is then re-derived from the caret
+                the paste left, not from the field: the value write fires
+                OnInputChanged synchronously, before TryApply places the
+                caret, so that first pass read the pre-paste one. Without
+                this, a paste into the middle of a query ranks rows against a
+                caret that is no longer there, and Tab edits the wrong token.
+             */
+            if (TextFieldPaste.TryApply(_input, evt, out int pastedCaret, KeyBindings))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                RefreshQuery(_input.value ?? string.Empty, pastedCaret);
+                return;
+            }
+
+            /*
+                Copy and cut answer beside the paste. A copy changes no text,
+                so the query stays as the caret report says - null - and only
+                a cut, which reports the caret it left, re-derives the rows.
+             */
+            if (TextFieldCopyCut.TryApply(_input, evt, out int? cutCaret, KeyBindings))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                if (cutCaret is int caret)
+                {
+                    RefreshQuery(_input.value ?? string.Empty, caret);
+                }
+                return;
+            }
+
+            if (ConsoleKeyBindings.Matches(evt, KeyBindings.paletteNext))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                MoveSelection(1);
+            }
+            else if (ConsoleKeyBindings.Matches(evt, KeyBindings.palettePrevious))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                MoveSelection(-1);
+            }
+            else if (ConsoleKeyBindings.Matches(evt, KeyBindings.paletteSubmit))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                Submit();
+            }
+            else if (ConsoleKeyBindings.Matches(evt, KeyBindings.paletteClose))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                Close();
+            }
+            else if (ConsoleKeyBindings.Matches(evt, KeyBindings.paletteComplete))
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                ApplySelected();
+            }
         }
 
         private void RefreshQuery(string query, int caretIndex)
@@ -1239,85 +1322,6 @@
             if (0 <= index)
             {
                 RowActivated(index);
-            }
-        }
-
-        private void HandleKeyDown(KeyDownEvent evt)
-        {
-            if (!_isOpen)
-            {
-                return;
-            }
-
-            /*
-                History first, for the reason the terminal answers it first:
-                it is the key a developer reaches for while looking at the
-                query rather than at the rows under it. It writes the value
-                without notifying, so the query is re-derived here rather than
-                from a change event, and the caret is the one the state
-                carried - an append or a middle edit both land where the
-                developer was typing.
-             */
-            if (TryApplyHistoryKey(evt))
-            {
-                KeyEvents.Consume(_paletteRoot, evt);
-                return;
-            }
-
-            /*
-                Pasted before the switch, and consumed the way every other
-                handled key is. The query is then re-derived from the caret
-                the paste left, not from the field: the value write fires
-                OnInputChanged synchronously, before TryApply places the
-                caret, so that first pass read the pre-paste one. Without
-                this, a paste into the middle of a query ranks rows against a
-                caret that is no longer there, and Tab edits the wrong token.
-             */
-            if (TextFieldPaste.TryApply(_input, evt, out int pastedCaret))
-            {
-                KeyEvents.Consume(_paletteRoot, evt);
-                RefreshQuery(_input.value ?? string.Empty, pastedCaret);
-                return;
-            }
-
-            /*
-                Copy and cut answer beside the paste. A copy changes no text,
-                so the query stays as the caret report says - null - and only
-                a cut, which reports the caret it left, re-derives the rows.
-             */
-            if (TextFieldCopyCut.TryApply(_input, evt, out int? cutCaret))
-            {
-                KeyEvents.Consume(_paletteRoot, evt);
-                if (cutCaret is int caret)
-                {
-                    RefreshQuery(_input.value ?? string.Empty, caret);
-                }
-                return;
-            }
-
-            switch (evt.keyCode)
-            {
-                case KeyCode.DownArrow:
-                    KeyEvents.Consume(_paletteRoot, evt);
-                    MoveSelection(1);
-                    break;
-                case KeyCode.UpArrow:
-                    KeyEvents.Consume(_paletteRoot, evt);
-                    MoveSelection(-1);
-                    break;
-                case KeyCode.Return:
-                case KeyCode.KeypadEnter:
-                    KeyEvents.Consume(_paletteRoot, evt);
-                    Submit();
-                    break;
-                case KeyCode.Escape:
-                    KeyEvents.Consume(_paletteRoot, evt);
-                    Close();
-                    break;
-                case KeyCode.Tab:
-                    KeyEvents.Consume(_paletteRoot, evt);
-                    ApplySelected();
-                    break;
             }
         }
 

@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System.Collections;
     using System.Collections.Generic;
@@ -83,6 +83,33 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             }
         }
 
+        [Test]
+        public void SerializedBindingsKeepRemapsAndDisabledActions()
+        {
+            static void AssertMatch(ConsoleKeyBindings.Shortcut[] bindings, KeyCode keyCode, EventModifiers modifiers, bool expected)
+            {
+                using KeyDownEvent evt = KeyDownEvent.GetPooled('\0', keyCode, modifiers);
+                Assert.That(ConsoleKeyBindings.Matches(evt, bindings), Is.EqualTo(expected));
+            }
+
+            ConsoleKeyBindings original = new()
+            {
+                copy = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8, EventModifiers.Shift | EventModifiers.Alt, controlOrCommand: true) },
+                paletteSubmit = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F9), new ConsoleKeyBindings.Shortcut(KeyCode.F10, EventModifiers.Control) },
+                findNext = System.Array.Empty<ConsoleKeyBindings.Shortcut>(),
+            };
+            ConsoleKeyBindings restored = JsonUtility.FromJson<ConsoleKeyBindings>(JsonUtility.ToJson(original));
+            Assert.That(restored, Is.Not.Null);
+            AssertMatch(restored.copy, KeyCode.F8, EventModifiers.Control | EventModifiers.Shift | EventModifiers.Alt, true);
+            AssertMatch(restored.copy, KeyCode.F8, EventModifiers.Command | EventModifiers.Shift | EventModifiers.Alt, true);
+            AssertMatch(restored.copy, KeyCode.C, EventModifiers.Control, false);
+            AssertMatch(restored.paletteSubmit, KeyCode.F9, EventModifiers.None, true);
+            AssertMatch(restored.paletteSubmit, KeyCode.F10, EventModifiers.Control, true);
+            Assert.That(restored.findNext, Is.Empty);
+            AssertMatch(restored.findNext, KeyCode.F3, EventModifiers.None, false);
+            AssertMatch(restored.undo, KeyCode.Z, EventModifiers.Control, true);
+        }
+
         [UnityTest]
         public IEnumerator ToggleCyclesClosedSmallFullClosed()
         {
@@ -111,10 +138,15 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             List<TerminalState> openedStates = new();
             List<TerminalState> closedStates = new();
             List<string> closedInputs = new();
-            _terminal.Opened += () => openedStates.Add(_terminal.State);
-            _terminal.Closed += () =>
+            _terminal.Opened += source =>
             {
-                closedStates.Add(_terminal.State);
+                Assert.That(source, Is.SameAs(_terminal));
+                openedStates.Add(source.State);
+            };
+            _terminal.Closed += source =>
+            {
+                Assert.That(source, Is.SameAs(_terminal));
+                closedStates.Add(source.State);
                 closedInputs.Add(DefaultTerminalInput.Instance.CommandText);
             };
 
@@ -141,7 +173,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return SpawnTerminal(open: true);
 
             int closed = 0;
-            _terminal.Closed += () => ++closed;
+            _terminal.Closed += _ => ++closed;
             _terminal.enabled = false;
 
             Assert.AreEqual(1, closed, "Disabling the open terminal must notify subscribers");
@@ -161,7 +193,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return SpawnTerminal(open: true);
 
             int closed = 0;
-            _terminal.Closed += () =>
+            _terminal.Closed += _ =>
             {
                 ++closed;
                 _terminal.SetState(TerminalState.OpenFull);
@@ -183,8 +215,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             _palette.Open();
             int opened = 0;
-            _terminal.Opened += () => ++opened;
-            _palette.Closed += () => _terminal.SetState(TerminalState.OpenSmall);
+            _terminal.Opened += _ => ++opened;
+            _palette.Closed += _ => _terminal.SetState(TerminalState.OpenSmall);
 
             _terminal.SetState(TerminalState.OpenFull);
 
@@ -199,10 +231,10 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return SpawnTerminal(open: true, withPalette: true);
 
             List<string> transitions = new();
-            _terminal.Opened += () => transitions.Add("terminal opened");
-            _terminal.Closed += () => transitions.Add("terminal closed");
-            _palette.Opened += () => transitions.Add("palette opened");
-            _palette.Closed += () => transitions.Add("palette closed");
+            _terminal.Opened += _ => transitions.Add("terminal opened");
+            _terminal.Closed += _ => transitions.Add("terminal closed");
+            _palette.Opened += _ => transitions.Add("palette opened");
+            _palette.Closed += _ => transitions.Add("palette closed");
 
             _palette.Open();
             Assert.AreEqual(TerminalState.Closed, _terminal.State);

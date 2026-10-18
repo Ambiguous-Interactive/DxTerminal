@@ -1,8 +1,9 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using NUnit.Framework;
     using UI;
     using UnityEngine;
+    using UnityEngine.UIElements;
 
     /*
         Which key moves the log, and how far.
@@ -27,9 +28,15 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
      */
     public sealed class LogScrollKeysTests
     {
+        private static bool Resolve(KeyCode keyCode, bool commandKey, out LogScrollIntent intent)
+        {
+            using KeyDownEvent key = KeyDownEvent.GetPooled('\0', keyCode, commandKey ? EventModifiers.Control : EventModifiers.None);
+            return LogScrollKeys.TryResolve(key, new ConsoleKeyBindings(), out intent);
+        }
+
         private static float ScrollTo(KeyCode keyCode, bool commandKey, float value, float highValue, float page)
         {
-            Assert.That(LogScrollKeys.TryResolve(keyCode, commandKey, out LogScrollIntent intent), Is.True, $"{keyCode} is the log's key to answer here");
+            Assert.That(Resolve(keyCode, commandKey, out LogScrollIntent intent), Is.True, $"{keyCode} is the log's key to answer here");
             return LogScrollKeys.Target(intent, value, highValue, page);
         }
 
@@ -48,19 +55,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [TestCase(KeyCode.Backspace)]
         public void APlainKeyReachesTheLogOnlyWhenTheLogWantsIt(KeyCode keyCode)
         {
-            bool answered = LogScrollKeys.TryResolve(keyCode, commandKey: false, out _);
+            bool answered = Resolve(keyCode, commandKey: false, out _);
 
             Assert.That(answered, Is.EqualTo(keyCode is KeyCode.PageUp or KeyCode.PageDown), "Paging is the log's alone; every other key stays with the command line");
         }
 
-        [TestCase(KeyCode.PageUp)]
-        [TestCase(KeyCode.PageDown)]
         [TestCase(KeyCode.Home)]
         [TestCase(KeyCode.End)]
         public void ACommandKeyReachesTheLogEvenWhereTheCaretWould(KeyCode keyCode)
         {
             Assert.That(
-                LogScrollKeys.TryResolve(keyCode, commandKey: true, out _),
+                Resolve(keyCode, commandKey: true, out _),
                 Is.True,
                 "The command modifier is what makes Home and End the log's to answer " + "rather than the caret's; without it they stay with the field"
             );
@@ -76,7 +81,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         public void AKeyMovesTheLogByAPageAndClampsToItsScrollableRange(KeyCode keyCode, float value, float highValue, float page, float expected)
         {
             Assert.That(
-                ScrollTo(keyCode, commandKey: true, value, highValue, page),
+                ScrollTo(keyCode, commandKey: keyCode is KeyCode.Home or KeyCode.End, value, highValue, page),
                 Is.EqualTo(expected).Within(0.001f),
                 "The log moves by a page and never past either end of its scroll"
             );
@@ -87,7 +92,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         public void ALogThatCannotScrollStaysPut(KeyCode keyCode)
         {
             Assert.That(
-                ScrollTo(keyCode, commandKey: true, 300f, 300f, 0f),
+                ScrollTo(keyCode, commandKey: false, 300f, 300f, 0f),
                 Is.EqualTo(300f),
                 "A view with no overflow has nothing to page through, and a page of zero would not move"
             );

@@ -39,25 +39,6 @@
         }
 
         /*
-            Both flags count as the command modifier, because which one it
-            arrives in is a per-editor detail - Command on macOS, Control
-            elsewhere. A surface that read one would answer the key on one
-            platform and not on the other.
-         */
-        [TestCase(KeyCode.Z, true, false, true, false)]
-        [TestCase(KeyCode.Z, true, true, false, true)]
-        [TestCase(KeyCode.Z, false, false, false, false)]
-        [TestCase(KeyCode.Z, false, true, false, false)]
-        [TestCase(KeyCode.Y, true, false, false, false)]
-        [TestCase(KeyCode.V, true, false, false, false)]
-        [TestCase(KeyCode.LeftArrow, false, false, false, false)]
-        public void OnlyTheModifiedZIsHistory(KeyCode keyCode, bool commandOrCtrl, bool shiftKey, bool isUndo, bool isRedo)
-        {
-            Assert.AreEqual(isUndo, TextFieldUndo.IsUndo(keyCode, commandOrCtrl, shiftKey), "IsUndo for the given keys");
-            Assert.AreEqual(isRedo, TextFieldUndo.IsRedo(keyCode, commandOrCtrl, shiftKey), "IsRedo for the given keys");
-        }
-
-        /*
             The reported gap: a line a developer typed came back one keystroke
             at a time, because there was no history behind it at all. Typing
             is a state like any other, so three keystrokes are three steps

@@ -35,9 +35,9 @@
          */
         private const int FindScrollFrameBudget = 4;
 
-        public event Action Opened;
+        public event Action<TerminalUI> Opened;
 
-        public event Action Closed;
+        public event Action<TerminalUI> Closed;
 
         public static TerminalUI Instance { get; private set; }
 
@@ -92,6 +92,8 @@
 
         internal bool WantsScrollToEnd => _needsScrollToEnd;
 
+        private ConsoleKeyBindings KeyBindings => keyBindings ??= new ConsoleKeyBindings();
+
         [Header("Window")]
         [Range(0, 1)]
         public float maxHeight = 0.7f;
@@ -132,6 +134,8 @@
         public HintDisplayMode hintDisplayMode = HintDisplayMode.AutoCompleteOnly;
 
         public bool makeHintsClickable = true;
+
+        public ConsoleKeyBindings keyBindings = new();
 
         [SerializeField]
         [Tooltip("Unique Id for this terminal, mainly for use with persisted configuration")]
@@ -1325,11 +1329,11 @@
             {
                 if (isOpen)
                 {
-                    Opened?.Invoke();
+                    Opened?.Invoke(this);
                 }
                 else
                 {
-                    Closed?.Invoke();
+                    Closed?.Invoke(this);
                 }
             }
         }
@@ -2184,9 +2188,8 @@
                 return false;
             }
 
-            bool commandOrCtrl = evt.commandKey || evt.ctrlKey;
-            bool forward = TextFieldUndo.IsRedo(evt.keyCode, commandOrCtrl, evt.shiftKey);
-            if (!forward && !TextFieldUndo.IsUndo(evt.keyCode, commandOrCtrl, evt.shiftKey))
+            bool forward = ConsoleKeyBindings.Matches(evt, KeyBindings.redo);
+            if (!forward && !ConsoleKeyBindings.Matches(evt, KeyBindings.undo))
             {
                 return false;
             }
@@ -2747,7 +2750,7 @@
                         return;
                     }
 
-                    if (TextFieldPaste.TryApply(context._commandInput, evt, out _))
+                    if (TextFieldPaste.TryApply(context._commandInput, evt, out _, context.KeyBindings))
                     {
                         /*
                             Consumed the way the bar consumes, not just
@@ -2772,7 +2775,7 @@
                         write answers false, so the key falls through and
                         nothing - not even the selection on a cut - changes.
                      */
-                    if (TextFieldCopyCut.TryApply(context._commandInput, evt, out _))
+                    if (TextFieldCopyCut.TryApply(context._commandInput, evt, out _, context.KeyBindings))
                     {
                         KeyEvents.Consume(context._commandInput, evt);
                         return;
@@ -3065,15 +3068,14 @@
                             {
                                 if (
                                     evt.currentTarget is not TextField field
-                                    || evt.keyCode != KeyCode.C
-                                    || (!evt.ctrlKey && !evt.commandKey)
+                                    || !ConsoleKeyBindings.Matches(evt, terminal.KeyBindings.copy)
                                     || field.cursorIndex == field.selectIndex
                                 )
                                 {
                                     return;
                                 }
 
-                                terminal.HandleLogCopyResult(field, evt, TextFieldCopyCut.TryApply(field, evt, out _));
+                                terminal.HandleLogCopyResult(field, evt, TextFieldCopyCut.TryApply(field, evt, out _, terminal.KeyBindings));
                             },
                             this,
                             TrickleDown.TrickleDown
@@ -3297,15 +3299,7 @@
          */
         private bool TryScrollLog(KeyDownEvent evt)
         {
-            /*
-                Both flags, for the reason the paste path checks both: which
-                flag a command modifier arrives in is a per-editor detail
-                (Command on macOS, Control elsewhere, and a Windows key can
-                arrive as Command as well), and a developer who reaches the log
-                with the key their platform calls the command key has to get
-                there whichever flag it arrived in.
-             */
-            if (!LogScrollKeys.TryResolve(evt.keyCode, evt.commandKey || evt.ctrlKey, out LogScrollIntent intent))
+            if (!LogScrollKeys.TryResolve(evt, KeyBindings, out LogScrollIntent intent))
             {
                 return false;
             }
@@ -3355,8 +3349,8 @@
          */
         private bool TryStepLogFilter(KeyDownEvent evt)
         {
-            bool forward = LogFindKeys.IsStepForward(evt.keyCode, evt.shiftKey);
-            if (!forward && !LogFindKeys.IsStepBackward(evt.keyCode, evt.shiftKey))
+            bool forward = LogFindKeys.IsStepForward(evt, KeyBindings);
+            if (!forward && !LogFindKeys.IsStepBackward(evt, KeyBindings))
             {
                 return false;
             }

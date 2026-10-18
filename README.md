@@ -145,7 +145,8 @@ Add a `TerminalUI` component to a game object. The console window can be toggled
 
 Enter `help` in the console to view all available commands, use the up and down arrow keys to traverse the command history, and the tab key to autocomplete commands.
 
-`TerminalUI.Opened` and `Closed` fire after the terminal changes between open and closed states. Resizing emits neither event.
+`TerminalUI.Opened` and `Closed` use `Action<TerminalUI>` and pass the emitting component after the open state changes. Resizing emits neither event. `CommandPaletteUI` lifecycle
+events use `Action<CommandPaletteUI>`.
 
 ## Quick-Launch Bar
 
@@ -570,6 +571,18 @@ One limit: a control character that is not whitespace is left in the field. A si
 the exact character you copied. Dropping it would lose your text; escaping it there would change the command. A command that prints it gets the visible escape from the log.
 
 ## Copying out of the console
+
+Each `TerminalUI` and `CommandPaletteUI` has a **Key Bindings** table in the Inspector. Change its keys and modifiers, add alternative bindings, or empty an action's array to
+disable the package shortcut. `controlOrCommand` accepts either platform modifier. Shift and Alt must match the binding. These tables cover copy, cut, paste, undo, redo, log
+paging/search, and palette actions. Existing terminal controller hotkeys remain on the input controller.
+
+```csharp
+terminal.keyBindings.copy = new[]
+{
+    new ConsoleKeyBindings.Shortcut(KeyCode.Insert, EventModifiers.Control),
+};
+terminal.keyBindings.findNext = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
+```
 
 Drag across text in a log row, then press Ctrl+C (Cmd+C on macOS) to copy that span. Log rows are read-only. Selection stays within one row. If copying cannot be verified, a status
 message appears without adding a log entry. Native copy handling remains available.

@@ -90,6 +90,16 @@
 
             yield return WaitForLogValue(expected: atEnd - LogView().contentViewport.layout.height, message: "Page Up moves the log back by what one viewport shows");
             Assert.That(LogScroller().value, Is.LessThan(atEnd), "A key the log answered moved it, so the route is not just a consumed key");
+            _terminal.keyBindings.pageUp = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F6) };
+            float before = LogScroller().value;
+            yield return SendKey(KeyCode.F6);
+            yield return WaitForLogValue(before - LogView().contentViewport.layout.height, "The configured paging key reaches the log");
+            _terminal.keyBindings.pageUp = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
+            before = LogScroller().value;
+            yield return SendKey(KeyCode.F6);
+            yield return null;
+            yield return null;
+            Assert.That(LogScroller().value, Is.EqualTo(before).Within(0.1f));
         }
 
         [UnityTest]

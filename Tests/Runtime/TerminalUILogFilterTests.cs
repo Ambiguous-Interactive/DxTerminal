@@ -483,6 +483,16 @@
 
             yield return SendKey(KeyCode.F3);
             yield return WaitForLastLogLine("Match 2 of 80", "The key the field holds focus for reaches the search");
+            _terminal.keyBindings.findNext = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F4) };
+            yield return SendKey(KeyCode.F3);
+            yield return Settle();
+            Assert.That(LastLogText(), Does.Contain("Match 2 of 80"));
+            yield return SendKey(KeyCode.F4);
+            yield return WaitForLastLogLine("Match 3 of 80", "The configured key steps the search");
+            _terminal.keyBindings.findNext = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
+            yield return SendKey(KeyCode.F4);
+            yield return Settle();
+            Assert.That(LastLogText(), Does.Contain("Match 3 of 80"));
         }
 
         [UnityTest]

@@ -37,7 +37,7 @@
             that ranks against a caret (the palette) re-derives only when the
             value actually moved.
          */
-        public static bool TryApply(TextField field, KeyDownEvent evt, out int? caret)
+        public static bool TryApply(TextField field, KeyDownEvent evt, out int? caret, ConsoleKeyBindings bindings = null)
         {
             if (field == null || evt == null)
             {
@@ -45,14 +45,9 @@
                 return false;
             }
 
-            bool isCut = evt.keyCode == KeyCode.X;
-            if (!isCut && evt.keyCode != KeyCode.C)
-            {
-                caret = null;
-                return false;
-            }
-
-            if (!evt.commandKey && !evt.ctrlKey)
+            bindings ??= ConsoleKeyBindings.Default;
+            bool isCut = ConsoleKeyBindings.Matches(evt, bindings.cut);
+            if (!isCut && !ConsoleKeyBindings.Matches(evt, bindings.copy))
             {
                 caret = null;
                 return false;
