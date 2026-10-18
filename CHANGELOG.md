@@ -36,6 +36,8 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 ### Fixed
 
+- Fix stale log rows and severity counts after a session buffer reset ([#322](https://github.com/Ambiguous-Interactive/DxTerminal/issues/322)).
+
 - Fix theme configuration hashes for equal Unicode names ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Fix generated catalog compilation for signed execution context masks ([#285](https://github.com/wallstop/DxCommandTerminal/issues/285)).
 - Reduce first-use command registration time for large generated catalogs on Mono ([#282](https://github.com/wallstop/DxCommandTerminal/issues/282)).

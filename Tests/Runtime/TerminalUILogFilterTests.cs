@@ -214,6 +214,26 @@
         }
 
         [UnityTest]
+        public IEnumerator SeverityChipsRefreshWhenSessionReplacesAnEqualVersionBuffer()
+        {
+            yield return SpawnOpenTerminal();
+            TerminalSession.Current.Apply(TerminalSession.Config.Default, true);
+            Terminal.Buffer.HandleLog("old message", string.Empty, TerminalLogType.Message);
+            yield return Settle();
+            long version = Terminal.Buffer.Version;
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Assert.That(root.Q<Button>("LogMessages").text, Is.EqualTo("Messages 1"));
+            TerminalSession.Current.Apply(TerminalSession.Config.Default, true);
+            Terminal.Buffer.HandleLog("new warning", string.Empty, TerminalLogType.Warning);
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version));
+            yield return Settle();
+            Assert.That(root.Q<Button>("LogMessages").text, Is.EqualTo("Messages 0"));
+            Assert.That(root.Q<Button>("LogWarnings").text, Is.EqualTo("Warnings 1"));
+            Assert.That(DrawnText(), Does.Contain("new warning"));
+            Assert.That(DrawnText(), Does.Not.Contain("old message"));
+        }
+
+        [UnityTest]
         public IEnumerator SeverityChipsCombineWithSearchAndSurviveRebuild()
         {
             yield return SpawnOpenTerminal();

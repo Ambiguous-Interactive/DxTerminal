@@ -269,6 +269,7 @@
         private bool _needsFocus;
         private bool _needsScrollToEnd;
         private LogTailFollower _logTail;
+        private CommandLog _lastSeenBuffer;
         private long? _lastSeenBufferVersion;
         private long? _lastSeenFilterGeneration;
 
@@ -1947,6 +1948,7 @@
             Array.Clear(_lastSeverityCounts, 0, _lastSeverityCounts.Length);
             _lastSearchCount = null;
             _lastSearchTotal = null;
+            _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
             _autoCompleteContainer = null;
             _inputContainer = null;
@@ -3321,7 +3323,8 @@
             }
 
             VisualElement content = _logScrollView.contentContainer;
-            bool newLogs = _lastSeenBufferVersion != buffer.Version;
+            long bufferVersion = buffer.Version;
+            bool newLogs = !ReferenceEquals(_lastSeenBuffer, buffer) || _lastSeenBufferVersion != bufferVersion;
             bool dirty = newLogs || _lastSeenFilterGeneration != _logFilter.Generation;
 
             /*
@@ -3408,7 +3411,9 @@
 
                 if (logCount == content.childCount)
                 {
-                    _lastSeenBufferVersion = buffer.Version;
+                    _lastSeenBuffer = buffer;
+                    // Do not acknowledge writes that arrived after this frame's window copy.
+                    _lastSeenBufferVersion = bufferVersion;
                     _lastSeenFilterGeneration = _logFilter.Generation;
                 }
             }
