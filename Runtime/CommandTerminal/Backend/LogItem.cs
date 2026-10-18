@@ -14,9 +14,17 @@
         internal readonly DateTime TimestampUtc;
 
         public LogItem(TerminalLogType type, string message, string stackTrace)
+            : this(type, message, stackTrace, DateTime.UtcNow) { }
+
+        internal LogItem(TerminalLogType type, string message, string stackTrace, DateTime timestampUtc)
         {
+            if (timestampUtc.Kind != DateTimeKind.Utc)
+            {
+                throw new ArgumentException("Log timestamps must use UTC.", nameof(timestampUtc));
+            }
+
             Sequence = Interlocked.Increment(ref _sequenceCounter);
-            TimestampUtc = DateTime.UtcNow;
+            TimestampUtc = timestampUtc;
             this.type = type;
             this.message = message ?? string.Empty;
             this.stackTrace = stackTrace ?? string.Empty;

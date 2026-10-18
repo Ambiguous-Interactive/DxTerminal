@@ -134,15 +134,54 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [Test]
         public void EntryTimeIsUtcAndSurvivesBufferCopies()
         {
-            DateTime before = DateTime.UtcNow;
-            _log.HandleLog("timed entry", string.Empty, TerminalLogType.Message);
-            DateTime after = DateTime.UtcNow;
-            LogItem[] window = new LogItem[1];
-            Assert.That(_log.CopyTo(window), Is.EqualTo(1));
+            DateTime first = new(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+            DateTime current = first;
+            CommandLog log = new(2, null, () => current);
+            log.HandleLog("first entry", string.Empty, TerminalLogType.Message);
+            current = first.AddSeconds(1);
+            log.HandleLog("second entry", string.Empty, TerminalLogType.Message);
+            current = first.AddDays(1);
+            LogItem[] window = new LogItem[2];
+            Assert.That(log.CopyTo(window), Is.EqualTo(2));
             Assert.That(window[0].TimestampUtc.Kind, Is.EqualTo(DateTimeKind.Utc));
-            Assert.That(window[0].TimestampUtc, Is.InRange(before, after));
-            Assert.That(_log.TryGetLast(out LogItem last), Is.True);
-            Assert.That(last.TimestampUtc, Is.EqualTo(window[0].TimestampUtc));
+            Assert.That(window[0].TimestampUtc, Is.EqualTo(first));
+            Assert.That(window[1].TimestampUtc, Is.EqualTo(first.AddSeconds(1)));
+            Assert.That(log.TryGetLast(out LogItem last), Is.True);
+            Assert.That(last.TimestampUtc, Is.EqualTo(window[1].TimestampUtc));
+            log.Resize(4);
+            Assert.That(log.TryGetLast(out last), Is.True);
+            Assert.That(last.TimestampUtc, Is.EqualTo(window[1].TimestampUtc));
+        }
+
+        [Test]
+        public void ClocksAreIsolatedBetweenBuffers()
+        {
+            DateTime firstTime = new(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime secondTime = firstTime.AddYears(1);
+            CommandLog first = new(1, null, () => firstTime);
+            CommandLog second = new(1, null, () => secondTime);
+            first.HandleLog("first", string.Empty, TerminalLogType.Message);
+            second.HandleLog("second", string.Empty, TerminalLogType.Message);
+            Assert.That(first.TryGetLast(out LogItem firstEntry), Is.True);
+            Assert.That(second.TryGetLast(out LogItem secondEntry), Is.True);
+            Assert.That(firstEntry.TimestampUtc, Is.EqualTo(firstTime));
+            Assert.That(secondEntry.TimestampUtc, Is.EqualTo(secondTime));
+        }
+
+        [Test]
+        public void NullClockIsRejected()
+        {
+            Assert.Throws<ArgumentNullException>(() => new CommandLog(1, null, null));
+        }
+
+        [TestCase(DateTimeKind.Local)]
+        [TestCase(DateTimeKind.Unspecified)]
+        public void NonUtcClockIsRejectedWithoutChangingBuffer(DateTimeKind kind)
+        {
+            CommandLog log = new(1, null, () => new DateTime(2000, 1, 1, 0, 0, 0, kind));
+            Assert.Throws<ArgumentException>(() => log.HandleLog("entry", string.Empty, TerminalLogType.Message));
+            Assert.That(log.Count, Is.Zero);
+            Assert.That(log.Version, Is.Zero);
         }
 
         [TestCase(0)]

@@ -74,6 +74,14 @@ metadata:
    its setup helpers.
 3. Keep runtime allocations in assertions minimal; suites run in PlayMode on every change.
 
+## Time-dependent behavior
+
+- Inject clocks at the owner that records time, such as `CommandLog`'s internal constructor. Keep the provider immutable and local to each instance; threaded log writers need a
+  thread-safe provider. Preserve the production UTC default and reject non-UTC values before mutating the buffer.
+- Use fixed and advancing UTC values to test capture, copy, and resize. Check independent buffers with different clocks. Avoid assertions bounded by two system-clock reads.
+- Capture fixtures must inject the recording clock. A renderer-only timestamp override hides errors in stored metadata and makes screenshots bypass the shipped display path.
+- Keep actual artifact creation times and tests of clock-named parser constants on the real clock; they describe wall-clock behavior rather than deterministic log metadata.
+
 ## Driving tests from agents
 
 After editing files outside Unity, confirm the editor compiled the intended content before trusting a run: the host sync can lag, and a stale assembly produces a green report on

@@ -71,6 +71,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
          */
         private readonly CyclicBuffer<LogItem> _logs;
 
+        // Immutable per buffer; providers run on the logging thread and must be thread-safe.
+        private readonly Func<DateTime> _utcNow;
+
         /*
             The ignore filter, guarded by the ring's lock: the write path
             reads it inside the critical section that owns the write, and
@@ -98,7 +101,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private TerminalStackTraceMode _stackTraceMode = TerminalStackTraceMode.All;
 
         public CommandLog(int maxItems, IEnumerable<TerminalLogType> ignoredLogTypes = null)
+            : this(maxItems, ignoredLogTypes, static () => DateTime.UtcNow) { }
+
+        internal CommandLog(int maxItems, IEnumerable<TerminalLogType> ignoredLogTypes, Func<DateTime> utcNow)
         {
+            _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
             _logs = new CyclicBuffer<LogItem>(maxItems);
             _ignoredLogTypes = new HashSet<TerminalLogType>(ignoredLogTypes ?? Array.Empty<TerminalLogType>());
         }
@@ -157,7 +164,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 callback, and direct callers - so this is the one place log
                 text is normalized.
              */
-            LogItem log = new(type, LogTextSanitizer.Sanitize(message), CapturesStackTrace(type) ? LogTextSanitizer.Sanitize(stackTrace) : string.Empty);
+            LogItem log = new(type, LogTextSanitizer.Sanitize(message), CapturesStackTrace(type) ? LogTextSanitizer.Sanitize(stackTrace) : string.Empty, _utcNow());
 
             lock (_logs.SyncRoot)
             {

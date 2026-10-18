@@ -241,9 +241,6 @@
         */
         internal TextField _commandInput;
 
-        // Capture fixtures pin display time without changing recorded entry times.
-        internal DateTime? _logTimestampOverrideUtc;
-
         /*
            Internal for test coverage of caret behavior (see
            WallstopStudios.DxCommandTerminal.Tests.Runtime).
@@ -2583,7 +2580,7 @@
                         + (_inputContainer?.layout.height ?? 0f)
                         + (_autoCompleteContainer?.layout.height ?? 0f)
                         + (_logCopyStatus?.layout.height ?? 0f);
-                    if (!float.IsNaN(controlsHeight) && !float.IsInfinity(controlsHeight))
+                    if (float.IsFinite(controlsHeight))
                     {
                         minimumHeight = Math.Max(minimumHeight, controlsHeight + MinimumVisibleLogHeight);
                     }
@@ -3402,7 +3399,7 @@
                     SetupLogText(logText, logItem);
                     if (logText.Sequence != logItem.Sequence)
                     {
-                        logText.SetMetadata(_logTimestampOverrideUtc ?? logItem.TimestampUtc, logItem.type);
+                        logText.SetMetadata(logItem.TimestampUtc, logItem.type);
                         if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
                         {
                             logText.SetValueWithoutNotify(logItem.message);

@@ -1040,7 +1040,6 @@
             UIDocument document = _surfaceObject.AddComponent<UIDocument>();
             document.panelSettings = _panelSettings;
             _terminal = _surfaceObject.AddComponent<TerminalUI>();
-            _terminal._logTimestampOverrideUtc = new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
             _terminal._uiDocument = document;
             _terminal.resetStateOnInit = true;
             _terminal.easeOutTime = 0f;
@@ -1050,6 +1049,14 @@
             _tracker = _surfaceObject.AddComponent<StartTracker>();
             _surfaceObject.SetActive(true);
             yield return new WaitUntil(() => _tracker.Started);
+            TerminalSession.Current.Buffer = new CommandLog(
+                _terminal._logBufferSize,
+                _terminal._ignoredLogTypes,
+                static () => new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc)
+            )
+            {
+                StackTraceMode = Terminal.Buffer.StackTraceMode,
+            };
         }
 
         private IEnumerator SpawnCalibratedTerminal(TerminalState state, bool withPalette = false, float? panelScale = null, string fontPackPath = FontPackPath)

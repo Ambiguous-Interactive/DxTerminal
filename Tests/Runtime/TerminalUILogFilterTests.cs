@@ -217,7 +217,7 @@
         public IEnumerator LogRowsExposeUtcTimeAndSeverityWithoutChangingMessageText()
         {
             yield return SpawnOpenTerminal();
-            Terminal.Buffer.Clear();
+            TerminalSession.Current.Buffer = new CommandLog(16, null, static () => new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc));
             TerminalLogType[] types =
             {
                 TerminalLogType.Error,
@@ -239,8 +239,7 @@
             for (int i = 0; i < types.Length; ++i)
             {
                 TextField row = (TextField)content[i];
-                Assert.That(row.label, Does.EndWith($" [{markers[i]}]"));
-                Assert.That(row.label, Does.Match(@"^\d{2}:\d{2}:\d{2}Z \[[A-Z<>]\]$"));
+                Assert.That(row.label, Is.EqualTo($"12:34:56Z [{markers[i]}]"));
                 Assert.That(row.value, Is.EqualTo(types[i].ToString()), "Selection and copying use the original message");
             }
         }
