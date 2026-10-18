@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections;
@@ -90,6 +90,107 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             yield return WaitForLogValue(expected: atEnd - LogView().contentViewport.layout.height, message: "Page Up moves the log back by what one viewport shows");
             Assert.That(LogScroller().value, Is.LessThan(atEnd), "A key the log answered moved it, so the route is not just a consumed key");
+        }
+
+        [UnityTest]
+        public IEnumerator JumpButtonEnterDoesNotRunTheCommandDraft()
+        {
+            yield return SpawnOpenTerminal();
+            yield return FillTheLog();
+            yield return WaitForLogAtEnd(FillMarker, "The log starts at the end");
+            const string draft = "jump-input-probe";
+            int commandRuns = 0;
+            Assert.That(Terminal.Shell.AddCommand(draft, _ => ++commandRuns, minArgs: 0, maxArgs: 0), Is.True);
+            DefaultTerminalInput.Instance.CommandText = draft;
+            yield return null;
+            yield return null;
+
+            float atEnd = LogScroller().value;
+            yield return SendKey(KeyCode.PageUp);
+            yield return WaitForLogValue(atEnd - LogView().contentViewport.layout.height, "Paging away shows the jump control");
+            Button button = _terminal._uiDocument.rootVisualElement.Q<Button>("JumpToLatestButton");
+            Assert.That(button.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            button.Focus();
+            int frameBudget = FrameBudget;
+            while (0 < frameBudget-- && !_terminal.LogOwnsFocus)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.LogOwnsFocus, Is.True, "The focused jump control protects the draft");
+            LogSelectionController controller = _terminalObject.AddComponent<LogSelectionController>();
+            controller.enabled = false;
+            controller.terminal = _terminal;
+            controller.Pressed = "enter";
+            Assert.That(controller.ShouldHandleInputThisFrame, Is.False, "Enter belongs to the focused jump control");
+            controller.Tick();
+            Assert.That(commandRuns, Is.Zero, "The controller does not run the draft before button submission");
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo(draft));
+
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = button;
+                button.SendEvent(evt);
+            }
+
+            controller.Tick();
+            Assert.That(commandRuns, Is.Zero, "A controller poll after button submission also preserves the draft");
+            yield return WaitForLogAtEnd(FillMarker, "Submitting the jump control reaches the latest line");
+            Assert.That(commandRuns, Is.Zero);
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo(draft));
+        }
+
+        [UnityTest]
+        public IEnumerator LogSelectionKeepsNavigationAndProtectsTheCommandDraft()
+        {
+            yield return SpawnOpenTerminal();
+            yield return FillTheLog();
+            yield return WaitForLogAtEnd(FillMarker, "The log starts at the end");
+            const string draft = "unfinished command";
+            DefaultTerminalInput.Instance.CommandText = draft;
+            yield return null;
+            yield return null;
+
+            VisualElement content = LogView().contentContainer;
+            TextField row = (TextField)content[content.childCount - 1];
+            row.Focus();
+            int frameBudget = FrameBudget;
+            while (0 < frameBudget-- && !_terminal.LogOwnsFocus)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.LogOwnsFocus, Is.True, "A selected log row owns panel focus");
+            float atEnd = LogScroller().value;
+            yield return SendKey(KeyCode.PageUp);
+            yield return WaitForLogValue(atEnd - LogView().contentViewport.layout.height, "Page Up still scrolls when a log row owns focus");
+            yield return SendKey(KeyCode.Home, EventModifiers.Control);
+            yield return WaitForLogValue(0f, "Control Home reaches the oldest line from a log row");
+            yield return SendKey(KeyCode.End, EventModifiers.Control);
+            yield return WaitForLogAtEnd(FillMarker, "Control End returns to the latest line from a log row");
+
+            LogSelectionController controller = _terminalObject.AddComponent<LogSelectionController>();
+            controller.enabled = false;
+            controller.terminal = _terminal;
+            string[] keys = { "up", "down", "tab", "#tab", "enter" };
+            foreach (string key in keys)
+            {
+                controller.Pressed = key;
+                Assert.That(controller.ShouldHandleInputThisFrame, Is.False, $"The {key} command action leaves log selection alone");
+                controller.Tick();
+                Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo(draft), $"The {key} command action preserves the draft");
+            }
+
+            controller.Pressed = "escape";
+            Assert.That(controller.ShouldHandleInputThisFrame, Is.True, "Close remains available while selecting a log line");
+            controller.Tick();
+            frameBudget = FrameBudget;
+            while (0 < frameBudget-- && !_terminal.IsClosed)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.IsClosed, Is.True, "Escape closes a terminal with log selection");
         }
 
         [UnityTest]
@@ -355,7 +456,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 return string.Empty;
             }
 
-            return (content[content.childCount - 1] as Label)?.text ?? string.Empty;
+            return (content[content.childCount - 1] as TextField)?.value ?? string.Empty;
         }
 
         private IEnumerator SendKey(KeyCode keyCode, EventModifiers modifiers = EventModifiers.None)
@@ -406,6 +507,21 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(_terminal._commandInput, Is.Not.Null, "The terminal input field should exist after the terminal opens");
 
             DefaultTerminalInput.Instance.CommandText = string.Empty;
+        }
+
+        private sealed class LogSelectionController : TerminalKeyboardController
+        {
+            internal string Pressed;
+
+            protected override bool IsHotkeyDown(string hotkey)
+            {
+                return string.Equals(hotkey, Pressed, StringComparison.Ordinal);
+            }
+
+            internal void Tick()
+            {
+                Update();
+            }
         }
     }
 }

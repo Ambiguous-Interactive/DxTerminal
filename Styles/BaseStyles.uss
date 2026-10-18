@@ -104,12 +104,16 @@
 }
 
 .terminal-output-label {
+    flex-shrink: 0;
+    min-width: 0;
     white-space: normal;
     margin: 0;
     padding: 0;
 }
 
 .terminal-output-label #unity-text-input {
+    white-space: normal;
+    --unity-cursor-color: transparent;
     background-color: transparent;
     margin: 0;
     border-width: 0;
@@ -121,6 +125,17 @@
     padding: 0 4px;
     border-radius: 4px;
     border-width: 0;
+}
+
+.terminal-button-jump-latest {
+    flex-shrink: 0;
+    background-color: var(--button-bg);
+    color: var(--button-text);
+}
+
+.terminal-button-jump-latest:hover {
+    background-color: var(--button-hover-bg);
+    color: var(--button-hover-text);
 }
 
 .terminal-input-caret {
@@ -230,23 +245,33 @@
     color: var(--button-selected-text);
 }
 
-.terminal-output-label--message {
+.terminal-output-label--message,
+.terminal-output-label--message #unity-text-input,
+.terminal-output-label--message .unity-text-element {
     color: var(--text-message);
 }
 
-.terminal-output-label--warning {
+.terminal-output-label--warning,
+.terminal-output-label--warning #unity-text-input,
+.terminal-output-label--warning .unity-text-element {
     color: var(--text-warning);
 }
 
-.terminal-output-label--input {
+.terminal-output-label--input,
+.terminal-output-label--input #unity-text-input,
+.terminal-output-label--input .unity-text-element {
     color: var(--text-input-echo);
 }
 
-.terminal-output-label--shell {
+.terminal-output-label--shell,
+.terminal-output-label--shell #unity-text-input,
+.terminal-output-label--shell .unity-text-element {
     color: var(--text-shell);
 }
 
-.terminal-output-label--error {
+.terminal-output-label--error,
+.terminal-output-label--error #unity-text-input,
+.terminal-output-label--error .unity-text-element {
     color: var(--text-error);
 }
 

@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.UI
+﻿namespace WallstopStudios.DxCommandTerminal.UI
 {
     using System;
     using Backend;
@@ -53,6 +53,12 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
 
             if (!evt.commandKey && !evt.ctrlKey)
+            {
+                caret = null;
+                return false;
+            }
+
+            if (isCut && field.isReadOnly)
             {
                 caret = null;
                 return false;

@@ -17,7 +17,7 @@
             {
                 foreach (TerminalControlTypes controlType in _controlOrder)
                 {
-                    if (!_inputChecks.TryGetValue(controlType, out Func<bool> inputCheck))
+                    if (!CanHandleControl(controlType) || !_inputChecks.TryGetValue(controlType, out Func<bool> inputCheck))
                     {
                         continue;
                     }
@@ -174,7 +174,7 @@
 
             foreach (TerminalControlTypes controlType in _controlOrder)
             {
-                if (!_inputChecks.TryGetValue(controlType, out Func<bool> inputCheck))
+                if (!CanHandleControl(controlType) || !_inputChecks.TryGetValue(controlType, out Func<bool> inputCheck))
                 {
                     continue;
                 }
@@ -364,6 +364,11 @@
             }
 
             return IsHotkeyDown(hotkey);
+        }
+
+        private bool CanHandleControl(TerminalControlTypes controlType)
+        {
+            return terminal == null || !terminal.LogOwnsFocus || controlType is TerminalControlTypes.Close or TerminalControlTypes.ToggleSmall or TerminalControlTypes.ToggleFull;
         }
 
         private void VerifyControlOrderIntegrity()

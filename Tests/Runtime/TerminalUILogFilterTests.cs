@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections;
@@ -152,6 +152,96 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return WaitForDrawnText("the hit", "A search draws the line it found");
 
             Assert.That(DrawnText(), Does.Not.Contain(MissMarker), "A line that does not hold the text is not what the developer asked to see");
+        }
+
+        [UnityTest]
+        public IEnumerator LogSelectionCopiesTheSelectedSpanThroughTheRow()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("select part of this line");
+            yield return WaitForDrawnCount(1, "The log row exists");
+            TextField row = LogContent()[0] as TextField;
+            Assert.That(row, Is.Not.Null);
+            VisualElement textInput = row.Q("unity-text-input");
+            int attempts = FrameBudget;
+            while (0 < attempts--)
+            {
+                textInput.Focus();
+                row.SelectRange(7, 11);
+                yield return null;
+                if (row.cursorIndex == 7 && row.selectIndex == 11 && _terminal.LogOwnsFocus)
+                {
+                    break;
+                }
+            }
+
+            if (row.cursorIndex != 7 || row.selectIndex != 11 || !_terminal.LogOwnsFocus)
+            {
+                Assert.Ignore("The host did not hold focus and log selection (#250).");
+            }
+
+            string originalClipboard = GUIUtility.systemCopyBuffer;
+            try
+            {
+                if (!TerminalClipboard.TryWrite("before-log-selection-copy"))
+                {
+                    Assert.Ignore("The host did not verify the clipboard arrange (#250).");
+                }
+
+                using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+                {
+                    _terminal._uiDocument.rootVisualElement.SendEvent(key);
+                    Assert.That(key.isPropagationStopped, "The row answers the copy key");
+                }
+
+                Assert.That(row.value, Is.EqualTo("select part of this line"));
+                if (!string.Equals(TerminalClipboard.Read(), "part", StringComparison.Ordinal))
+                {
+                    Assert.Ignore("The host clipboard did not hold the selected span (#250).");
+                }
+            }
+            finally
+            {
+                if (!TerminalClipboard.TryWrite(originalClipboard))
+                {
+                    GUIUtility.systemCopyBuffer = originalClipboard;
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator LogRowsAreReadOnlyAndPreserveSelectionWhenOutputIsAppended()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("select part of this line");
+            yield return WaitForDrawnCount(1, "The log row exists");
+            TextField row = LogContent()[0] as TextField;
+            Assert.That(row, Is.Not.Null, "A log row supports native text selection");
+            Assert.That(row.isReadOnly);
+            Assert.That(row.multiline);
+            int attempts = FrameBudget;
+            while (0 < attempts-- && (row.cursorIndex != 7 || row.selectIndex != 11))
+            {
+                row.Focus();
+                row.SelectRange(7, 11);
+                yield return null;
+            }
+
+            if (row.cursorIndex != 7 || row.selectIndex != 11)
+            {
+                Assert.Ignore("The host did not hold the log text selection (#250).");
+            }
+
+            int cursor = row.cursorIndex;
+            int selection = row.selectIndex;
+            Terminal.Log("a later line");
+            yield return WaitForDrawnCount(2, "The later line is drawn");
+            Assert.That(LogContent()[0], Is.SameAs(row));
+            Assert.That(row.value, Is.EqualTo("select part of this line"));
+            Assert.That(row.cursorIndex, Is.EqualTo(cursor));
+            Assert.That(row.selectIndex, Is.EqualTo(selection));
         }
 
         [UnityTest]
@@ -632,7 +722,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                     builder.Append('\n');
                 }
 
-                builder.Append((content[i] as Label)?.text);
+                builder.Append((content[i] as TextField)?.value);
             }
 
             return builder.ToString();

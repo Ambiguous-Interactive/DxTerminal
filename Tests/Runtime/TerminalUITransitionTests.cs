@@ -104,6 +104,119 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         }
 
         [UnityTest]
+        public IEnumerator EventsFireAfterOpenAndCloseButNotResizeOrRepeatedState()
+        {
+            yield return SpawnTerminal(open: false);
+
+            List<TerminalState> openedStates = new();
+            List<TerminalState> closedStates = new();
+            List<string> closedInputs = new();
+            _terminal.Opened += () => openedStates.Add(_terminal.State);
+            _terminal.Closed += () =>
+            {
+                closedStates.Add(_terminal.State);
+                closedInputs.Add(DefaultTerminalInput.Instance.CommandText);
+            };
+
+            _terminal.Close();
+            _terminal.ToggleSmall();
+            _terminal.SetState(TerminalState.OpenSmall);
+            _terminal.ToggleFull();
+            _terminal.SetState(TerminalState.OpenFull);
+            _terminal.ToggleSmall();
+            DefaultTerminalInput.Instance.CommandText = "pending command";
+            _terminal.Close();
+            _terminal.Close();
+            _terminal.ToggleFull();
+            _terminal.ToggleFull();
+
+            CollectionAssert.AreEqual(new[] { TerminalState.OpenSmall, TerminalState.OpenFull }, openedStates);
+            CollectionAssert.AreEqual(new[] { TerminalState.Closed, TerminalState.Closed }, closedStates);
+            CollectionAssert.AreEqual(new[] { string.Empty, string.Empty }, closedInputs, "Closed handlers must see the cleared input");
+        }
+
+        [UnityTest]
+        public IEnumerator DisableAndDestroyCloseTheTerminalOnce()
+        {
+            yield return SpawnTerminal(open: true);
+
+            int closed = 0;
+            _terminal.Closed += () => ++closed;
+            _terminal.enabled = false;
+
+            Assert.AreEqual(1, closed, "Disabling the open terminal must notify subscribers");
+            Assert.AreEqual(TerminalState.Closed, _terminal.State);
+
+            _terminal.enabled = true;
+            _terminal.SetState(TerminalState.OpenSmall);
+            UnityEngine.Object.DestroyImmediate(_terminalObject);
+            _terminalObject = null;
+
+            Assert.AreEqual(2, closed, "Destroying the open terminal must notify subscribers once");
+        }
+
+        [UnityTest]
+        public IEnumerator DisableRejectsReopeningFromAClosedHandler()
+        {
+            yield return SpawnTerminal(open: true);
+
+            int closed = 0;
+            _terminal.Closed += () =>
+            {
+                ++closed;
+                _terminal.SetState(TerminalState.OpenFull);
+            };
+            _terminal.enabled = false;
+
+            Assert.AreEqual(1, closed);
+            Assert.AreEqual(TerminalState.Closed, _terminal.State, "A disable callback cannot leave an open state without its UI");
+
+            _terminal.enabled = true;
+            _terminal.SetState(TerminalState.OpenSmall);
+            Assert.AreEqual(TerminalState.OpenSmall, _terminal.State, "A later enable can open normally");
+        }
+
+        [UnityTest]
+        public IEnumerator PaletteClosedHandlerOpeningTheTerminalRaisesOpenedOnce()
+        {
+            yield return SpawnTerminal(open: false, withPalette: true);
+
+            _palette.Open();
+            int opened = 0;
+            _terminal.Opened += () => ++opened;
+            _palette.Closed += () => _terminal.SetState(TerminalState.OpenSmall);
+
+            _terminal.SetState(TerminalState.OpenFull);
+
+            Assert.AreEqual(1, opened, "The outer state change resizes the terminal that the close callback opened");
+            Assert.AreEqual(TerminalState.OpenFull, _terminal.State);
+            Assert.IsFalse(_palette.IsOpen);
+        }
+
+        [UnityTest]
+        public IEnumerator SurfaceTakeoverRaisesTerminalEvents()
+        {
+            yield return SpawnTerminal(open: true, withPalette: true);
+
+            List<string> transitions = new();
+            _terminal.Opened += () => transitions.Add("terminal opened");
+            _terminal.Closed += () => transitions.Add("terminal closed");
+            _palette.Opened += () => transitions.Add("palette opened");
+            _palette.Closed += () => transitions.Add("palette closed");
+
+            _palette.Open();
+            Assert.AreEqual(TerminalState.Closed, _terminal.State);
+
+            _terminal.ToggleFull();
+            Assert.IsFalse(_palette.IsOpen);
+            CollectionAssert.AreEqual(
+                new[] { "terminal closed", "palette opened", "palette closed", "terminal opened" },
+                transitions,
+                "A surface must close before the other surface opens"
+            );
+        }
+
+        [UnityTest]
         public IEnumerator ClosedTerminalIgnoresInputActions()
         {
             yield return SpawnTerminal(open: false);

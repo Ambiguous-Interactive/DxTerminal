@@ -12,6 +12,9 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 ### Added
 
+- Add read-only log text selection and copying ([#194](https://github.com/wallstop/DxCommandTerminal/issues/194)).
+- Add terminal open and close events ([#241](https://github.com/wallstop/DxCommandTerminal/issues/241)).
+- Add a Jump to latest button when log following is paused ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
 - Add `CommandArg.AddQuote`, which appends one quote character to `Quotes` in place without touching the rest of the configuration
   ([#229](https://github.com/wallstop/DxCommandTerminal/issues/229)).
 

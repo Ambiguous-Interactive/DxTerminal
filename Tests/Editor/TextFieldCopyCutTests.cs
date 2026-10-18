@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using Backend;
@@ -143,6 +143,31 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.AreEqual(6, caret, "The caret reports where the cut left the field");
             Assert.AreEqual("item torch", TerminalClipboard.Read());
             Assert.AreEqual("spawn  1", field.value, "The span is gone from the value");
+        }
+
+        [TestCase(EventModifiers.Control)]
+        [TestCase(EventModifiers.Command)]
+        public void ReadOnlyFieldsRejectCutBeforeWritingClipboard(EventModifiers modifiers)
+        {
+            ArrangeClipboard("untouched");
+            TextField field = FieldWithArrangedSelection("spawn item torch 1", 6, 16);
+            field.isReadOnly = true;
+            Assert.That(!TextFieldCopyCut.TryApply(field, KeyDown(KeyCode.X, modifiers), out int? caret));
+            Assert.That(caret == null);
+            Assert.AreEqual("spawn item torch 1", field.value);
+            Assert.AreEqual("untouched", TerminalClipboard.Read());
+        }
+
+        [Test]
+        public void ReadOnlyFieldsAllowCopy()
+        {
+            TextField field = FieldWithArrangedSelection("spawn item torch 1", 6, 16);
+            field.isReadOnly = true;
+            bool answered = TextFieldCopyCut.TryApply(field, KeyDown(KeyCode.C, EventModifiers.Control), out int? caret);
+            AssertCopyAnswered(answered, "A read-only selection");
+            Assert.That(caret == null);
+            Assert.AreEqual("item torch", TerminalClipboard.Read());
+            Assert.AreEqual("spawn item torch 1", field.value);
         }
 
         [Test]
