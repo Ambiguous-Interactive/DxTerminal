@@ -242,12 +242,40 @@
 
             int cursor = row.cursorIndex;
             int selection = row.selectIndex;
+            VisualElement focused = row.panel.focusController.focusedElement as VisualElement;
+            Assert.That(focused == row || row.Contains(focused), Is.True, "The arranged selection owns focus");
+            _terminal.RetryInputFocus();
+            Assert.That(row.panel.focusController.focusedElement, Is.SameAs(focused), "A queued opening retry cannot steal log selection");
+            Assert.That(row.cursorIndex, Is.EqualTo(cursor));
+            Assert.That(row.selectIndex, Is.EqualTo(selection));
             Terminal.Log("a later line");
             yield return WaitForDrawnCount(2, "The later line is drawn");
             Assert.That(LogContent()[0], Is.SameAs(row));
             Assert.That(row.value, Is.EqualTo("select part of this line"));
             Assert.That(row.cursorIndex, Is.EqualTo(cursor));
             Assert.That(row.selectIndex, Is.EqualTo(selection));
+
+            Assert.That(Terminal.Shell.AddCommand("logfocus-first", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("logfocus-second", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            _terminal.hintDisplayMode = HintDisplayMode.Always;
+            DefaultTerminalInput.Instance.CommandText = "logfocus";
+            _terminal.ResetAutoComplete();
+            attempts = FrameBudget;
+            while (0 < attempts-- && _terminal._autoCompleteContainer.childCount != 2)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal._autoCompleteContainer.childCount, Is.EqualTo(2));
+            row.Focus();
+            _terminal.ApplyHint(0);
+            attempts = FrameBudget;
+            while (0 < attempts-- && !_terminal.InputOwnsFocus)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "Applying a hint explicitly returns focus to the command input");
         }
 
         [UnityTest]
@@ -333,6 +361,24 @@
             Assert.That(row.cursorIndex, Is.EqualTo(row.selectIndex), "An evicted entry cannot leave its selection on an identical replacement");
             Assert.That(row.value, Is.EqualTo(message));
             Assert.That(LogContent().childCount, Is.EqualTo(3), "Selection does not freeze updates to the ring");
+            row.Focus();
+            Assert.That(_terminal.LogOwnsFocus, Is.True);
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(row, key, verified: false);
+            }
+
+            _terminal.Close();
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.None), "Closing retires copy feedback");
+            _terminal.SetState(TerminalState.OpenFull);
+            attempts = FrameBudget;
+            while (0 < attempts-- && !_terminal.InputOwnsFocus)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "Reopening releases stale log focus and restores command input");
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.None));
         }
 
         [UnityTest]

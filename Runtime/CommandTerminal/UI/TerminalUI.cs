@@ -1284,6 +1284,10 @@
             if (IsOpenState(_state))
             {
                 EnsureUI();
+                if (!wasOpen)
+                {
+                    ReleaseLogFocus();
+                }
             }
 
             ResetWindowIdempotent();
@@ -1299,6 +1303,10 @@
                     instead of re-running the refresh loop every frame.
                  */
                 _needsFocus = false;
+                if (_logCopyStatus != null)
+                {
+                    _logCopyStatus.style.display = DisplayStyle.None;
+                }
 
                 /*
                     OnDisable routes through here and can run before Awake on a
@@ -1833,6 +1841,14 @@
             }
         }
 
+        internal void RetryInputFocus()
+        {
+            if (CanFocusInput())
+            {
+                _textInput.Focus();
+            }
+        }
+
         internal void HandleLogCopyResult(TextField field, KeyDownEvent evt, bool verified)
         {
             if (field == null || evt == null)
@@ -2022,6 +2038,7 @@
             _pendingCaretIndex = candidate.Length;
             _lastCompletionIndex = index;
             _needsFocus = true;
+            FocusInput(allowLogFocus: true);
         }
 
         /*
@@ -2937,19 +2954,29 @@
                 .Every(_cursorBlinkRateMilliseconds);
         }
 
-        private void FocusInput()
+        private void ReleaseLogFocus()
         {
-            if (_textInput == null)
+            VisualElement focused = _logScrollView?.panel?.focusController?.focusedElement as VisualElement;
+            if (focused != null && _logScrollView.Contains(focused))
             {
-                return;
+                focused.Blur();
+            }
+        }
+
+        private bool CanFocusInput(bool allowLogFocus = false)
+        {
+            if (!IsOpenState(_state) || IsPaletteSurfaceOpen() || _textInput == null || _textInput.focusController == null)
+            {
+                return false;
             }
 
-            /*
-                A retry scheduled before the palette opened must not yank
-                panel focus back to the terminal input after the palette
-                took over.
-             */
-            if (IsPaletteSurfaceOpen())
+            VisualElement focused = _textInput.focusController.focusedElement as VisualElement;
+            return allowLogFocus || _logScrollView == null || focused == null || !_logScrollView.Contains(focused);
+        }
+
+        private void FocusInput(bool allowLogFocus = false)
+        {
+            if (!CanFocusInput(allowLogFocus))
             {
                 return;
             }
@@ -2972,16 +2999,6 @@
             _commandInput.cursorIndex = textEndPosition;
             _commandInput.selectIndex = textEndPosition;
 #endif
-        }
-
-        private void RetryInputFocus()
-        {
-            if (IsPaletteSurfaceOpen())
-            {
-                return;
-            }
-
-            _textInput?.Focus();
         }
 
         /*
