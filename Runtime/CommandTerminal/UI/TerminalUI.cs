@@ -20,8 +20,6 @@
     public sealed class TerminalUI : MonoBehaviour
     {
         private const string TerminalRootName = "TerminalRoot";
-        private const int NarrowWindowBreakpoint = 480;
-        private const int NarrowWindowMinimumHeight = 288;
 
         /*
             Log refreshes a queued search jump waits for the view to lay out
@@ -103,6 +101,14 @@
         [SerializeField]
         [Range(0, 1)]
         public float smallTerminalRatio = 0.4714285f;
+
+        [Tooltip("Use narrow layout below this width in UI Toolkit points. Zero disables it; negative values act as zero.")]
+        [Min(0)]
+        public int narrowWindowBreakpoint = 480;
+
+        [Tooltip("Minimum small-window height in UI Toolkit points for narrow layout, capped by full height. Zero disables the floor; negative values act as zero.")]
+        [Min(0)]
+        public int narrowWindowMinimumHeight = 288;
 
         [Tooltip("Curve the console follows to go from closed -> open")]
         public AnimationCurve easeOutCurve = new() { keys = new[] { new Keyframe(0, 0), new Keyframe(1, 1) } };
@@ -480,7 +486,7 @@
             };
             TrackProperties(staticStaticPropertiesTracked, _staticStateProperties);
 
-            string[] windowPropertiesTracked = { nameof(maxHeight), nameof(smallTerminalRatio) };
+            string[] windowPropertiesTracked = { nameof(maxHeight), nameof(smallTerminalRatio), nameof(narrowWindowBreakpoint), nameof(narrowWindowMinimumHeight) };
             TrackProperties(windowPropertiesTracked, _windowProperties);
 
             string[] logUnityMessagePropertiesTracked = { nameof(_logUnityMessages) };
@@ -2547,12 +2553,17 @@
 
         private void ResetWindowIdempotent()
         {
+            VisualElement root = _terminalContainer?.parent;
+            float width = root?.layout.width ?? 0f;
+            bool narrow = 0 < width && width < Math.Max(0, narrowWindowBreakpoint);
+            root?.EnableInClassList("terminal-root--narrow", narrow);
+
             int height = Screen.height;
             float fullHeight = height * maxHeight;
             float smallHeight = fullHeight * smallTerminalRatio;
-            if (_terminalContainer?.parent?.ClassListContains("terminal-root--narrow") == true)
+            if (narrow)
             {
-                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, NarrowWindowMinimumHeight));
+                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, Math.Max(0, narrowWindowMinimumHeight)));
             }
             float oldTargetHeight = _targetWindowHeight;
             try
@@ -2636,11 +2647,7 @@
             uiRoot.Add(root);
             root.name = TerminalRootName;
             root.AddToClassList("terminal-root");
-            root.RegisterCallback<GeometryChangedEvent>(static evt =>
-            {
-                VisualElement element = (VisualElement)evt.currentTarget;
-                element.EnableInClassList("terminal-root--narrow", 0 < evt.newRect.width && evt.newRect.width < NarrowWindowBreakpoint);
-            });
+            root.RegisterCallback<GeometryChangedEvent, TerminalUI>(static (_, context) => context.ResetWindowIdempotent(), this);
 
             InitializeTheme(root);
             InitializeFont();

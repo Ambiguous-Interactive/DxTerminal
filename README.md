@@ -175,6 +175,10 @@ To share one configuration across terminals, `Assets > Create > Wallstop Studios
 stack-trace capture mode, and the palette hotkey) win over the component's serialized values — applied when the component wakes and re-applied whenever the terminal rebuilds its
 UI. Leave the slot empty and behavior is unchanged. Window geometry, animation curves, terminal ids, and the player's persisted theme/font choices stay per-component.
 
+The terminal's Window settings include `narrowWindowBreakpoint` (default 480 UI Toolkit points) and `narrowWindowMinimumHeight` (default 288 points). Below the breakpoint, the
+header wraps and controls grow. The minimum height applies only to the small terminal in that layout and never exceeds the full height set by `maxHeight`. Set the breakpoint to
+zero to disable narrow layout, or the minimum to zero to use `smallTerminalRatio` alone. Negative values act as zero. Both settings can change at runtime without resizing the view.
+
 Stack-trace capture (`stackTraceMode`): `All` (default) records a caller stack trace for every log entry, exactly as before. `ErrorsAndWarnings` records traces only for error,
 assert, exception, and warning entries. `Disabled` records none. Trace extraction is the most expensive part of a logged line, so games that log frequently during gameplay
 (per-frame state dumps, command chatter) can drop it for routine messages without losing diagnostics when something actually goes wrong.
@@ -618,8 +622,8 @@ Use **Search** in the terminal header to filter output. **Prev**, **Next**, Ente
 with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`. Searches persist when the terminal closes. Header and log focus preserve
 the command draft; return to the command line for history, completion, and submission.
 
-The header also has **Small** / **Full** and **Close** controls. Below 480 panel points, controls grow to at least 44 points. The optional legacy state buttons remain available as
-closed-terminal launchers.
+The header also has **Small** / **Full** and **Close** controls. Below `narrowWindowBreakpoint` (480 UI Toolkit points by default), controls grow to at least 44 points. The
+optional legacy state buttons remain available as closed-terminal launchers.
 
 The log holds the newest 256 lines by default and nothing else, so reaching one of them means reading past the rest. Two commands narrow the view and one steps through it:
 

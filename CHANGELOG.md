@@ -14,7 +14,8 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 - Add terminal header size and close controls ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241)).
 - Add header log search with shared command state, live counts, and match navigation ([#242](https://github.com/Ambiguous-Interactive/DxTerminal/issues/242)).
-- Add larger controls and wrapped search on narrow terminal views ([#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
+- Add larger controls and wrapped search on narrow terminal views with configurable width breakpoint and minimum small-window height
+  ([#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
 
 - Add configurable per-surface shortcuts for text editing, log navigation, and palette actions ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Add read-only log text selection and copying ([#194](https://github.com/wallstop/DxCommandTerminal/issues/194)).
