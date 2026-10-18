@@ -192,6 +192,12 @@
                 using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
                 {
                     _terminal._uiDocument.rootVisualElement.SendEvent(key);
+                    Label status = _terminal._uiDocument.rootVisualElement.Q<Label>("LogCopyStatus");
+                    if (status.style.display.value == DisplayStyle.Flex)
+                    {
+                        Assert.Ignore("The host did not verify the selected span copy (#250).");
+                    }
+
                     Assert.That(key.isPropagationStopped, "The row answers the copy key");
                 }
 
@@ -245,7 +251,7 @@
         }
 
         [UnityTest]
-        public IEnumerator FullRingKeepsSelectedEntryUntilEvictionWithIdenticalMessages()
+        public IEnumerator FullRingPreservesSelectionThroughCopyRefusalAndEvictsByIdentity()
         {
             yield return SpawnOpenTerminal();
             Terminal.Buffer.Clear();
@@ -273,6 +279,38 @@
             {
                 Assert.Ignore("The host did not hold focus and log selection (#250).");
             }
+
+            long version = Terminal.Buffer.Version;
+            ScrollView logView = _terminal._uiDocument.rootVisualElement.Q<ScrollView>("LogScrollView");
+            float viewportHeight = logView.contentViewport.layout.height;
+            Label status = _terminal._uiDocument.rootVisualElement.Q<Label>("LogCopyStatus");
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(row, key, verified: false);
+                Assert.That(key.isPropagationStopped, Is.False, "An unverified copy leaves native fallback available");
+            }
+
+            yield return null;
+            yield return null;
+            Assert.That(logView.contentViewport.layout.height, Is.EqualTo(viewportHeight).Within(Tolerance));
+            Assert.That(_terminal.LogOwnsFocus, Is.True);
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(status.text, Is.EqualTo("Clipboard copy could not be verified."));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Copy feedback must not evict a log entry");
+            Assert.That(Terminal.Buffer.Count, Is.EqualTo(3));
+            Assert.That(LogContent()[1], Is.SameAs(row));
+            Assert.That(row.cursorIndex, Is.EqualTo(7));
+            Assert.That(row.selectIndex, Is.EqualTo(11));
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(row, key, verified: true);
+                Assert.That(key.isPropagationStopped, Is.True, "A verified copy consumes the key");
+            }
+
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.None));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version));
+            Assert.That(row.cursorIndex, Is.EqualTo(7));
+            Assert.That(row.selectIndex, Is.EqualTo(11));
 
             Terminal.Log(message);
             attempts = FrameBudget;

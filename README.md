@@ -571,7 +571,8 @@ the exact character you copied. Dropping it would lose your text; escaping it th
 
 ## Copying out of the console
 
-Drag across text in a log row, then press Ctrl+C (Cmd+C on macOS) to copy that span. Log rows are read-only. Selection stays within one row.
+Drag across text in a log row, then press Ctrl+C (Cmd+C on macOS) to copy that span. Log rows are read-only. Selection stays within one row. If copying cannot be verified, a status
+message appears without adding a log entry. Native copy handling remains available.
 
 Two commands copy whole entries:
 

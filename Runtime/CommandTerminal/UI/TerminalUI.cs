@@ -306,6 +306,7 @@
         private VisualElement _inputContainer;
         private Button _runButton;
         private Button _jumpLatestButton;
+        private Label _logCopyStatus;
         private VisualElement _stateButtonContainer;
         private Label _inputCaretLabel;
         private bool _lastKnownHintsClickable;
@@ -1832,6 +1833,24 @@
             }
         }
 
+        internal void HandleLogCopyResult(TextField field, KeyDownEvent evt, bool verified)
+        {
+            if (field == null || evt == null)
+            {
+                return;
+            }
+
+            if (_logCopyStatus != null)
+            {
+                _logCopyStatus.style.display = verified ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (verified)
+            {
+                KeyEvents.Consume(field, evt);
+            }
+        }
+
         /*
             Internal for test coverage of the first-open tree build
             measurement (see WallstopStudios.DxCommandTerminal.Tests.Runtime).
@@ -1860,6 +1879,7 @@
             _inputContainer = null;
             _runButton = null;
             _jumpLatestButton = null;
+            _logCopyStatus = null;
             _inputCaretLabel = null;
             _commandInput = null;
             _textInput = null;
@@ -2561,6 +2581,11 @@
             _autoCompleteContainer.AddToClassList("autocomplete-popup");
             _terminalContainer.Add(_autoCompleteContainer);
 
+            _logCopyStatus = new Label("Clipboard copy could not be verified.") { name = "LogCopyStatus", pickingMode = PickingMode.Ignore };
+            _logCopyStatus.AddToClassList("terminal-copy-status");
+            _logCopyStatus.style.display = DisplayStyle.None;
+            _terminalContainer.Add(_logCopyStatus);
+
             _inputContainer = new VisualElement { name = "InputContainer" };
             _inputContainer.AddToClassList("input-container");
             _terminalContainer.Add(_inputContainer);
@@ -3018,22 +3043,22 @@
                             tabIndex = -1,
                         };
                         logText.AddToClassList("terminal-output-label");
-                        logText.RegisterCallback<KeyDownEvent, TextField>(
-                            static (evt, field) =>
+                        logText.RegisterCallback<KeyDownEvent, TerminalUI>(
+                            static (evt, terminal) =>
                             {
-                                if (evt.keyCode != KeyCode.C || (!evt.ctrlKey && !evt.commandKey) || field.cursorIndex == field.selectIndex)
+                                if (
+                                    evt.currentTarget is not TextField field
+                                    || evt.keyCode != KeyCode.C
+                                    || (!evt.ctrlKey && !evt.commandKey)
+                                    || field.cursorIndex == field.selectIndex
+                                )
                                 {
                                     return;
                                 }
 
-                                if (!TextFieldCopyCut.TryApply(field, evt, out _))
-                                {
-                                    Terminal.Log(TerminalLogType.Warning, "Could not copy the selected log text to the clipboard.");
-                                }
-
-                                KeyEvents.Consume(field, evt);
+                                terminal.HandleLogCopyResult(field, evt, TextFieldCopyCut.TryApply(field, evt, out _));
                             },
-                            logText,
+                            this,
                             TrickleDown.TrickleDown
                         );
                         content.Add(logText);

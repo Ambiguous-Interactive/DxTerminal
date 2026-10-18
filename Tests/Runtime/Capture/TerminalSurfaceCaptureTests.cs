@@ -386,6 +386,13 @@
             Assert.That(jump.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
             yield return CaptureSurface(nameof(CapturesScrollingLogSurface) + "-selection", CaptureBounds.Default());
             AssertAcceptable(_lastOutcome);
+
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(selected, key, verified: false);
+            }
+            yield return CaptureSurface(nameof(CapturesScrollingLogSurface) + "-copy-status", CaptureBounds.Default());
+            AssertAcceptable(_lastOutcome);
         }
 
         /*
