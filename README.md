@@ -622,6 +622,8 @@ Use **Search** in the terminal header to filter output. **Prev**, **Next**, Ente
 with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`. Searches persist when the terminal closes. Header and log focus preserve
 the command draft; return to the command line for history, completion, and submission.
 
+The count includes the current match. `2 of 3 (1/2)` means two matches among three searchable lines, with the first match selected.
+
 The header also has **Small** / **Full** and **Close** controls. Below `narrowWindowBreakpoint` (480 UI Toolkit points by default), controls grow to at least 44 points. The
 optional legacy state buttons remain available as closed-terminal launchers.
 

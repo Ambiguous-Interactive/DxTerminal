@@ -325,6 +325,7 @@
         private Button _sizeButton;
         private int? _lastSearchCount;
         private int? _lastSearchTotal;
+        private int? _lastSearchPosition;
         private bool _lastSearchActive;
         private VisualElement _inputContainer;
         private Button _runButton;
@@ -2964,7 +2965,7 @@
                 TrickleDown.TrickleDown
             );
             search.Add(_logSearchInput);
-            _logSearchCount = new Label { name = "LogSearchCount" };
+            _logSearchCount = new Label { name = "LogSearchCount", tooltip = "Matching lines of searchable lines (current match / matching lines)." };
             _logSearchCount.AddToClassList("terminal-search-count");
             search.Add(_logSearchCount);
             _logSearchPrevious = AddToolbarButton(search, "LogSearchPrevious", "Prev", () => StepLogSearch(false));
@@ -2994,14 +2995,20 @@
             bool active = _logFilter.IsActive;
             int count = active ? _logFilter.MatchCount : renderedCount;
             int total = active ? _logFilter.TotalCount : renderedCount;
-            if (_lastSearchCount != count || _lastSearchTotal != total || _lastSearchActive != active)
+            int? position = active ? _logFilter.CurrentMatch : null;
+            if (_lastSearchCount != count || _lastSearchTotal != total || _lastSearchPosition != position || _lastSearchActive != active)
             {
-                _logSearchCount.text = active ? $"{count} of {total}" : $"{total} lines";
+                _logSearchCount.text = active
+                    ? position.HasValue
+                        ? $"{count} of {total} ({position}/{count})"
+                        : $"{count} of {total}"
+                    : $"{total} lines";
                 _logSearchPrevious.SetEnabled(active && 0 < count);
                 _logSearchNext.SetEnabled(active && 0 < count);
                 _logSearchClear.SetEnabled(active);
                 _lastSearchCount = count;
                 _lastSearchTotal = total;
+                _lastSearchPosition = position;
                 _lastSearchActive = active;
             }
         }

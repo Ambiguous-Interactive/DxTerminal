@@ -168,7 +168,7 @@
             search.value = "beta";
             yield return WaitForDrawnText("beta only", "Equal match counts replace the drawn line");
             Assert.That(DrawnText(), Does.Not.Contain("alpha only"));
-            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("1 of 2"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("1 of 2 (1/1)"));
             Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Search does not evict game output");
             search.value = "missing";
             yield return WaitForDrawnCount(0, "No match leaves the log empty");
@@ -188,7 +188,7 @@
             yield return RunCommand("find alpha");
             VisualElement root = _terminal._uiDocument.rootVisualElement;
             Assert.That(root.Q<TextField>("LogSearchInput").value, Is.EqualTo("alpha"));
-            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"));
 #if UNITY_EDITOR
             TextField previousSearch = root.Q<TextField>("LogSearchInput");
             SerializedObject inspector = new(_terminal);
@@ -201,14 +201,14 @@
             }
             Assert.That(root.Q<TextField>("LogSearchInput"), Is.Not.SameAs(previousSearch), "The inspector rebuilt the toolbar");
             yield return Settle();
-            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3"), "A new toolbar repopulates unchanged counts");
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"), "A new toolbar repopulates unchanged counts");
 #endif
             _terminal.TeardownUI();
             _terminal.EnsureUI();
             yield return Settle();
             root = _terminal._uiDocument.rootVisualElement;
             Assert.That(root.Q<TextField>("LogSearchInput").value, Is.EqualTo("alpha"));
-            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"));
             yield return RunCommand("clear-filter");
             Assert.That(root.Q<TextField>("LogSearchInput").value, Is.Empty);
         }
@@ -291,6 +291,13 @@
             _terminal.keyBindings.findNext = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F6) };
             _terminal.keyBindings.findPrevious = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F7) };
             long version = Terminal.Buffer.Version;
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"));
+            Submit(root.Q<Button>("LogSearchNext"));
+            yield return Settle();
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (2/2)"));
+            Submit(root.Q<Button>("LogSearchNext"));
+            yield return Settle();
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"), "Navigation wraps to the first match");
             KeyCode[] keys = { KeyCode.Return, KeyCode.F6, KeyCode.F7, KeyCode.KeypadEnter };
             foreach (KeyCode keyCode in keys)
             {
@@ -305,7 +312,7 @@
             Submit(root.Q<Button>("LogSearchPrevious"));
             Submit(root.Q<Button>("LogSearchNext"));
             yield return Settle();
-            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"));
             Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Toolbar navigation cannot evict game output");
             Terminal.Buffer.Clear();
             version = Terminal.Buffer.Version;
