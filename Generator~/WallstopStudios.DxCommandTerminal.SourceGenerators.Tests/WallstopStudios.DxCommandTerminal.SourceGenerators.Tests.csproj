@@ -20,7 +20,7 @@
       - CA1002/CA1051: the shipped public API is field- and List-based by design and stays
         source-compatible (the plan forbids breaking public API changes); the shim
         deliberately mirrors UnityEngine's public-field shape.
-      - CA1815: CommandArg is intentionally not value-comparable; shim structs are placeholders.
+      - CA1815: Unity shim structs are placeholders.
       - CA1515: shipped and shim types are intentionally public for reflection-parity tests.
       - CA2225: shim properties mirror UnityEngine naming, not .NET conventions.
       - CA1019: RegisterCommandAttribute's Name must stay writable (name normalization mutates

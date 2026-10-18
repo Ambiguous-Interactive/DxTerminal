@@ -55,6 +55,14 @@ them on a new runtime.
   instance per weak key (see `AssemblyClassification`); do not replace the table with a `Dictionary<Assembly, T>` to get struct values - a strong-keyed dictionary roots every key
   (assembly) for the domain's lifetime, a growth-only leak.
 
+## Value equality
+
+For value objects, implement `IEquatable<T>`, `Equals(object)`, matching `==`/`!=` operators, and `GetHashCode` with the same stored fields. Generic equality then avoids boxing
+through `ValueType.Equals`. Preserve default/null values, quote metadata, and raw presentation fields; computed display fallbacks do not define equality. Use the same string
+comparer for equality and hashing, including `StringComparer.OrdinalIgnoreCase.GetHashCode` rather than lowercasing first. Test equal copies, distinct fields, defaults, boxed
+equality, and hash collection lookup. Do not add content equality to borrowed argument views, leases, enumerators, or mutable state. Their lifetime and ownership contracts need
+separate reasoning.
+
 ## Version-gated snapshots
 
 When a hot path must sweep a collection owned by another type:

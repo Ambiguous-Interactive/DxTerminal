@@ -313,7 +313,7 @@
             Terminal.Shell.AddCommand("paletteping", _ => { }, help: "test command");
 
             int openedCount = 0;
-            _palette.Opened += () => ++openedCount;
+            _palette.Opened += _ => ++openedCount;
             _palette.Open();
             yield return null;
 
@@ -590,6 +590,71 @@
         }
 
         [UnityTest]
+        public IEnumerator CustomPaletteKeysReplaceDefaultsAndAllowAlternativesOrDisabling()
+        {
+            yield return SpawnPalette();
+            int executions = 0;
+            Assert.That(Terminal.Shell.AddCommand("palettecustomkeys1", _ => ++executions, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("palettecustomkeys2", _ => ++executions, minArgs: 0, maxArgs: 0), Is.True);
+            _palette.keyBindings.paletteNext = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F6), new ConsoleKeyBindings.Shortcut(KeyCode.F11) };
+            _palette.keyBindings.palettePrevious = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F7) };
+            _palette.keyBindings.paletteSubmit = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) };
+            _palette.keyBindings.paletteClose = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F9) };
+            _palette.keyBindings.paletteComplete = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F10) };
+            _palette.Open();
+            _palette._input.SetValueWithoutNotify("palettecustomkeys");
+            _palette.SetQuery("palettecustomkeys");
+            Assert.That(_palette._matchNames, Is.EqualTo(new[] { "palettecustomkeys1", "palettecustomkeys2" }));
+
+            KeyCode[] previousKeys = { KeyCode.DownArrow, KeyCode.UpArrow, KeyCode.Return, KeyCode.KeypadEnter, KeyCode.Escape, KeyCode.Tab };
+            foreach (KeyCode key in previousKeys)
+            {
+                Dispatch(key, handled: false);
+                Assert.That(_palette.IsOpen, Is.True);
+                Assert.That(_palette._input.value, Is.EqualTo("palettecustomkeys"));
+                Assert.That(_palette.TryGetSelected(out string selected), Is.True);
+                Assert.That(selected, Is.EqualTo("palettecustomkeys1"));
+                Assert.That(executions, Is.Zero);
+            }
+
+            Dispatch(KeyCode.F10, handled: true);
+            Assert.That(_palette._input.value, Is.EqualTo("palettecustomkeys1"));
+            _palette._input.SetValueWithoutNotify("palettecustomkeys");
+            _palette.SetQuery("palettecustomkeys");
+            Dispatch(KeyCode.F6, handled: true);
+            Assert.That(_palette._input.value, Is.EqualTo("palettecustomkeys2"));
+            Dispatch(KeyCode.F7, handled: true);
+            Assert.That(_palette._input.value, Is.EqualTo("palettecustomkeys1"));
+            Dispatch(KeyCode.F11, handled: true);
+            Assert.That(_palette._input.value, Is.EqualTo("palettecustomkeys2"));
+            _palette.keyBindings.paletteNext = Array.Empty<ConsoleKeyBindings.Shortcut>();
+            Dispatch(KeyCode.F6, handled: false);
+            Dispatch(KeyCode.F11, handled: false);
+            Assert.That(_palette._input.value, Is.EqualTo("palettecustomkeys2"));
+            Dispatch(KeyCode.F8, handled: true);
+            Assert.That(executions, Is.EqualTo(1));
+            Assert.That(_palette.IsOpen, Is.False);
+
+            _palette.Open();
+            _palette.keyBindings.paletteClose = Array.Empty<ConsoleKeyBindings.Shortcut>();
+            Assert.That(_palette._paletteRoot.Q<Label>("PaletteFooter").text, Is.EqualTo("Type a query to find a command."));
+            Dispatch(KeyCode.F9, handled: false);
+            Assert.That(_palette.IsOpen, Is.True, "An empty shortcut list disables its action");
+            _palette.keyBindings.paletteClose = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F9) };
+            Dispatch(KeyCode.F9, handled: true);
+            Assert.That(_palette.IsOpen, Is.False);
+
+            void Dispatch(KeyCode key, bool handled)
+            {
+                using (KeyDownEvent evt = KeyDownEvent.GetPooled('\0', key, EventModifiers.None))
+                {
+                    _palette.HandleKeyDown(evt);
+                    Assert.That(evt.isPropagationStopped, Is.EqualTo(handled), $"The palette routing for {key}");
+                }
+            }
+        }
+
+        [UnityTest]
         public IEnumerator EnterWithNoResultsIsNoOp()
         {
             yield return SpawnPalette();
@@ -846,8 +911,16 @@
 
             int openedCount = 0;
             int closedCount = 0;
-            _palette.Opened += () => ++openedCount;
-            _palette.Closed += () => ++closedCount;
+            _palette.Opened += source =>
+            {
+                Assert.That(source, Is.SameAs(_palette));
+                ++openedCount;
+            };
+            _palette.Closed += source =>
+            {
+                Assert.That(source, Is.SameAs(_palette));
+                ++closedCount;
+            };
 
             _palette.Toggle();
             Assert.IsTrue(_palette.IsOpen, "The first toggle opens the palette");

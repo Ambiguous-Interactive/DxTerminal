@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.UI
+﻿namespace WallstopStudios.DxCommandTerminal.UI
 {
     using System;
     using Backend;
@@ -37,7 +37,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             that ranks against a caret (the palette) re-derives only when the
             value actually moved.
          */
-        public static bool TryApply(TextField field, KeyDownEvent evt, out int? caret)
+        public static bool TryApply(TextField field, KeyDownEvent evt, out int? caret, ConsoleKeyBindings bindings = null)
         {
             if (field == null || evt == null)
             {
@@ -45,14 +45,15 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 return false;
             }
 
-            bool isCut = evt.keyCode == KeyCode.X;
-            if (!isCut && evt.keyCode != KeyCode.C)
+            bindings ??= ConsoleKeyBindings.Default;
+            bool isCut = ConsoleKeyBindings.Matches(evt, bindings.cut);
+            if (!isCut && !ConsoleKeyBindings.Matches(evt, bindings.copy))
             {
                 caret = null;
                 return false;
             }
 
-            if (!evt.commandKey && !evt.ctrlKey)
+            if (isCut && field.isReadOnly)
             {
                 caret = null;
                 return false;

@@ -12,17 +12,24 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 ### Added
 
+- Add configurable per-surface shortcuts for text editing, log navigation, and palette actions ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
+- Add read-only log text selection and copying ([#194](https://github.com/wallstop/DxCommandTerminal/issues/194)).
+- Add terminal open and close events ([#241](https://github.com/wallstop/DxCommandTerminal/issues/241)).
+- Add a Jump to latest button when log following is paused ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
 - Add `CommandArg.AddQuote`, which appends one quote character to `Quotes` in place without touching the rest of the configuration
   ([#229](https://github.com/wallstop/DxCommandTerminal/issues/229)).
 
 ### Changed
 
+- Pass the source component to terminal and palette lifecycle subscribers; palette handlers now accept a `CommandPaletteUI` argument
+  ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Rename the user-facing product name to DxTerminal: the Package Manager display name, the Assets > Create menus, the README and docs titles, and the `[DxTerminal]` console
   diagnostics prefix; package id, namespaces, type names, and persisted paths keep their old names so existing projects and saved settings upgrade in place
   ([#232](https://github.com/wallstop/DxCommandTerminal/issues/232)).
 
 ### Fixed
 
+- Fix theme configuration hashes for equal Unicode names ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Fix generated catalog compilation for signed execution context masks ([#285](https://github.com/wallstop/DxCommandTerminal/issues/285)).
 - Reduce first-use command registration time for large generated catalogs on Mono ([#282](https://github.com/wallstop/DxCommandTerminal/issues/282)).
 - Fix package compilation in Unity 2021.3 ([#264](https://github.com/wallstop/DxCommandTerminal/issues/264)).

@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections;
@@ -358,6 +358,40 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             _terminal.SetCursorBlinkPaused(true);
             yield return WaitForLogScrollSettled();
             yield return CaptureSurface(nameof(CapturesScrollingLogSurface), CaptureBounds.Default());
+            AssertAcceptable(_lastOutcome);
+
+            ScrollView logView = _terminal._uiDocument.rootVisualElement.Q<ScrollView>("LogScrollView");
+            logView.verticalScroller.value = logView.verticalScroller.highValue / 2f;
+            yield return null;
+            yield return null;
+            VisualElement content = logView.contentContainer;
+            TextField selected = null;
+            int rowCount = content.childCount;
+            for (int index = 0; index < rowCount; ++index)
+            {
+                if (content[index] is TextField row && logView.scrollOffset.y <= row.layout.y && row.layout.yMax <= logView.scrollOffset.y + logView.contentViewport.layout.height)
+                {
+                    selected = row;
+                    break;
+                }
+            }
+
+            Assert.That(selected, Is.Not.Null, "A fully visible log row can be selected");
+            selected.Focus();
+            selected.SelectRange(0, Math.Min(20, selected.value.Length));
+            yield return null;
+            Assert.That(_terminal.LogOwnsFocus, Is.True);
+            Assert.That(selected.cursorIndex, Is.Not.EqualTo(selected.selectIndex));
+            Button jump = _terminal._uiDocument.rootVisualElement.Q<Button>("JumpToLatestButton");
+            Assert.That(jump.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            yield return CaptureSurface(nameof(CapturesScrollingLogSurface) + "-selection", CaptureBounds.Default());
+            AssertAcceptable(_lastOutcome);
+
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(selected, key, verified: false);
+            }
+            yield return CaptureSurface(nameof(CapturesScrollingLogSurface) + "-copy-status", CaptureBounds.Default());
             AssertAcceptable(_lastOutcome);
         }
 

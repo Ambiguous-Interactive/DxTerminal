@@ -145,6 +145,9 @@ Add a `TerminalUI` component to a game object. The console window can be toggled
 
 Enter `help` in the console to view all available commands, use the up and down arrow keys to traverse the command history, and the tab key to autocomplete commands.
 
+`TerminalUI.Opened` and `Closed` use `Action<TerminalUI>` and pass the emitting component after the open state changes. Resizing emits neither event. `CommandPaletteUI` lifecycle
+events use `Action<CommandPaletteUI>`.
+
 ## Quick-Launch Bar
 
 Add a `CommandPaletteUI` component next to a `UIDocument` to get a launcher-style command bar with no terminal animation. Press Ctrl+Space (configurable via `toggleHotkey`) to open
@@ -569,7 +572,22 @@ the exact character you copied. Dropping it would lose your text; escaping it th
 
 ## Copying out of the console
 
-The log view is the only place a message, a command echo, or a failing value ever appears, so two commands put it on the system clipboard:
+Each `TerminalUI` and `CommandPaletteUI` has a **Key Bindings** table in the Inspector. Change its keys and modifiers, add alternative bindings, or empty an action's array to
+disable the package shortcut. `controlOrCommand` accepts either platform modifier. Shift and Alt must match the binding. These tables cover copy, cut, paste, undo, redo, log
+paging/search, and palette actions. Existing terminal controller hotkeys remain on the input controller.
+
+```csharp
+terminal.keyBindings.copy = new[]
+{
+    new ConsoleKeyBindings.Shortcut(KeyCode.Insert, EventModifiers.Control),
+};
+terminal.keyBindings.findNext = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
+```
+
+Drag across text in a log row, then press Ctrl+C (Cmd+C on macOS) to copy that span. Log rows are read-only. Selection stays within one row. If copying cannot be verified, a status
+message appears without adding a log entry. Native copy handling remains available.
+
+Two commands copy whole entries:
 
 - `copy-last` copies the newest line.
 - `copy-log` copies every buffered line; `copy-log 20` copies the last 20.
@@ -583,16 +601,16 @@ second write landed, and a browser that accepts the write asynchronously can rea
 
 ## Reading the log with the keyboard
 
-The command line holds panel focus for as long as the console is open, so the terminal routes these to the log itself:
+These keys work from the command line and from a selected log row:
 
 - **Page Up / Page Down** page the log by one viewport.
 - **Ctrl+Home** and **Ctrl+End** (Cmd on macOS) jump to its oldest and newest lines.
 
-Home and End without the modifier stay with the command line, where they move the caret as a text field should. Every other key is untouched - typing, history recall, completion,
-and closing work exactly as they did - except F3 and Shift+F3, which step a log search while one is set (see [Searching the log](#searching-the-log)).
+Home and End without the modifier move the caret in the focused text. History and completion work from the command line. Closing works from either surface. F3 and Shift+F3 step a
+log search while one is set (see [Searching the log](#searching-the-log)).
 
-Paging back detaches the tail exactly as scrolling back does, so new output does not pull the view to the end while you are reading. Ctrl+End is the way back to following. A log
-that has not been laid out - a headless editor, or a view with no rendered Game view - has nothing to page through and stays where it is.
+Paging back detaches the tail exactly as scrolling back does, so new output does not pull the view to the end while you are reading. Ctrl+End or **Jump to latest** resumes
+following. A log that has not been laid out - a headless editor, or a view with no rendered Game view - has nothing to page through and stays where it is.
 
 ## Searching the log
 

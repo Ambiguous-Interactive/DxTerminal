@@ -117,6 +117,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(parked, Is.GreaterThan(scroller.lowValue), "The fill really overflowed the view, so a scroll away has somewhere to go");
             scroller.value = parked;
             yield return WaitForLogValue(parked, "The developer's scroll landed");
+            yield return Settle();
+            Assert.That(JumpButton().resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "A detached view offers a way back to the latest output");
 
             Terminal.Log("arrived while parked");
             yield return Settle();
@@ -136,6 +138,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             scroller.value = scroller.highValue;
             yield return WaitForLogAtEnd(FillMarker, "Reaching the end re-attaches the tail");
+            yield return Settle();
+            Assert.That(JumpButton().resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "A following view hides the jump control");
 
             Terminal.Log("arrived after re-attaching");
             yield return WaitForLogAtEnd("arrived after re-attaching", "A re-attached tail follows the next line");
@@ -160,6 +164,48 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return WaitForLogAtEnd(ProbeLine, "The output of the command just run is shown");
         }
 
+        [UnityTest]
+        public IEnumerator JumpToLatestReattachesWithoutRunningTheDraft()
+        {
+            yield return SpawnOpenTerminal();
+            yield return FillTheLog();
+            yield return WaitForLogAtEnd(FillMarker, "The fill leaves the view at its end");
+            Assert.That(JumpButton().resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "A following view needs no jump control");
+
+            Scroller scroller = LogScroller();
+            float parked = (scroller.lowValue + scroller.value) / 2f;
+            scroller.value = parked;
+            yield return WaitForLogValue(parked, "The developer's scroll landed");
+            yield return Settle();
+            Button button = JumpButton();
+            Assert.That(button.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Scrolling away shows the jump control");
+
+            const string draft = "unfinished command";
+            DefaultTerminalInput.Instance.CommandText = draft;
+            yield return Settle();
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = button;
+                button.SendEvent(evt);
+            }
+
+            yield return WaitForLogAtEnd(FillMarker, "The jump returns to the newest rendered line");
+            yield return Settle();
+            Assert.That(button.resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "The jump control hides after following resumes");
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo(draft), "The jump preserves the draft command");
+            Assert.That(_terminal._commandInput.value, Is.EqualTo(draft), "The command field preserves the draft");
+
+            Terminal.Log("arrived after the jump");
+            yield return WaitForLogAtEnd("arrived after the jump", "The jump follows later output");
+        }
+
+        private Button JumpButton()
+        {
+            Button button = _terminal._uiDocument.rootVisualElement.Q<Button>("JumpToLatestButton");
+            Assert.That(button, Is.Not.Null, "The open terminal has a jump control");
+            return button;
+        }
+
         private ScrollView LogView()
         {
             ScrollView logView = _terminal._uiDocument.rootVisualElement.Q("LogScrollView") as ScrollView;
@@ -182,7 +228,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 return string.Empty;
             }
 
-            return (content[content.childCount - 1] as Label)?.text ?? string.Empty;
+            return (content[content.childCount - 1] as TextField)?.value ?? string.Empty;
         }
 
         /*

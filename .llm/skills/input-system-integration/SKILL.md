@@ -70,3 +70,13 @@ always has. Only `shift+` and `ctrl+` are parsed in a binding string; `cmd+`/`su
 1. Add/extend `ITerminalInput` rather than branching on input system type inside `TerminalUI`.
 2. Keep the precedence table in sync with code and README in the same change.
 3. PlayMode-testable: `Tests/Runtime/Components/TerminalInputHandler.cs` simulates input; extend it for new bindings - see [run-terminal-tests](../run-terminal-tests/SKILL.md).
+
+## UI Toolkit shortcuts
+
+`TerminalUI.keyBindings` and `CommandPaletteUI.keyBindings` configure each surface through `ConsoleKeyBindings`. Keep clipboard, undo/redo, log navigation, and palette actions on
+that same table. The keyboard and PlayerInput controller bindings remain separate. Preserve the default Ctrl/Command pairs. A null or empty action array disables that action;
+`KeyCode.None` never matches. Test remapping, rejection of the old key, disabling, and exact Shift/Alt modifiers across the affected routes.
+
+Lifecycle events on both surfaces pass their sender (`Action<TerminalUI>` / `Action<CommandPaletteUI>`), so shared subscribers can identify the source. Test open/close edges,
+resize/repeated states, surface handoff, and callback reentrancy. A failed copy reports through status outside the log ring; do not append feedback that can evict the selected
+entry. Clear that status on close and leave the unverified copy key available to native fallback.

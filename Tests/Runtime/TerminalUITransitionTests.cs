@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System.Collections;
     using System.Collections.Generic;
@@ -83,6 +83,33 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             }
         }
 
+        [Test]
+        public void SerializedBindingsKeepRemapsAndDisabledActions()
+        {
+            static void AssertMatch(ConsoleKeyBindings.Shortcut[] bindings, KeyCode keyCode, EventModifiers modifiers, bool expected)
+            {
+                using KeyDownEvent evt = KeyDownEvent.GetPooled('\0', keyCode, modifiers);
+                Assert.That(ConsoleKeyBindings.Matches(evt, bindings), Is.EqualTo(expected));
+            }
+
+            ConsoleKeyBindings original = new()
+            {
+                copy = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8, EventModifiers.Shift | EventModifiers.Alt, controlOrCommand: true) },
+                paletteSubmit = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F9), new ConsoleKeyBindings.Shortcut(KeyCode.F10, EventModifiers.Control) },
+                findNext = System.Array.Empty<ConsoleKeyBindings.Shortcut>(),
+            };
+            ConsoleKeyBindings restored = JsonUtility.FromJson<ConsoleKeyBindings>(JsonUtility.ToJson(original));
+            Assert.That(restored, Is.Not.Null);
+            AssertMatch(restored.copy, KeyCode.F8, EventModifiers.Control | EventModifiers.Shift | EventModifiers.Alt, true);
+            AssertMatch(restored.copy, KeyCode.F8, EventModifiers.Command | EventModifiers.Shift | EventModifiers.Alt, true);
+            AssertMatch(restored.copy, KeyCode.C, EventModifiers.Control, false);
+            AssertMatch(restored.paletteSubmit, KeyCode.F9, EventModifiers.None, true);
+            AssertMatch(restored.paletteSubmit, KeyCode.F10, EventModifiers.Control, true);
+            Assert.That(restored.findNext, Is.Empty);
+            AssertMatch(restored.findNext, KeyCode.F3, EventModifiers.None, false);
+            AssertMatch(restored.undo, KeyCode.Z, EventModifiers.Control, true);
+        }
+
         [UnityTest]
         public IEnumerator ToggleCyclesClosedSmallFullClosed()
         {
@@ -101,6 +128,124 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             _terminal.ToggleFull();
             yield return WaitForClosed("A second ToggleFull must close the open terminal");
+        }
+
+        [UnityTest]
+        public IEnumerator EventsFireAfterOpenAndCloseButNotResizeOrRepeatedState()
+        {
+            yield return SpawnTerminal(open: false);
+
+            List<TerminalState> openedStates = new();
+            List<TerminalState> closedStates = new();
+            List<string> closedInputs = new();
+            _terminal.Opened += source =>
+            {
+                Assert.That(source, Is.SameAs(_terminal));
+                openedStates.Add(source.State);
+            };
+            _terminal.Closed += source =>
+            {
+                Assert.That(source, Is.SameAs(_terminal));
+                closedStates.Add(source.State);
+                closedInputs.Add(DefaultTerminalInput.Instance.CommandText);
+            };
+
+            _terminal.Close();
+            _terminal.ToggleSmall();
+            _terminal.SetState(TerminalState.OpenSmall);
+            _terminal.ToggleFull();
+            _terminal.SetState(TerminalState.OpenFull);
+            _terminal.ToggleSmall();
+            DefaultTerminalInput.Instance.CommandText = "pending command";
+            _terminal.Close();
+            _terminal.Close();
+            _terminal.ToggleFull();
+            _terminal.ToggleFull();
+
+            CollectionAssert.AreEqual(new[] { TerminalState.OpenSmall, TerminalState.OpenFull }, openedStates);
+            CollectionAssert.AreEqual(new[] { TerminalState.Closed, TerminalState.Closed }, closedStates);
+            CollectionAssert.AreEqual(new[] { string.Empty, string.Empty }, closedInputs, "Closed handlers must see the cleared input");
+        }
+
+        [UnityTest]
+        public IEnumerator DisableAndDestroyCloseTheTerminalOnce()
+        {
+            yield return SpawnTerminal(open: true);
+
+            int closed = 0;
+            _terminal.Closed += _ => ++closed;
+            _terminal.enabled = false;
+
+            Assert.AreEqual(1, closed, "Disabling the open terminal must notify subscribers");
+            Assert.AreEqual(TerminalState.Closed, _terminal.State);
+
+            _terminal.enabled = true;
+            _terminal.SetState(TerminalState.OpenSmall);
+            UnityEngine.Object.DestroyImmediate(_terminalObject);
+            _terminalObject = null;
+
+            Assert.AreEqual(2, closed, "Destroying the open terminal must notify subscribers once");
+        }
+
+        [UnityTest]
+        public IEnumerator DisableRejectsReopeningFromAClosedHandler()
+        {
+            yield return SpawnTerminal(open: true);
+
+            int closed = 0;
+            _terminal.Closed += _ =>
+            {
+                ++closed;
+                _terminal.SetState(TerminalState.OpenFull);
+            };
+            _terminal.enabled = false;
+
+            Assert.AreEqual(1, closed);
+            Assert.AreEqual(TerminalState.Closed, _terminal.State, "A disable callback cannot leave an open state without its UI");
+
+            _terminal.enabled = true;
+            _terminal.SetState(TerminalState.OpenSmall);
+            Assert.AreEqual(TerminalState.OpenSmall, _terminal.State, "A later enable can open normally");
+        }
+
+        [UnityTest]
+        public IEnumerator PaletteClosedHandlerOpeningTheTerminalRaisesOpenedOnce()
+        {
+            yield return SpawnTerminal(open: false, withPalette: true);
+
+            _palette.Open();
+            int opened = 0;
+            _terminal.Opened += _ => ++opened;
+            _palette.Closed += _ => _terminal.SetState(TerminalState.OpenSmall);
+
+            _terminal.SetState(TerminalState.OpenFull);
+
+            Assert.AreEqual(1, opened, "The outer state change resizes the terminal that the close callback opened");
+            Assert.AreEqual(TerminalState.OpenFull, _terminal.State);
+            Assert.IsFalse(_palette.IsOpen);
+        }
+
+        [UnityTest]
+        public IEnumerator SurfaceTakeoverRaisesTerminalEvents()
+        {
+            yield return SpawnTerminal(open: true, withPalette: true);
+
+            List<string> transitions = new();
+            _terminal.Opened += _ => transitions.Add("terminal opened");
+            _terminal.Closed += _ => transitions.Add("terminal closed");
+            _palette.Opened += _ => transitions.Add("palette opened");
+            _palette.Closed += _ => transitions.Add("palette closed");
+
+            _palette.Open();
+            Assert.AreEqual(TerminalState.Closed, _terminal.State);
+
+            _terminal.ToggleFull();
+            Assert.IsFalse(_palette.IsOpen);
+            CollectionAssert.AreEqual(
+                new[] { "terminal closed", "palette opened", "palette closed", "terminal opened" },
+                transitions,
+                "A surface must close before the other surface opens"
+            );
         }
 
         [UnityTest]

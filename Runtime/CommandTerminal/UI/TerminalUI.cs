@@ -35,6 +35,10 @@
          */
         private const int FindScrollFrameBudget = 4;
 
+        public event Action<TerminalUI> Opened;
+
+        public event Action<TerminalUI> Closed;
+
         public static TerminalUI Instance { get; private set; }
 
         // Cache log callback to reduce allocations
@@ -88,6 +92,8 @@
 
         internal bool WantsScrollToEnd => _needsScrollToEnd;
 
+        private ConsoleKeyBindings KeyBindings => keyBindings ??= new ConsoleKeyBindings();
+
         [Header("Window")]
         [Range(0, 1)]
         public float maxHeight = 0.7f;
@@ -128,6 +134,8 @@
         public HintDisplayMode hintDisplayMode = HintDisplayMode.AutoCompleteOnly;
 
         public bool makeHintsClickable = true;
+
+        public ConsoleKeyBindings keyBindings = new();
 
         [SerializeField]
         [Tooltip("Unique Id for this terminal, mainly for use with persisted configuration")]
@@ -242,6 +250,7 @@
         internal ScrollView _autoCompleteContainer;
 
         private TerminalState _state = TerminalState.Closed;
+        private bool _isClosingForDisable;
         private float _currentWindowHeight;
         private float _targetWindowHeight;
         private float _realWindowHeight;
@@ -300,6 +309,8 @@
         private ScrollView _logScrollView;
         private VisualElement _inputContainer;
         private Button _runButton;
+        private Button _jumpLatestButton;
+        private Label _logCopyStatus;
         private VisualElement _stateButtonContainer;
         private Label _inputCaretLabel;
         private bool _lastKnownHintsClickable;
@@ -562,7 +573,16 @@
                 _unityLogAttached = false;
             }
 
-            SetState(TerminalState.Closed);
+            _isClosingForDisable = true;
+            try
+            {
+                SetState(TerminalState.Closed);
+            }
+            finally
+            {
+                _isClosingForDisable = false;
+            }
+
             TeardownUI();
 
             /*
@@ -878,6 +898,20 @@
             }
         }
 
+        internal bool LogOwnsFocus
+        {
+            get
+            {
+                if (_logScrollView == null || !IsOpenState(_state))
+                {
+                    return false;
+                }
+
+                VisualElement focused = _logScrollView.panel?.focusController?.focusedElement as VisualElement;
+                return focused != null && (_logScrollView.Contains(focused) || focused == _jumpLatestButton || (_jumpLatestButton != null && _jumpLatestButton.Contains(focused)));
+            }
+        }
+
         /*
             Runs once per Play Mode session with the earliest load type, so
             with disabled domain reload it clears what a previous session's
@@ -1085,6 +1119,40 @@
             }
         }
 
+        private static void PreserveFocusedLog(VisualElement content, LogItem[] rendered, int logCount)
+        {
+            VisualElement focused = content.panel?.focusController?.focusedElement as VisualElement;
+            while (focused != null && focused.parent != content)
+            {
+                focused = focused.parent;
+            }
+
+            if (focused is not LogTextField field)
+            {
+                return;
+            }
+
+            for (int index = 0; index < logCount; ++index)
+            {
+                if (rendered[index].Sequence != field.Sequence)
+                {
+                    continue;
+                }
+
+                int previousIndex = content.IndexOf(field);
+                if (index < previousIndex)
+                {
+                    field.PlaceBehind(content[index]);
+                }
+                else if (previousIndex < index)
+                {
+                    field.PlaceInFront(content[index]);
+                }
+
+                return;
+            }
+        }
+
         private static bool TryHandOffToLivePeer(out TerminalUI peer)
         {
             int liveCount = LiveTerminals.Count;
@@ -1198,6 +1266,11 @@
 
         public void SetState(TerminalState newState)
         {
+            if (_isClosingForDisable && IsOpenState(newState))
+            {
+                return;
+            }
+
             _commandIssuedThisFrame = true;
             if (IsOpenState(newState))
             {
@@ -1210,10 +1283,15 @@
                 CommandPaletteUI.CloseAllOn(_uiDocument);
             }
 
+            bool wasOpen = IsOpenState(_state);
             _state = newState;
             if (IsOpenState(_state))
             {
                 EnsureUI();
+                if (!wasOpen)
+                {
+                    ReleaseLogFocus();
+                }
             }
 
             ResetWindowIdempotent();
@@ -1229,6 +1307,10 @@
                     instead of re-running the refresh loop every frame.
                  */
                 _needsFocus = false;
+                if (_logCopyStatus != null)
+                {
+                    _logCopyStatus.style.display = DisplayStyle.None;
+                }
 
                 /*
                     OnDisable routes through here and can run before Awake on a
@@ -1240,6 +1322,19 @@
                 }
 
                 ResetAutoComplete();
+            }
+
+            bool isOpen = IsOpenState(_state);
+            if (wasOpen != isOpen)
+            {
+                if (isOpen)
+                {
+                    Opened?.Invoke(this);
+                }
+                else
+                {
+                    Closed?.Invoke(this);
+                }
             }
         }
 
@@ -1750,6 +1845,32 @@
             }
         }
 
+        internal void RetryInputFocus()
+        {
+            if (CanFocusInput())
+            {
+                _textInput.Focus();
+            }
+        }
+
+        internal void HandleLogCopyResult(TextField field, KeyDownEvent evt, bool verified)
+        {
+            if (field == null || evt == null)
+            {
+                return;
+            }
+
+            if (_logCopyStatus != null)
+            {
+                _logCopyStatus.style.display = verified ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (verified)
+            {
+                KeyEvents.Consume(field, evt);
+            }
+        }
+
         /*
             Internal for test coverage of the first-open tree build
             measurement (see WallstopStudios.DxCommandTerminal.Tests.Runtime).
@@ -1777,6 +1898,8 @@
             _autoCompleteContainer = null;
             _inputContainer = null;
             _runButton = null;
+            _jumpLatestButton = null;
+            _logCopyStatus = null;
             _inputCaretLabel = null;
             _commandInput = null;
             _textInput = null;
@@ -1919,6 +2042,7 @@
             _pendingCaretIndex = candidate.Length;
             _lastCompletionIndex = index;
             _needsFocus = true;
+            FocusInput(allowLogFocus: true);
         }
 
         /*
@@ -2064,9 +2188,8 @@
                 return false;
             }
 
-            bool commandOrCtrl = evt.commandKey || evt.ctrlKey;
-            bool forward = TextFieldUndo.IsRedo(evt.keyCode, commandOrCtrl, evt.shiftKey);
-            if (!forward && !TextFieldUndo.IsUndo(evt.keyCode, commandOrCtrl, evt.shiftKey))
+            bool forward = ConsoleKeyBindings.Matches(evt, KeyBindings.redo);
+            if (!forward && !ConsoleKeyBindings.Matches(evt, KeyBindings.undo))
             {
                 return false;
             }
@@ -2459,6 +2582,17 @@
             InitializeScrollView(_logScrollView);
             _logScrollView.name = "LogScrollView";
             _logScrollView.AddToClassList("log-scroll-view");
+            _logScrollView.RegisterCallback<KeyDownEvent, TerminalUI>(
+                static (evt, context) =>
+                {
+                    if (context.TryScrollLog(evt) || context.TryStepLogFilter(evt))
+                    {
+                        KeyEvents.Consume(context._logScrollView, evt);
+                    }
+                },
+                this,
+                TrickleDown.TrickleDown
+            );
             _terminalContainer.Add(_logScrollView);
             /* A fresh view starts at zero, so no earlier pin describes it. */
             _logTail.Attach();
@@ -2466,6 +2600,11 @@
             _autoCompleteContainer = new ScrollView(ScrollViewMode.Horizontal) { name = "AutoCompletePopup" };
             _autoCompleteContainer.AddToClassList("autocomplete-popup");
             _terminalContainer.Add(_autoCompleteContainer);
+
+            _logCopyStatus = new Label("Clipboard copy could not be verified.") { name = "LogCopyStatus", pickingMode = PickingMode.Ignore };
+            _logCopyStatus.AddToClassList("terminal-copy-status");
+            _logCopyStatus.style.display = DisplayStyle.None;
+            _terminalContainer.Add(_logCopyStatus);
 
             _inputContainer = new VisualElement { name = "InputContainer" };
             _inputContainer.AddToClassList("input-container");
@@ -2611,7 +2750,7 @@
                         return;
                     }
 
-                    if (TextFieldPaste.TryApply(context._commandInput, evt, out _))
+                    if (TextFieldPaste.TryApply(context._commandInput, evt, out _, context.KeyBindings))
                     {
                         /*
                             Consumed the way the bar consumes, not just
@@ -2636,7 +2775,7 @@
                         write answers false, so the key falls through and
                         nothing - not even the selection on a cut - changes.
                      */
-                    if (TextFieldCopyCut.TryApply(context._commandInput, evt, out _))
+                    if (TextFieldCopyCut.TryApply(context._commandInput, evt, out _, context.KeyBindings))
                     {
                         KeyEvents.Consume(context._commandInput, evt);
                         return;
@@ -2658,6 +2797,11 @@
             );
 
             _inputContainer.Add(_commandInput);
+            _jumpLatestButton = new Button(JumpToLatest) { text = "Jump to latest", name = "JumpToLatestButton" };
+            _jumpLatestButton.AddToClassList("terminal-button");
+            _jumpLatestButton.AddToClassList("terminal-button-jump-latest");
+            _jumpLatestButton.style.display = DisplayStyle.None;
+            _inputContainer.Add(_jumpLatestButton);
             ResetTokenCompletion();
             _textInput = _commandInput.Q<VisualElement>("unity-text-input");
 
@@ -2813,19 +2957,29 @@
                 .Every(_cursorBlinkRateMilliseconds);
         }
 
-        private void FocusInput()
+        private void ReleaseLogFocus()
         {
-            if (_textInput == null)
+            VisualElement focused = _logScrollView?.panel?.focusController?.focusedElement as VisualElement;
+            if (focused != null && _logScrollView.Contains(focused))
             {
-                return;
+                focused.Blur();
+            }
+        }
+
+        private bool CanFocusInput(bool allowLogFocus = false)
+        {
+            if (!IsOpenState(_state) || IsPaletteSurfaceOpen() || _textInput == null || _textInput.focusController == null)
+            {
+                return false;
             }
 
-            /*
-                A retry scheduled before the palette opened must not yank
-                panel focus back to the terminal input after the palette
-                took over.
-             */
-            if (IsPaletteSurfaceOpen())
+            VisualElement focused = _textInput.focusController.focusedElement as VisualElement;
+            return allowLogFocus || _logScrollView == null || focused == null || !_logScrollView.Contains(focused);
+        }
+
+        private void FocusInput(bool allowLogFocus = false)
+        {
+            if (!CanFocusInput(allowLogFocus))
             {
                 return;
             }
@@ -2848,16 +3002,6 @@
             _commandInput.cursorIndex = textEndPosition;
             _commandInput.selectIndex = textEndPosition;
 #endif
-        }
-
-        private void RetryInputFocus()
-        {
-            if (IsPaletteSurfaceOpen())
-            {
-                return;
-            }
-
-            _textInput?.Focus();
         }
 
         /*
@@ -2912,43 +3056,63 @@
                 {
                     while (content.childCount < logCount)
                     {
-                        Label logText = new();
+                        LogTextField logText = new()
+                        {
+                            isReadOnly = true,
+                            multiline = true,
+                            tabIndex = -1,
+                        };
                         logText.AddToClassList("terminal-output-label");
+                        logText.RegisterCallback<KeyDownEvent, TerminalUI>(
+                            static (evt, terminal) =>
+                            {
+                                if (
+                                    evt.currentTarget is not TextField field
+                                    || !ConsoleKeyBindings.Matches(evt, terminal.KeyBindings.copy)
+                                    || field.cursorIndex == field.selectIndex
+                                )
+                                {
+                                    return;
+                                }
+
+                                terminal.HandleLogCopyResult(field, evt, TextFieldCopyCut.TryApply(field, evt, out _, terminal.KeyBindings));
+                            },
+                            this,
+                            TrickleDown.TrickleDown
+                        );
                         content.Add(logText);
-                    }
-                }
-                else if (logCount < content.childCount)
-                {
-                    for (int i = content.childCount - 1; logCount <= i; --i)
-                    {
-                        content.RemoveAt(i);
                     }
                 }
             }
 
             if (dirty)
             {
+                PreserveFocusedLog(content, rendered, logCount);
+                for (int i = content.childCount - 1; logCount <= i; --i)
+                {
+                    content.RemoveAt(i);
+                }
+
                 int childCount = content.childCount;
                 for (int i = 0; i < logCount && i < childCount; ++i)
                 {
-                    /*
-                        Every log line this view builds is a Label (created
-                        above), so this loop has one kind to serve. A
-                        TextField and a Button arm used to sit here for
-                        element kinds no code path creates any more (#194);
-                        a foreign child is skipped, not thrown over - the
-                        content container is reachable, and an exception in
-                        the refresh pass would take the update loop's rest,
-                        the hotkey polls included, down with it.
-                     */
-                    if (content[i] is not Label logLabel)
+                    if (content[i] is not LogTextField logText)
                     {
                         continue;
                     }
 
                     LogItem logItem = rendered[i];
-                    SetupLogText(logLabel, logItem);
-                    logLabel.text = logItem.message;
+                    SetupLogText(logText, logItem);
+                    if (logText.Sequence != logItem.Sequence)
+                    {
+                        if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
+                        {
+                            logText.SetValueWithoutNotify(logItem.message);
+                        }
+
+                        logText.Sequence = logItem.Sequence;
+                        logText.SelectRange(0, 0);
+                    }
                 }
 
                 if (logCount == content.childCount)
@@ -2959,6 +3123,7 @@
 
             _needsScrollToEnd |= ObserveLogTail(newLogs);
             ApplyPendingFindScroll(content, logCount);
+            _jumpLatestButton.style.display = _logTail.Detached ? DisplayStyle.Flex : DisplayStyle.None;
             return;
 
             static void SetupLogText(VisualElement logText, LogItem log)
@@ -3134,15 +3299,7 @@
          */
         private bool TryScrollLog(KeyDownEvent evt)
         {
-            /*
-                Both flags, for the reason the paste path checks both: which
-                flag a command modifier arrives in is a per-editor detail
-                (Command on macOS, Control elsewhere, and a Windows key can
-                arrive as Command as well), and a developer who reaches the log
-                with the key their platform calls the command key has to get
-                there whichever flag it arrived in.
-             */
-            if (!LogScrollKeys.TryResolve(evt.keyCode, evt.commandKey || evt.ctrlKey, out LogScrollIntent intent))
+            if (!LogScrollKeys.TryResolve(evt, KeyBindings, out LogScrollIntent intent))
             {
                 return false;
             }
@@ -3192,8 +3349,8 @@
          */
         private bool TryStepLogFilter(KeyDownEvent evt)
         {
-            bool forward = LogFindKeys.IsStepForward(evt.keyCode, evt.shiftKey);
-            if (!forward && !LogFindKeys.IsStepBackward(evt.keyCode, evt.shiftKey))
+            bool forward = LogFindKeys.IsStepForward(evt, KeyBindings);
+            if (!forward && !LogFindKeys.IsStepBackward(evt, KeyBindings))
             {
                 return false;
             }
@@ -3205,6 +3362,15 @@
 
             StepLogFilter(forward);
             return true;
+        }
+
+        private void JumpToLatest()
+        {
+            _pendingFindScroll = null;
+            _logTail.Attach();
+            _needsScrollToEnd = true;
+            _needsFocus = true;
+            _jumpLatestButton.style.display = DisplayStyle.None;
         }
 
         private void ScrollToEnd()
@@ -3693,6 +3859,11 @@
                 _currentWindowHeight = _targetWindowHeight;
                 _isAnimating = false;
             }
+        }
+
+        private sealed class LogTextField : TextField
+        {
+            public long Sequence { get; set; }
         }
 
         private enum ScrollBarCaptureState

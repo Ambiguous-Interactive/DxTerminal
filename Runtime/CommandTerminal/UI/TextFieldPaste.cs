@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.UI
+﻿namespace WallstopStudios.DxCommandTerminal.UI
 {
     using System;
     using System.Text;
@@ -60,15 +60,9 @@ namespace WallstopStudios.DxCommandTerminal.UI
             not an answer there. Every other keystroke, and an empty or
             all-whitespace clipboard, is left alone with the caret at zero.
          */
-        public static bool TryApply(TextField field, KeyDownEvent evt, out int caret)
+        public static bool TryApply(TextField field, KeyDownEvent evt, out int caret, ConsoleKeyBindings bindings = null)
         {
-            if (field == null || evt == null || evt.keyCode != KeyCode.V)
-            {
-                caret = 0;
-                return false;
-            }
-
-            if (!evt.commandKey && !evt.ctrlKey)
+            if (field == null || evt == null || !ConsoleKeyBindings.Matches(evt, (bindings ?? ConsoleKeyBindings.Default).paste))
             {
                 caret = 0;
                 return false;

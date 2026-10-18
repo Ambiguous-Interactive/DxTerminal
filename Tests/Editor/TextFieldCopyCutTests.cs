@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using Backend;
@@ -123,6 +123,45 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             RestoreClipboard(_originalClipboard);
         }
 
+        [TestCase(false, KeyCode.C)]
+        [TestCase(true, KeyCode.X)]
+        public void RemappedCopyAndCutRejectOldKeysAndDisabledActions(bool cut, KeyCode previousKey)
+        {
+            ConsoleKeyBindings bindings = new()
+            {
+                copy = cut ? Array.Empty<ConsoleKeyBindings.Shortcut>() : new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) },
+                cut = cut ? new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) } : Array.Empty<ConsoleKeyBindings.Shortcut>(),
+            };
+            TextField field = FieldWithArrangedSelection("unchanged", 0, 9);
+            using KeyDownEvent previous = KeyDown(previousKey, EventModifiers.Control);
+            Assert.That(TextFieldCopyCut.TryApply(field, previous, out int? caret, bindings), Is.False);
+            Assert.That(caret, Is.Null);
+            bindings.copy = Array.Empty<ConsoleKeyBindings.Shortcut>();
+            bindings.cut = Array.Empty<ConsoleKeyBindings.Shortcut>();
+            using KeyDownEvent custom = KeyDown(KeyCode.F8, EventModifiers.None);
+            Assert.That(TextFieldCopyCut.TryApply(field, custom, out caret, bindings), Is.False);
+            Assert.That(caret, Is.Null);
+            Assert.That(field.value, Is.EqualTo("unchanged"));
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CustomCopyAndCutKeysUseTheConfiguredAction(bool cut)
+        {
+            ConsoleKeyBindings bindings = new()
+            {
+                copy = cut ? Array.Empty<ConsoleKeyBindings.Shortcut>() : new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) },
+                cut = cut ? new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) } : Array.Empty<ConsoleKeyBindings.Shortcut>(),
+            };
+            TextField field = FieldWithArrangedSelection("spawn item torch 1", 6, 16);
+            using KeyDownEvent custom = KeyDown(KeyCode.F8, EventModifiers.None);
+            bool answered = TextFieldCopyCut.TryApply(field, custom, out int? caret, bindings);
+            AssertCopyAnswered(answered, "A configured copy or cut key");
+            Assert.That(TerminalClipboard.Read(), Is.EqualTo("item torch"));
+            Assert.That(field.value, Is.EqualTo(cut ? "spawn  1" : "spawn item torch 1"));
+            Assert.That(caret, Is.EqualTo(cut ? (int?)6 : null));
+        }
+
         [Test]
         public void CopyCarriesTheSelectedSpanVerbatim()
         {
@@ -143,6 +182,31 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.AreEqual(6, caret, "The caret reports where the cut left the field");
             Assert.AreEqual("item torch", TerminalClipboard.Read());
             Assert.AreEqual("spawn  1", field.value, "The span is gone from the value");
+        }
+
+        [TestCase(EventModifiers.Control)]
+        [TestCase(EventModifiers.Command)]
+        public void ReadOnlyFieldsRejectCutBeforeWritingClipboard(EventModifiers modifiers)
+        {
+            ArrangeClipboard("untouched");
+            TextField field = FieldWithArrangedSelection("spawn item torch 1", 6, 16);
+            field.isReadOnly = true;
+            Assert.That(!TextFieldCopyCut.TryApply(field, KeyDown(KeyCode.X, modifiers), out int? caret));
+            Assert.That(caret == null);
+            Assert.AreEqual("spawn item torch 1", field.value);
+            Assert.AreEqual("untouched", TerminalClipboard.Read());
+        }
+
+        [Test]
+        public void ReadOnlyFieldsAllowCopy()
+        {
+            TextField field = FieldWithArrangedSelection("spawn item torch 1", 6, 16);
+            field.isReadOnly = true;
+            bool answered = TextFieldCopyCut.TryApply(field, KeyDown(KeyCode.C, EventModifiers.Control), out int? caret);
+            AssertCopyAnswered(answered, "A read-only selection");
+            Assert.That(caret == null);
+            Assert.AreEqual("item torch", TerminalClipboard.Read());
+            Assert.AreEqual("spawn item torch 1", field.value);
         }
 
         [Test]

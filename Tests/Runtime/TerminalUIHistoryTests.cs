@@ -264,6 +264,28 @@
             }
         }
 
+        [UnityTest]
+        public IEnumerator HistoryUsesConfiguredKeysAndAllowsDisabling()
+        {
+            yield return SpawnOpenTerminal();
+            yield return SetInputText("first");
+            yield return SetInputText("second");
+            _terminal.keyBindings.undo = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F7) };
+            using (KeyDownEvent oldKey = KeyDownEvent.GetPooled('\0', KeyCode.Z, EventModifiers.Control))
+            {
+                Assert.That(_terminal.TryApplyHistoryKey(oldKey), Is.False);
+            }
+            yield return SendKey(KeyCode.F7, EventModifiers.None);
+            yield return WaitForCommandText("first", "Custom undo restores the previous edit");
+            _terminal.keyBindings.redo = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F8) };
+            yield return SendKey(KeyCode.F8, EventModifiers.None);
+            yield return WaitForCommandText("second", "Custom redo restores the undone edit");
+            _terminal.keyBindings.undo = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
+            using KeyDownEvent disabled = KeyDownEvent.GetPooled('\0', KeyCode.F7, EventModifiers.None);
+            Assert.That(_terminal.TryApplyHistoryKey(disabled), Is.False);
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("second"));
+        }
+
         private IEnumerator SpawnOpenTerminal()
         {
 #if UNITY_EDITOR

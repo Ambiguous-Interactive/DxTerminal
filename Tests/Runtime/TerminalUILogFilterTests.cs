@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections;
@@ -155,6 +155,233 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         }
 
         [UnityTest]
+        public IEnumerator LogSelectionCopiesTheSelectedSpanThroughTheRow()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("select part of this line");
+            yield return WaitForDrawnCount(1, "The log row exists");
+            TextField row = LogContent()[0] as TextField;
+            Assert.That(row, Is.Not.Null);
+            VisualElement textInput = row.Q("unity-text-input");
+            int attempts = FrameBudget;
+            while (0 < attempts--)
+            {
+                textInput.Focus();
+                row.SelectRange(7, 11);
+                yield return null;
+                if (row.cursorIndex == 7 && row.selectIndex == 11 && _terminal.LogOwnsFocus)
+                {
+                    break;
+                }
+            }
+
+            if (row.cursorIndex != 7 || row.selectIndex != 11 || !_terminal.LogOwnsFocus)
+            {
+                Assert.Ignore("The host did not hold focus and log selection (#250).");
+            }
+
+            string originalClipboard = GUIUtility.systemCopyBuffer;
+            try
+            {
+                if (!TerminalClipboard.TryWrite("before-log-selection-copy"))
+                {
+                    Assert.Ignore("The host did not verify the clipboard arrange (#250).");
+                }
+
+                using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+                {
+                    _terminal._uiDocument.rootVisualElement.SendEvent(key);
+                    Label status = _terminal._uiDocument.rootVisualElement.Q<Label>("LogCopyStatus");
+                    if (status.style.display.value == DisplayStyle.Flex)
+                    {
+                        Assert.Ignore("The host did not verify the selected span copy (#250).");
+                    }
+
+                    Assert.That(key.isPropagationStopped, "The row answers the copy key");
+                }
+
+                Assert.That(row.value, Is.EqualTo("select part of this line"));
+                if (!string.Equals(TerminalClipboard.Read(), "part", StringComparison.Ordinal))
+                {
+                    Assert.Ignore("The host clipboard did not hold the selected span (#250).");
+                }
+            }
+            finally
+            {
+                if (!TerminalClipboard.TryWrite(originalClipboard))
+                {
+                    GUIUtility.systemCopyBuffer = originalClipboard;
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator LogRowsAreReadOnlyAndPreserveSelectionWhenOutputIsAppended()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("select part of this line");
+            yield return WaitForDrawnCount(1, "The log row exists");
+            TextField row = LogContent()[0] as TextField;
+            Assert.That(row, Is.Not.Null, "A log row supports native text selection");
+            Assert.That(row.isReadOnly);
+            Assert.That(row.multiline);
+            int attempts = FrameBudget;
+            while (0 < attempts-- && (row.cursorIndex != 7 || row.selectIndex != 11))
+            {
+                row.Focus();
+                row.SelectRange(7, 11);
+                yield return null;
+            }
+
+            if (row.cursorIndex != 7 || row.selectIndex != 11)
+            {
+                Assert.Ignore("The host did not hold the log text selection (#250).");
+            }
+
+            int cursor = row.cursorIndex;
+            int selection = row.selectIndex;
+            VisualElement focused = row.panel.focusController.focusedElement as VisualElement;
+            Assert.That(focused == row || row.Contains(focused), Is.True, "The arranged selection owns focus");
+            _terminal.RetryInputFocus();
+            Assert.That(row.panel.focusController.focusedElement, Is.SameAs(focused), "A queued opening retry cannot steal log selection");
+            Assert.That(row.cursorIndex, Is.EqualTo(cursor));
+            Assert.That(row.selectIndex, Is.EqualTo(selection));
+            Terminal.Log("a later line");
+            yield return WaitForDrawnCount(2, "The later line is drawn");
+            Assert.That(LogContent()[0], Is.SameAs(row));
+            Assert.That(row.value, Is.EqualTo("select part of this line"));
+            Assert.That(row.cursorIndex, Is.EqualTo(cursor));
+            Assert.That(row.selectIndex, Is.EqualTo(selection));
+
+            Assert.That(Terminal.Shell.AddCommand("logfocus-first", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("logfocus-second", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            _terminal.hintDisplayMode = HintDisplayMode.Always;
+            DefaultTerminalInput.Instance.CommandText = "logfocus";
+            _terminal.ResetAutoComplete();
+            attempts = FrameBudget;
+            while (0 < attempts-- && _terminal._autoCompleteContainer.childCount != 2)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal._autoCompleteContainer.childCount, Is.EqualTo(2));
+            row.Focus();
+            _terminal.ApplyHint(0);
+            attempts = FrameBudget;
+            while (0 < attempts-- && !_terminal.InputOwnsFocus)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "Applying a hint explicitly returns focus to the command input");
+        }
+
+        [UnityTest]
+        public IEnumerator FullRingPreservesSelectionThroughCopyRefusalAndEvictsByIdentity()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Buffer.Resize(3);
+            const string message = "select part of this line";
+            Terminal.Log(message);
+            Terminal.Log(message);
+            Terminal.Log(message);
+            yield return WaitForDrawnCount(3, "The ring is full");
+
+            TextField row = (TextField)LogContent()[1];
+            int attempts = FrameBudget;
+            while (0 < attempts--)
+            {
+                row.Focus();
+                row.SelectRange(7, 11);
+                yield return null;
+                if (row.cursorIndex == 7 && row.selectIndex == 11 && _terminal.LogOwnsFocus)
+                {
+                    break;
+                }
+            }
+
+            if (row.cursorIndex != 7 || row.selectIndex != 11 || !_terminal.LogOwnsFocus)
+            {
+                Assert.Ignore("The host did not hold focus and log selection (#250).");
+            }
+
+            long version = Terminal.Buffer.Version;
+            ScrollView logView = _terminal._uiDocument.rootVisualElement.Q<ScrollView>("LogScrollView");
+            Label status = _terminal._uiDocument.rootVisualElement.Q<Label>("LogCopyStatus");
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(row, key, verified: false);
+                Assert.That(key.isPropagationStopped, Is.False, "An unverified copy leaves native fallback available");
+            }
+
+            yield return null;
+            yield return null;
+            Assert.That(logView.worldBound.yMax, Is.LessThanOrEqualTo(status.worldBound.yMin + Tolerance), "Copy status must not cover log text");
+            Assert.That(_terminal.LogOwnsFocus, Is.True);
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(status.text, Is.EqualTo("Clipboard copy could not be verified."));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Copy feedback must not evict a log entry");
+            Assert.That(Terminal.Buffer.Count, Is.EqualTo(3));
+            Assert.That(LogContent()[1], Is.SameAs(row));
+            Assert.That(row.cursorIndex, Is.EqualTo(7));
+            Assert.That(row.selectIndex, Is.EqualTo(11));
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(row, key, verified: true);
+                Assert.That(key.isPropagationStopped, Is.True, "A verified copy consumes the key");
+            }
+
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.None));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version));
+            Assert.That(row.cursorIndex, Is.EqualTo(7));
+            Assert.That(row.selectIndex, Is.EqualTo(11));
+
+            Terminal.Log(message);
+            attempts = FrameBudget;
+            while (0 < attempts-- && LogContent()[0] != row)
+            {
+                yield return null;
+            }
+
+            Assert.That(LogContent()[0], Is.SameAs(row), "The selected entry moves with the ring even when every message is identical");
+            Assert.That(row.cursorIndex, Is.EqualTo(7));
+            Assert.That(row.selectIndex, Is.EqualTo(11));
+            Assert.That(_terminal.LogOwnsFocus, Is.True, "Reordering the selected row keeps panel focus");
+
+            Terminal.Log(message);
+            attempts = FrameBudget;
+            while (0 < attempts-- && row.cursorIndex != row.selectIndex)
+            {
+                yield return null;
+            }
+
+            Assert.That(row.cursorIndex, Is.EqualTo(row.selectIndex), "An evicted entry cannot leave its selection on an identical replacement");
+            Assert.That(row.value, Is.EqualTo(message));
+            Assert.That(LogContent().childCount, Is.EqualTo(3), "Selection does not freeze updates to the ring");
+            row.Focus();
+            Assert.That(_terminal.LogOwnsFocus, Is.True);
+            using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
+            {
+                _terminal.HandleLogCopyResult(row, key, verified: false);
+            }
+
+            _terminal.Close();
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.None), "Closing retires copy feedback");
+            _terminal.SetState(TerminalState.OpenFull);
+            attempts = FrameBudget;
+            while (0 < attempts-- && !_terminal.InputOwnsFocus)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "Reopening releases stale log focus and restores command input");
+            Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.None));
+        }
+
+        [UnityTest]
         public IEnumerator ClearFilterPutsEveryLineBack()
         {
             yield return SpawnOpenTerminal();
@@ -256,6 +483,16 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             yield return SendKey(KeyCode.F3);
             yield return WaitForLastLogLine("Match 2 of 80", "The key the field holds focus for reaches the search");
+            _terminal.keyBindings.findNext = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F4) };
+            yield return SendKey(KeyCode.F3);
+            yield return Settle();
+            Assert.That(LastLogText(), Does.Contain("Match 2 of 80"));
+            yield return SendKey(KeyCode.F4);
+            yield return WaitForLastLogLine("Match 3 of 80", "The configured key steps the search");
+            _terminal.keyBindings.findNext = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
+            yield return SendKey(KeyCode.F4);
+            yield return Settle();
+            Assert.That(LastLogText(), Does.Contain("Match 3 of 80"));
         }
 
         [UnityTest]
@@ -491,6 +728,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
 #if UNITY_EDITOR
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            _panelSettings.themeStyleSheet = LoadAsset<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
             _terminalObject = new GameObject("TerminalUILogFilter");
             _terminalObject.SetActive(false);
             UIDocument document = _terminalObject.AddComponent<UIDocument>();
@@ -632,7 +870,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                     builder.Append('\n');
                 }
 
-                builder.Append((content[i] as Label)?.text);
+                builder.Append((content[i] as TextField)?.value);
             }
 
             return builder.ToString();

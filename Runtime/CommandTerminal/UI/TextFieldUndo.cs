@@ -34,7 +34,7 @@
         MaxEntries and the oldest state is dropped when it is reached, so a
         session costs a fixed amount however long it runs.
 
-        Ctrl+Z steps back and Ctrl+Shift+Z steps forward (Cmd on macOS). Both
+        By default Ctrl+Z steps back and Ctrl+Shift+Z steps forward (Cmd on macOS). Both
         flags decide the command modifier, for the reason the paste path and
         the log paging path read both: which flag a command modifier arrives in
         is a per-editor detail.
@@ -60,22 +60,6 @@
         public TextFieldUndo()
         {
             _entries.Add(new Entry(string.Empty, 0));
-        }
-
-        /*
-            Undo and redo are one predicate pair rather than one method, so a
-            caller reads the two keys it is answering instead of a boolean that
-            could be either. Shift is what separates them, and the same way it
-            separates them in every editor the developer types in.
-         */
-        public static bool IsUndo(KeyCode keyCode, bool commandOrCtrl, bool shiftKey)
-        {
-            return KeyCode.Z == keyCode && commandOrCtrl && !shiftKey;
-        }
-
-        public static bool IsRedo(KeyCode keyCode, bool commandOrCtrl, bool shiftKey)
-        {
-            return KeyCode.Z == keyCode && commandOrCtrl && shiftKey;
         }
 
         /*

@@ -51,7 +51,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnClose(InputValue inputValue)
         {
-            if (!ShouldHandleMessage("Close"))
+            if (!ShouldHandleMessage("Close", allowLogFocus: true))
             {
                 return;
             }
@@ -161,9 +161,9 @@ namespace WallstopStudios.DxCommandTerminal.Input
             answer only <see cref="IsLive"/>, because the stroke that opens a
             surface must be the stroke that closes it (#218).
          */
-        private bool ShouldHandleMessage(string actionName)
+        private bool ShouldHandleMessage(string actionName, bool allowLogFocus = false)
         {
-            if (!IsLive())
+            if (!IsLive() || (!allowLogFocus && terminal.LogOwnsFocus))
             {
                 return false;
             }

@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Backend
+﻿namespace WallstopStudios.DxCommandTerminal.Backend
 {
     using System;
 
@@ -8,7 +8,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     ///     override carries <c>null</c> and the completion context's range
     ///     applies.
     /// </summary>
-    public readonly struct CommandCompletionReplacement
+    public readonly struct CommandCompletionReplacement : IEquatable<CommandCompletionReplacement>
     {
         /// <summary>Start index of the replaced range within the input line.</summary>
         public int Start { get; }
@@ -30,6 +30,31 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
             Start = start;
             Length = length;
+        }
+
+        public static bool operator ==(CommandCompletionReplacement left, CommandCompletionReplacement right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(CommandCompletionReplacement left, CommandCompletionReplacement right)
+        {
+            return !left.Equals(right);
+        }
+
+        public bool Equals(CommandCompletionReplacement other)
+        {
+            return Start == other.Start && Length == other.Length;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is CommandCompletionReplacement other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Start, Length);
         }
 
         public override string ToString()

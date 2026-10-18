@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Backend
+﻿namespace WallstopStudios.DxCommandTerminal.Backend
 {
     using System;
 
@@ -7,7 +7,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     ///     <see cref="CommandCompletionProvider"/>. Insertion text is
     ///     required; display and description are optional presentation data.
     /// </summary>
-    public readonly struct CommandCompletion
+    public readonly struct CommandCompletion : IEquatable<CommandCompletion>
     {
         /// <summary>
         ///     Text inserted when the completion is accepted. Values
@@ -41,6 +41,34 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             DisplayLabel = displayLabel;
             Description = description;
             Replacement = replacement;
+        }
+
+        public static bool operator ==(CommandCompletion left, CommandCompletion right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(CommandCompletion left, CommandCompletion right)
+        {
+            return !left.Equals(right);
+        }
+
+        public bool Equals(CommandCompletion other)
+        {
+            return string.Equals(InsertionText, other.InsertionText, StringComparison.Ordinal)
+                && string.Equals(DisplayLabel, other.DisplayLabel, StringComparison.Ordinal)
+                && string.Equals(Description, other.Description, StringComparison.Ordinal)
+                && Nullable.Equals(Replacement, other.Replacement);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is CommandCompletion other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(InsertionText, DisplayLabel, Description, Replacement);
         }
     }
 }

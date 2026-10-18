@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections;
@@ -174,8 +174,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             }
 
             Assert.AreEqual(1, logView.contentContainer.childCount, "Opening the terminal syncs output logged while it was closed");
-            Label loggedLine = logView.contentContainer[0] as Label;
-            Assert.AreEqual("while-closed", loggedLine?.text, "The buffered message must survive the closed window");
+            TextField loggedLine = logView.contentContainer[0] as TextField;
+            Assert.AreEqual("while-closed", loggedLine?.value, "The buffered message must survive the closed window");
         }
 
         [UnityTest]

@@ -19,7 +19,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const linterPath = path.join(repoRoot, "scripts", "lint-member-ordering.mjs");
-const { maskNoise, regionKeys, analyzeFile, applyEdits, ORDER_TIERS, enumViolations } = await import(
+const { maskNoise, regionKeys, analyzeFile, applyEdits, classifyMember, ORDER_TIERS, enumViolations } = await import(
   pathToFileURL(linterPath).href
 );
 
@@ -106,6 +106,46 @@ function fixedText(source) {
     text = applyEdits(text, result.edits);
   }
   return text;
+}
+
+for (const operator of ["==", "!=", "<=", ">=", "<", ">", "+", "implicit", "explicit"]) {
+  for (const expressionBody of [false, true]) {
+    test(`operators: ${operator} with ${expressionBody ? "expression" : "block"} body is a static method`, () => {
+      const conversion = operator === "implicit" || operator === "explicit";
+      const signature = conversion
+        ? `public static ${operator} operator int(Value value)`
+        : `public static bool operator ${operator}(Value left, Value right)`;
+      const value = conversion ? "0" : "true";
+      const declaration = `${signature} ${expressionBody ? `=> ${value};` : `{ return ${value}; }`}`;
+      assert.deepStrictEqual(
+        classifyMember(maskNoise(declaration), { headerStart: 0, end: declaration.length }, "Value"),
+        { tier: "static method", access: "public" }
+      );
+      const source = `class Value { public void M() { } ${declaration} private int _field; public Value() { } }`;
+      assert.ok(violationsIn(source).length !== 0);
+      const fixed = fixedText(source);
+      assert.deepStrictEqual(violationsIn(fixed), []);
+      assert.ok(fixed.includes(declaration), "the fix preserves the whole operator declaration");
+      assert.ok(fixed.indexOf("private int _field") < fixed.indexOf("public Value()"));
+      assert.ok(fixed.indexOf("public Value()") < fixed.indexOf(signature));
+      assert.ok(fixed.indexOf(signature) < fixed.indexOf("public void M()"));
+      assert.strictEqual(applyEdits(fixed, analyzeFile(fixed).edits), fixed);
+    });
+  }
+}
+
+for (const [declaration, tier] of [
+  ["public static int @operator = 1;", "static field"],
+  ["public static bool Equal = 1 == 1;", "static field"],
+  ["public static int @operator { get; set; }", "static property"],
+  ["public static bool @operator => 1 == 1;", "static property"],
+]) {
+  test(`operators: unrelated declaration stays a ${tier}: ${declaration}`, () => {
+    assert.deepStrictEqual(
+      classifyMember(maskNoise(declaration), { headerStart: 0, end: declaration.length }, "Value"),
+      { tier, access: "public" }
+    );
+  });
 }
 
 /** Shapes that are NOT a nested type declaration between members, and shapes the member
