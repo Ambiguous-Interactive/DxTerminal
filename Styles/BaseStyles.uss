@@ -73,7 +73,7 @@
 
 .terminal-search-field > .unity-base-field__label {
     min-width: 0;
-    width: 52px;
+    width: 72px;
     flex-shrink: 0;
     margin: 0 4px 0 0;
 }
