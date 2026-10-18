@@ -282,7 +282,6 @@
 
             long version = Terminal.Buffer.Version;
             ScrollView logView = _terminal._uiDocument.rootVisualElement.Q<ScrollView>("LogScrollView");
-            float viewportHeight = logView.contentViewport.layout.height;
             Label status = _terminal._uiDocument.rootVisualElement.Q<Label>("LogCopyStatus");
             using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
             {
@@ -292,7 +291,7 @@
 
             yield return null;
             yield return null;
-            Assert.That(logView.contentViewport.layout.height, Is.EqualTo(viewportHeight).Within(Tolerance));
+            Assert.That(logView.worldBound.yMax, Is.LessThanOrEqualTo(status.worldBound.yMin + Tolerance), "Copy status must not cover log text");
             Assert.That(_terminal.LogOwnsFocus, Is.True);
             Assert.That(status.style.display.value, Is.EqualTo(DisplayStyle.Flex));
             Assert.That(status.text, Is.EqualTo("Clipboard copy could not be verified."));

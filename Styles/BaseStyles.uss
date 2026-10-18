@@ -121,10 +121,7 @@
 }
 
 .terminal-copy-status {
-    position: absolute;
-    bottom: 30px;
-    left: 2px;
-    right: 2px;
+    flex-shrink: 0;
     color: var(--text-warning);
     background-color: var(--terminal-bg);
     white-space: normal;
