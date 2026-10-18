@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     /*
         Every member needs the Input System's device APIs and the
@@ -8,6 +8,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
      */
 #if ENABLE_INPUT_SYSTEM
     using System.Collections;
+    using System.Collections.Generic;
     using Input;
     using NUnit.Framework;
     using UnityEngine.InputSystem;
@@ -40,6 +41,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             covers them all.
          */
         private static readonly string[] DefaultHotkeys = { "`", "#`", "tab", "#tab", "up", "down", "enter", "return", "escape" };
+
+        private readonly List<Keyboard> _ownedKeyboards = new();
+        private Keyboard _originalKeyboard;
+        private int? _originalDeviceId;
+        private bool _originalKeyboardEnabled;
 
         private static void PollAllDefaultHotkeys()
         {
@@ -76,20 +82,45 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [SetUp]
         public void SetUp()
         {
+            _originalKeyboard = Keyboard.current;
+            _originalDeviceId = _originalKeyboard?.deviceId;
+            _originalKeyboardEnabled = _originalKeyboard?.enabled ?? false;
+            if (_originalKeyboard == null)
+            {
+                AddOwnedKeyboard();
+            }
             InputHelpers.ResetControlMemoForTesting();
         }
 
         [TearDown]
         public void TearDown()
         {
-            /*
-                A test that failed mid-removal leaves no keyboard for the
-                suites after this one; the reset is idempotent when the
-                keyboard is already back.
-             */
-            if (Keyboard.current == null)
+            foreach (Keyboard keyboard in _ownedKeyboards)
             {
-                InputSystem.AddDevice<Keyboard>();
+                InputSystem.RemoveDevice(keyboard);
+            }
+            _ownedKeyboards.Clear();
+
+            if (_originalKeyboard != null)
+            {
+                InputSystem.AddDevice(_originalKeyboard);
+                if (_originalKeyboardEnabled)
+                {
+                    InputSystem.EnableDevice(_originalKeyboard);
+                }
+                else
+                {
+                    InputSystem.DisableDevice(_originalKeyboard);
+                }
+                _originalKeyboard.MakeCurrent();
+            }
+            InputHelpers.ResetControlMemoForTesting();
+
+            Assert.That(Keyboard.current, Is.SameAs(_originalKeyboard), "Device tests restore the original keyboard identity");
+            if (_originalKeyboard != null)
+            {
+                Assert.That(_originalKeyboard.deviceId, Is.EqualTo(_originalDeviceId));
+                Assert.That(_originalKeyboard.enabled, Is.EqualTo(_originalKeyboardEnabled));
             }
         }
 
@@ -105,7 +136,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             if (Keyboard.current == null)
             {
-                InputSystem.AddDevice<Keyboard>();
+                AddOwnedKeyboard();
             }
 
             /*
@@ -188,7 +219,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             }
             finally
             {
-                InputSystem.AddDevice<Keyboard>();
+                AddOwnedKeyboard();
             }
 
             Assert.That(Keyboard.current != null, "The re-added keyboard answers polls again");
@@ -201,7 +232,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             if (Keyboard.current == null)
             {
-                InputSystem.AddDevice<Keyboard>();
+                AddOwnedKeyboard();
             }
 
             PollAllDefaultHotkeys();
@@ -218,11 +249,16 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 state.
              */
             InputSystem.RemoveDevice(Keyboard.current);
-            InputSystem.AddDevice<Keyboard>();
+            AddOwnedKeyboard();
             PollAllDefaultHotkeys();
             Assert.That(resolutionsAfterFirstPass < InputHelpers.ControlResolutionsForTesting, "A different keyboard re-resolves the controls");
 
             yield return null;
+        }
+
+        private void AddOwnedKeyboard()
+        {
+            _ownedKeyboards.Add(InputSystem.AddDevice<Keyboard>());
         }
     }
 #endif
