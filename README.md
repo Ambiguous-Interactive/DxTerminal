@@ -614,6 +614,12 @@ following. A log that has not been laid out - a headless editor, or a view with 
 
 ## Searching the log
 
+Use **Search** in the terminal header to filter output. **Prev**, **Next**, Enter, and Shift+Enter step matches. **Clear**, or an empty field, restores all lines. The count updates
+with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`.
+
+The header also has **Small** / **Full** and **Close** controls. Below 480 panel points, controls grow to at least 44 points. The optional legacy state buttons remain available as
+closed-terminal launchers.
+
 The log holds the newest 256 lines by default and nothing else, so reaching one of them means reading past the rest. Two commands narrow the view and one steps through it:
 
 - `find NullRef` shows only the lines holding the text, and jumps to the first one.
@@ -627,23 +633,20 @@ however many times you run it.
 
 The search is over the text as the log shows it, so what you can see is what you can find, and it ignores case: `nullref` reaches `NullReferenceException`.
 
-Four limits worth knowing before you rely on it:
+Search limits:
 
 - It does not find the commands you ran, or the console's own answers. Both surfaces echo the line you typed into the log, and a search that matched its own echo would report a hit
   for every query, including one that appears nowhere; the same goes for the line the search writes when it tells you what it found. Use `copy-log` for a transcript with your
   commands in it.
-- The query is only recorded as the `find` line in the log. Once that line rotates out of the buffer - or you run `clear-console` - nothing on screen says the view is filtered, and
-  the query is gone. `clear-filter` is how you put the log back.
 - `clear-console` does not drop the search. The view goes empty until the next `clear-filter` or a new `find`.
-- F3 and Shift+F3 need the command line to hold focus, as the paging keys do, and the jump to a match needs a log view that has been laid out. A view with no rendered Game view
-  filters but does not scroll.
+- F3 and Shift+F3 work from the command line, search field, or a selected log row. A jump needs a laid-out log view. A view with no rendered Game view filters but does not scroll.
 
 Binding a hotkey to `f3` fires that binding as well while a search is set; the terminal reads the key independently of your bindings.
 
 ## Typing wins over a character binding, except the toggles
 
-A binding that presses a character key is left to the field being typed into. While the command line or the palette search bar has focus, pressing the key types the character and
-does not run the binding.
+A binding that presses a character key is left to the field being typed into. While the command line, log search, or palette search bar has focus, pressing the key types the
+character and does not run the binding.
 
 The toggle bindings are the exception: the console key is reserved by the surface it opens. `` ` `` (toggle) and `` #` `` (full) open and close their surface every press, even
 while a field has focus - the stroke that opens the console is the stroke that closes it. The cost of the reservation is the character: a toggle press that closes the console

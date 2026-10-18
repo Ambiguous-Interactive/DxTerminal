@@ -472,8 +472,33 @@
             Terminal.Log("capture-narrow ready");
             Terminal.Log(WrappedLine);
             _terminal.SetCursorBlinkPaused(true);
-            yield return CaptureSurface(nameof(CapturesNarrowScreenTerminalSmall), CaptureBounds.Default(), NarrowCaptureWidth, NarrowCaptureHeight);
-            AssertAcceptable(_lastOutcome);
+            _terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput").value = "capture";
+            RenderTexture target = AttachRenderTarget(nameof(CapturesNarrowScreenTerminalSmall), NarrowCaptureWidth, NarrowCaptureHeight);
+            try
+            {
+                yield return SettleRenders();
+                VisualElement root = _terminal._uiDocument.rootVisualElement;
+                _lastOutcome = FinishCapture(nameof(CapturesNarrowScreenTerminalSmall), target, CaptureBounds.Default(), root);
+                AssertAcceptable(_lastOutcome);
+                Assert.That(root.Q("TerminalRoot").ClassListContains("terminal-root--narrow"), Is.True);
+                foreach (
+                    string name in new[] { "TerminalSizeButton", "TerminalCloseButton", "LogSearchInput", "LogSearchPrevious", "LogSearchNext", "LogSearchClear", "CommandInput" }
+                )
+                {
+                    VisualElement control = root.Q(name);
+                    Assert.That(control.layout.height, Is.GreaterThanOrEqualTo(44), name);
+                    Assert.That(control.layout.width, Is.GreaterThanOrEqualTo(44), name);
+                    Assert.That(control.worldBound.xMin, Is.GreaterThanOrEqualTo(root.worldBound.xMin - 0.5f), name);
+                    Assert.That(control.worldBound.xMax, Is.LessThanOrEqualTo(root.worldBound.xMax + 0.5f), name);
+                    Assert.That(control.worldBound.yMax, Is.LessThanOrEqualTo(root.Q("TerminalContainer").worldBound.yMax + 0.5f), name);
+                }
+                Assert.That(root.Q<TextField>("LogSearchInput").Q("unity-text-input").layout.width, Is.GreaterThanOrEqualTo(100), "Search keeps room for a query");
+                Assert.That(root.Q<ScrollView>("LogScrollView").layout.height, Is.GreaterThanOrEqualTo(30), "A narrow terminal keeps space for output");
+            }
+            finally
+            {
+                DetachRenderTarget(target);
+            }
         }
 
         /*

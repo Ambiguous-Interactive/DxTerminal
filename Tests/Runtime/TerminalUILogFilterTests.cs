@@ -120,6 +120,15 @@
             yield return null;
         }
 
+        private static void Submit(Button button)
+        {
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = button;
+                button.SendEvent(evt);
+            }
+        }
+
         [SetUp]
         public void SetUp()
         {
@@ -139,6 +148,177 @@
             {
                 UnityEngine.Object.Destroy(_panelSettings);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator HeaderSearchRepaintsEqualCountsWithoutWritingToTheLog()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("alpha only");
+            Terminal.Log("beta only");
+            yield return WaitForDrawnCount(2, "Both lines are drawn");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            TextField search = root.Q<TextField>("LogSearchInput");
+            Assert.That(search, Is.Not.Null);
+            long version = Terminal.Buffer.Version;
+            search.value = "alpha";
+            yield return WaitForDrawnText("alpha only", "Header search finds alpha");
+            Assert.That(LogContent().childCount, Is.EqualTo(1));
+            search.value = "beta";
+            yield return WaitForDrawnText("beta only", "Equal match counts replace the drawn line");
+            Assert.That(DrawnText(), Does.Not.Contain("alpha only"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("1 of 2"));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Search does not evict game output");
+            search.value = "missing";
+            yield return WaitForDrawnCount(0, "No match leaves the log empty");
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("0 of 2"));
+            search.value = "   ";
+            yield return WaitForDrawnCount(2, "An empty search restores all lines");
+        }
+
+        [UnityTest]
+        public IEnumerator CommandSearchAndHeaderShareStateAcrossRebuild()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("alpha first");
+            Terminal.Log("alpha second");
+            Terminal.Log("beta only");
+            yield return RunCommand("find alpha");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Assert.That(root.Q<TextField>("LogSearchInput").value, Is.EqualTo("alpha"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3"));
+#if UNITY_EDITOR
+            TextField previousSearch = root.Q<TextField>("LogSearchInput");
+            SerializedObject inspector = new(_terminal);
+            inspector.FindProperty(nameof(TerminalUI.showGUIButtons)).boolValue = true;
+            inspector.ApplyModifiedPropertiesWithoutUndo();
+            int attempts = FrameBudget;
+            while (0 < attempts-- && ReferenceEquals(root.Q<TextField>("LogSearchInput"), previousSearch))
+            {
+                yield return null;
+            }
+            Assert.That(root.Q<TextField>("LogSearchInput"), Is.Not.SameAs(previousSearch), "The inspector rebuilt the toolbar");
+            yield return Settle();
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3"), "A new toolbar repopulates unchanged counts");
+#endif
+            _terminal.TeardownUI();
+            _terminal.EnsureUI();
+            yield return Settle();
+            root = _terminal._uiDocument.rootVisualElement;
+            Assert.That(root.Q<TextField>("LogSearchInput").value, Is.EqualTo("alpha"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3"));
+            yield return RunCommand("clear-filter");
+            Assert.That(root.Q<TextField>("LogSearchInput").value, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator HeaderControlsPreserveTheDraftUntilClose()
+        {
+            yield return SpawnOpenTerminal();
+            const string draft = "unfinished command";
+            DefaultTerminalInput.Instance.CommandText = draft;
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Button size = root.Q<Button>("TerminalSizeButton");
+            Assert.That(size, Is.Not.Null);
+            Submit(size);
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall));
+            Submit(size);
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenFull));
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo(draft));
+            Submit(root.Q<Button>("TerminalCloseButton"));
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.Closed));
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator HeaderSearchKeepsTheDraftAndReleasesFocusOnReopen()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("alpha first");
+            Terminal.Log("alpha second");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            TextField search = root.Q<TextField>("LogSearchInput");
+            const string draft = "unfinished command";
+            DefaultTerminalInput.Instance.CommandText = draft;
+            search.Q("unity-text-input").Focus();
+            yield return Settle();
+            Assert.That(_terminal.SearchOwnsFocus, Is.True);
+            Assert.That(TerminalUI.AnyConsoleFieldOwnsFocus(), Is.True, "Search typing owns text-producing hotkeys");
+            search.value = "alpha";
+            yield return Settle();
+            _terminal.RetryInputFocus();
+            Assert.That(_terminal.SearchOwnsFocus, Is.True);
+            Submit(root.Q<Button>("TerminalSizeButton"));
+            yield return Settle();
+            Assert.That(_terminal.SearchOwnsFocus, Is.True, "Resizing preserves the search focus");
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo(draft));
+#if ENABLE_INPUT_SYSTEM
+            _terminalObject.AddComponent<UnityEngine.InputSystem.PlayerInput>();
+            TerminalPlayerInputController controller = _terminalObject.AddComponent<TerminalPlayerInputController>();
+            long version = Terminal.Buffer.Version;
+            controller.OnEnterCommand(null);
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Controller Enter cannot submit the command draft while searching");
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo(draft));
+#endif
+            _terminal.Close();
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.Empty);
+            _terminal.SetState(TerminalState.OpenFull);
+            int attempts = FrameBudget;
+            while (0 < attempts-- && !_terminal.InputOwnsFocus)
+            {
+                yield return null;
+            }
+
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "Reopening releases stale search focus");
+            Assert.That(_terminal.SearchOwnsFocus, Is.False);
+            Assert.That(search.value, Is.EqualTo("alpha"));
+        }
+
+        [UnityTest]
+        public IEnumerator HeaderNavigationDoesNotWriteToTheLog()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("alpha first");
+            Terminal.Log("alpha second");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            TextField search = root.Q<TextField>("LogSearchInput");
+            search.value = "alpha";
+            yield return Settle();
+            _terminal.keyBindings.findNext = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F6) };
+            _terminal.keyBindings.findPrevious = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F7) };
+            long version = Terminal.Buffer.Version;
+            KeyCode[] keys = { KeyCode.Return, KeyCode.F6, KeyCode.F7, KeyCode.KeypadEnter };
+            foreach (KeyCode keyCode in keys)
+            {
+                using (KeyDownEvent evt = KeyDownEvent.GetPooled('\0', keyCode, EventModifiers.None))
+                {
+                    evt.target = search;
+                    search.SendEvent(evt);
+                    Assert.That(evt.isPropagationStopped, Is.True);
+                }
+            }
+
+            Submit(root.Q<Button>("LogSearchPrevious"));
+            Submit(root.Q<Button>("LogSearchNext"));
+            yield return Settle();
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2"));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Toolbar navigation cannot evict game output");
+            Terminal.Buffer.Clear();
+            version = Terminal.Buffer.Version;
+            Submit(root.Q<Button>("LogSearchNext"));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "A stale match button stays silent after log eviction");
+            search.value = "missing";
+            yield return Settle();
+            Assert.That(root.Q<Button>("LogSearchNext").enabledSelf, Is.False);
+            Assert.That(root.Q<Button>("LogSearchPrevious").enabledSelf, Is.False);
+            Submit(root.Q<Button>("LogSearchClear"));
+            yield return Settle();
+            Assert.That(search.value, Is.Empty);
+            Assert.That(root.Q<Button>("LogSearchClear").enabledSelf, Is.False);
         }
 
         [UnityTest]
