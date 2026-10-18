@@ -131,6 +131,20 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(actualErrors, Is.EqualTo(errors));
         }
 
+        [Test]
+        public void EntryTimeIsUtcAndSurvivesBufferCopies()
+        {
+            DateTime before = DateTime.UtcNow;
+            _log.HandleLog("timed entry", string.Empty, TerminalLogType.Message);
+            DateTime after = DateTime.UtcNow;
+            LogItem[] window = new LogItem[1];
+            Assert.That(_log.CopyTo(window), Is.EqualTo(1));
+            Assert.That(window[0].TimestampUtc.Kind, Is.EqualTo(DateTimeKind.Utc));
+            Assert.That(window[0].TimestampUtc, Is.InRange(before, after));
+            Assert.That(_log.TryGetLast(out LogItem last), Is.True);
+            Assert.That(last.TimestampUtc, Is.EqualTo(window[0].TimestampUtc));
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         [TestCase(5)]

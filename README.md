@@ -626,6 +626,8 @@ Use **Messages**, **Warnings**, and **Errors** to toggle severity groups. Errors
 all retained entries, independent of search or visibility. Search and `find` match only enabled groups. **Clear** and `clear-filter` reset all groups. The narrow small window grows
 to fit its controls and one log row, up to full height. A zero minimum height disables that floor.
 
+Each log row shows its UTC capture time and a severity marker. Selection, copying, and search use the message text.
+
 The count includes the current match. `2 of 3 (1/2)` means two matches among three searchable lines, with the first match selected.
 
 The header also has **Small** / **Full** and **Close** controls. Below `narrowWindowBreakpoint` (480 UI Toolkit points by default), controls grow to at least 44 points. The

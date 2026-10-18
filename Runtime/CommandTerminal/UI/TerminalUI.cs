@@ -241,6 +241,9 @@
         */
         internal TextField _commandInput;
 
+        // Capture fixtures pin display time without changing recorded entry times.
+        internal DateTime? _logTimestampOverrideUtc;
+
         /*
            Internal for test coverage of caret behavior (see
            WallstopStudios.DxCommandTerminal.Tests.Runtime).
@@ -3399,6 +3402,7 @@
                     SetupLogText(logText, logItem);
                     if (logText.Sequence != logItem.Sequence)
                     {
+                        logText.SetMetadata(_logTimestampOverrideUtc ?? logItem.TimestampUtc, logItem.type);
                         if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
                         {
                             logText.SetValueWithoutNotify(logItem.message);
@@ -4165,6 +4169,37 @@
         private sealed class LogTextField : TextField
         {
             public long Sequence { get; set; }
+
+            private long? _timestampSecond;
+            private TerminalLogType? _type;
+
+            public LogTextField()
+            {
+                labelElement.pickingMode = PickingMode.Ignore;
+            }
+
+            public void SetMetadata(DateTime timestampUtc, TerminalLogType type)
+            {
+                long second = timestampUtc.Ticks / TimeSpan.TicksPerSecond;
+                if (_timestampSecond == second && _type == type)
+                {
+                    return;
+                }
+                string marker = type switch
+                {
+                    TerminalLogType.Error => "E",
+                    TerminalLogType.Assert => "A",
+                    TerminalLogType.Warning => "W",
+                    TerminalLogType.Message => "I",
+                    TerminalLogType.Exception => "X",
+                    TerminalLogType.Input => ">",
+                    TerminalLogType.ShellMessage => "<",
+                    _ => "?",
+                };
+                label = $"{timestampUtc.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}Z [{marker}]";
+                _timestampSecond = second;
+                _type = type;
+            }
         }
 
         private enum ScrollBarCaptureState

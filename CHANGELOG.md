@@ -12,6 +12,8 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 ### Added
 
+- Add UTC capture times and severity markers beside selectable log messages ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
+
 - Add severity filters with retained-entry counts and narrow-screen controls ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
 
 - Add terminal header size and close controls ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241)).

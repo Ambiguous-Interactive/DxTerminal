@@ -1040,6 +1040,7 @@
             UIDocument document = _surfaceObject.AddComponent<UIDocument>();
             document.panelSettings = _panelSettings;
             _terminal = _surfaceObject.AddComponent<TerminalUI>();
+            _terminal._logTimestampOverrideUtc = new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
             _terminal._uiDocument = document;
             _terminal.resetStateOnInit = true;
             _terminal.easeOutTime = 0f;

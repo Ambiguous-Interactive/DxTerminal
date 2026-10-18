@@ -11,10 +11,12 @@
         public readonly string message;
         public readonly string stackTrace;
         internal readonly long Sequence;
+        internal readonly DateTime TimestampUtc;
 
         public LogItem(TerminalLogType type, string message, string stackTrace)
         {
             Sequence = Interlocked.Increment(ref _sequenceCounter);
+            TimestampUtc = DateTime.UtcNow;
             this.type = type;
             this.message = message ?? string.Empty;
             this.stackTrace = stackTrace ?? string.Empty;
@@ -30,6 +32,7 @@
             return !left.Equals(right);
         }
 
+        // Equality compares content; sequence and capture time identify individual entries.
         public bool Equals(LogItem other)
         {
             return type == other.type && string.Equals(message, other.message, StringComparison.Ordinal) && string.Equals(stackTrace, other.stackTrace, StringComparison.Ordinal);

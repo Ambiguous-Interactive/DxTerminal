@@ -214,6 +214,38 @@
         }
 
         [UnityTest]
+        public IEnumerator LogRowsExposeUtcTimeAndSeverityWithoutChangingMessageText()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            TerminalLogType[] types =
+            {
+                TerminalLogType.Error,
+                TerminalLogType.Assert,
+                TerminalLogType.Warning,
+                TerminalLogType.Message,
+                TerminalLogType.Exception,
+                TerminalLogType.Input,
+                TerminalLogType.ShellMessage,
+            };
+            string[] markers = { "E", "A", "W", "I", "X", ">", "<" };
+            foreach (TerminalLogType type in types)
+            {
+                Terminal.Buffer.HandleLog(type.ToString(), string.Empty, type);
+            }
+            yield return Settle();
+            VisualElement content = LogContent();
+            Assert.That(content.childCount, Is.EqualTo(types.Length));
+            for (int i = 0; i < types.Length; ++i)
+            {
+                TextField row = (TextField)content[i];
+                Assert.That(row.label, Does.EndWith($" [{markers[i]}]"));
+                Assert.That(row.label, Does.Match(@"^\d{2}:\d{2}:\d{2}Z \[[A-Z<>]\]$"));
+                Assert.That(row.value, Is.EqualTo(types[i].ToString()), "Selection and copying use the original message");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator SeverityChipsRefreshWhenSessionReplacesAnEqualVersionBuffer()
         {
             yield return SpawnOpenTerminal();

@@ -251,7 +251,21 @@
     padding: 0;
 }
 
+.terminal-output-label > .unity-base-field__label {
+    width: 90px;
+    min-width: 90px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 0;
+    margin: 0 6px 0 0;
+}
+
 .terminal-output-label #unity-text-input {
+    min-width: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
     white-space: normal;
     --unity-cursor-color: transparent;
     background-color: transparent;
