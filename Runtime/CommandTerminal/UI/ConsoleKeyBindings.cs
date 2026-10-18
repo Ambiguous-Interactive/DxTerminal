@@ -69,7 +69,7 @@
         }
 
         [Serializable]
-        public struct Shortcut
+        public struct Shortcut : IEquatable<Shortcut>
         {
             public KeyCode key;
             public EventModifiers modifiers;
@@ -82,6 +82,31 @@
                 this.key = key;
                 this.modifiers = modifiers;
                 this.controlOrCommand = controlOrCommand;
+            }
+
+            public static bool operator ==(Shortcut left, Shortcut right)
+            {
+                return left.Equals(right);
+            }
+
+            public static bool operator !=(Shortcut left, Shortcut right)
+            {
+                return !left.Equals(right);
+            }
+
+            public bool Equals(Shortcut other)
+            {
+                return key == other.key && modifiers == other.modifiers && controlOrCommand == other.controlOrCommand;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is Shortcut other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(key, modifiers, controlOrCommand);
             }
         }
     }

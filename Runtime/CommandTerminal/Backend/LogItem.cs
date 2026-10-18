@@ -20,6 +20,16 @@
             this.stackTrace = stackTrace ?? string.Empty;
         }
 
+        public static bool operator ==(LogItem left, LogItem right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(LogItem left, LogItem right)
+        {
+            return !left.Equals(right);
+        }
+
         public bool Equals(LogItem other)
         {
             return type == other.type && string.Equals(message, other.message, StringComparison.Ordinal) && string.Equals(stackTrace, other.stackTrace, StringComparison.Ordinal);

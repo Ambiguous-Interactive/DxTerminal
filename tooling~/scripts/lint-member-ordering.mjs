@@ -526,7 +526,10 @@ export function declarationPrefix(masked, start, end) {
   let scan = start;
   while (scan < end) {
     const char = masked[scan];
-    if (char === "{" || char === "(" || char === "=" || char === ";") {
+    if (
+      char === "{" || char === "(" || char === ";" ||
+      (char === "=" && (masked[scan + 1] === ">" || isPlainEquals(masked, scan)))
+    ) {
       return { prefix: masked.slice(start, scan).trim(), breakChar: char };
     }
     if (char === "[") {

@@ -18,7 +18,7 @@
         in place; the play-session reset restores all of them from the
         defaults snapshotted below.
      */
-    public readonly struct CommandArg
+    public readonly struct CommandArg : IEquatable<CommandArg>
     {
         // Public to allow custom-mutation, if desired
         /// <summary>
@@ -349,6 +349,16 @@
             this.endQuote = endQuote;
         }
 
+        public static bool operator ==(CommandArg left, CommandArg right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(CommandArg left, CommandArg right)
+        {
+            return !left.Equals(right);
+        }
+
         public static bool RegisterParser<T>(CommandArgParser<T> parser, bool force = false)
         {
             if (parser == null)
@@ -635,6 +645,21 @@
 
             value = default;
             return false;
+        }
+
+        public bool Equals(CommandArg other)
+        {
+            return string.Equals(contents, other.contents, StringComparison.Ordinal) && startQuote == other.startQuote && endQuote == other.endQuote;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is CommandArg other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(contents, startQuote, endQuote);
         }
 
         public bool TryGet(Type type, out object parsed)

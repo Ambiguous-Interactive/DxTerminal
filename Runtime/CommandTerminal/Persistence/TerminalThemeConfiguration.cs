@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Persistence
+﻿namespace WallstopStudios.DxCommandTerminal.Persistence
 {
     using System;
 
@@ -10,6 +10,16 @@ namespace WallstopStudios.DxCommandTerminal.Persistence
         public string terminalId;
         public string font;
         public string theme;
+
+        public static bool operator ==(TerminalThemeConfiguration left, TerminalThemeConfiguration right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(TerminalThemeConfiguration left, TerminalThemeConfiguration right)
+        {
+            return !left.Equals(right);
+        }
 
         public bool Equals(TerminalThemeConfiguration other)
         {
@@ -30,12 +40,11 @@ namespace WallstopStudios.DxCommandTerminal.Persistence
 
         public override int GetHashCode()
         {
-            // Auto generated garbage
             unchecked
             {
-                int hashCode = (terminalId != null ? terminalId.ToLowerInvariant().GetHashCode() : 0);
-                hashCode = (hashCode * HashBase) ^ (font != null ? font.ToLowerInvariant().GetHashCode() : 0);
-                hashCode = (hashCode * HashBase) ^ (theme != null ? theme.ToLowerInvariant().GetHashCode() : 0);
+                int hashCode = (terminalId != null ? StringComparer.OrdinalIgnoreCase.GetHashCode(terminalId) : 0);
+                hashCode = (hashCode * HashBase) ^ (font != null ? StringComparer.OrdinalIgnoreCase.GetHashCode(font) : 0);
+                hashCode = (hashCode * HashBase) ^ (theme != null ? StringComparer.OrdinalIgnoreCase.GetHashCode(theme) : 0);
                 return hashCode;
             }
         }
