@@ -39,6 +39,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
          */
         public bool LastReadReused { get; private set; }
 
+        public int SourceCount => _readCount;
+
         private readonly LogFilter _filter;
 
         /*
@@ -54,6 +56,14 @@ namespace WallstopStudios.DxCommandTerminal.UI
             without the buffer being read a second time.
          */
         private LogItem[] _filteredWindow = Array.Empty<LogItem>();
+
+        private LogItem[] _collapsedWindow = Array.Empty<LogItem>();
+        private int[] _repeatCounts = Array.Empty<int>();
+        private int[] _sourceRows = Array.Empty<int>();
+        private bool _collapseValid;
+        private bool _lastReadCollapsed;
+        private int _collapsedCount;
+        private int _readWindowCount;
 
         private CommandLog _readBuffer;
         private long _readVersion;
@@ -80,8 +90,13 @@ namespace WallstopStudios.DxCommandTerminal.UI
          */
         public int Read(CommandLog buffer, out LogItem[] rendered)
         {
+            _lastReadCollapsed = false;
             if (buffer == null)
             {
+                _readBuffer = null;
+                _readCount = 0;
+                _collapseValid = false;
+                LastReadReused = false;
                 rendered = Array.Empty<LogItem>();
                 return 0;
             }
@@ -97,6 +112,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
 
             LastReadReused = false;
+            _collapseValid = false;
             if (_window.Length < capacity)
             {
                 _window = new LogItem[Math.Max(capacity, MinimumWindowSize)];
@@ -130,6 +146,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 count = _filter.Apply(_window, windowCount, _filteredWindow);
             }
 
+            _readWindowCount = windowCount;
             _readBuffer = buffer;
             _readVersion = version;
             _readCapacity = capacity;
@@ -137,6 +154,79 @@ namespace WallstopStudios.DxCommandTerminal.UI
             _readCount = count;
             _readFiltered = _filter.IsActive;
             return count;
+        }
+
+        public int Read(CommandLog buffer, bool collapse, out LogItem[] rendered)
+        {
+            int count = Read(buffer, out LogItem[] source);
+            if (!collapse || buffer == null)
+            {
+                rendered = source;
+                return count;
+            }
+
+            if (!_collapseValid)
+            {
+                LastReadReused = false;
+                int capacity = _window.Length;
+                if (_collapsedWindow.Length < capacity)
+                {
+                    _collapsedWindow = new LogItem[capacity];
+                    _repeatCounts = new int[capacity];
+                    _sourceRows = new int[capacity];
+                }
+
+                _collapsedCount = 0;
+                int windowIndex = 0;
+                int? previousWindowIndex = null;
+                for (int i = 0; i < count; ++i)
+                {
+                    LogItem item = source[i];
+                    while (windowIndex < _readWindowCount && _window[windowIndex].Sequence != item.Sequence)
+                    {
+                        ++windowIndex;
+                    }
+
+                    // Hidden entries break runs even if the surviving messages have equal content.
+                    if (previousWindowIndex.HasValue && previousWindowIndex.Value + 1 == windowIndex && item.Equals(_collapsedWindow[_collapsedCount - 1]))
+                    {
+                        ++_repeatCounts[_collapsedCount - 1];
+                    }
+                    else
+                    {
+                        _collapsedWindow[_collapsedCount] = item;
+                        _repeatCounts[_collapsedCount] = 1;
+                        ++_collapsedCount;
+                    }
+                    _sourceRows[i] = _collapsedCount - 1;
+                    previousWindowIndex = windowIndex;
+                    ++windowIndex;
+                }
+                _collapseValid = true;
+            }
+
+            _lastReadCollapsed = true;
+            rendered = _collapsedWindow;
+            return _collapsedCount;
+        }
+
+        public int GetRepeatCount(int renderedIndex)
+        {
+            int count = _lastReadCollapsed ? _collapsedCount : _readCount;
+            if (renderedIndex < 0 || count <= renderedIndex)
+            {
+                throw new ArgumentOutOfRangeException(nameof(renderedIndex));
+            }
+            return _lastReadCollapsed ? _repeatCounts[renderedIndex] : 1;
+        }
+
+        public int GetRenderedIndex(int sourceIndex)
+        {
+            if (sourceIndex < 0 || _readCount <= sourceIndex)
+            {
+                throw new ArgumentOutOfRangeException(nameof(sourceIndex));
+            }
+            return _lastReadCollapsed ? _sourceRows[sourceIndex] : sourceIndex;
         }
     }
 }

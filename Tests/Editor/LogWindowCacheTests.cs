@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Editor
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Editor
 {
     using System;
     using System.Collections.Generic;
@@ -291,11 +291,87 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Editor
             Assert.AreEqual(1, count);
         }
 
+        [Test]
+        public void CollapseKeepsConsecutiveContentAndFirstCaptureIdentity()
+        {
+            DateTime time = new(2026, 10, 18, 0, 0, 0, DateTimeKind.Utc);
+            _buffer = new CommandLog(64, null, () => time = time.AddSeconds(1));
+            _buffer.HandleLog("repeat", "trace", TerminalLogType.Message);
+            _buffer.HandleLog("repeat", "trace", TerminalLogType.Message);
+            _buffer.HandleLog("repeat", "other trace", TerminalLogType.Message);
+            _buffer.HandleLog("repeat", "other trace", TerminalLogType.Warning);
+            _buffer.HandleLog("Repeat", "other trace", TerminalLogType.Warning);
+            _cache.Read(_buffer, out LogItem[] original);
+            long firstSequence = original[0].Sequence;
+            DateTime firstTimestamp = original[0].TimestampUtc;
+            Assert.That(original[1].TimestampUtc, Is.GreaterThan(firstTimestamp));
+
+            Assert.That(_cache.Read(_buffer, true, out LogItem[] collapsed), Is.EqualTo(4));
+            Assert.That(_cache.SourceCount, Is.EqualTo(5));
+            Assert.That(_cache.GetRepeatCount(0), Is.EqualTo(2));
+            Assert.That(_cache.GetRepeatCount(1), Is.EqualTo(1));
+            Assert.That(collapsed[0].Sequence, Is.EqualTo(firstSequence));
+            Assert.That(collapsed[0].TimestampUtc, Is.EqualTo(firstTimestamp));
+            Assert.That(_cache.GetRenderedIndex(0), Is.EqualTo(0));
+            Assert.That(_cache.GetRenderedIndex(1), Is.EqualTo(0));
+            Assert.That(_cache.GetRenderedIndex(4), Is.EqualTo(3));
+            Assert.That(_cache.Read(_buffer, true, out LogItem[] reused), Is.EqualTo(4));
+            Assert.That(_cache.LastReadReused, Is.True);
+            Assert.That(reused, Is.SameAs(collapsed));
+            Assert.That(_cache.Read(_buffer, false, out _), Is.EqualTo(5));
+            Assert.That(_cache.GetRepeatCount(0), Is.EqualTo(1));
+            Assert.That(_cache.GetRenderedIndex(1), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void CollapsePreservesSearchCountsAndHiddenEntriesBreakRuns()
+        {
+            Write("hit", "hit", "miss", "hit");
+            _filter.SetQuery("hit");
+            Assert.That(_cache.Read(_buffer, true, out _), Is.EqualTo(2));
+            Assert.That(_filter.MatchCount, Is.EqualTo(3));
+            Assert.That(_filter.TotalCount, Is.EqualTo(4));
+            Assert.That(_cache.GetRepeatCount(0), Is.EqualTo(2));
+            Assert.That(_cache.GetRepeatCount(1), Is.EqualTo(1));
+            _filter.StepForward();
+            Assert.That(_cache.GetRenderedIndex(_filter.CurrentMatch.Value - 1), Is.EqualTo(0));
+            _filter.StepForward();
+            Assert.That(_cache.GetRenderedIndex(_filter.CurrentMatch.Value - 1), Is.EqualTo(1));
+            _filter.Clear();
+            Assert.That(_cache.Read(_buffer, true, out _), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void CollapseRebuildsAfterWritesWrapResizeClearAndNull()
+        {
+            _buffer = new CommandLog(3);
+            Write("repeat", "repeat", "other");
+            Assert.That(_cache.Read(_buffer, true, out _), Is.EqualTo(2));
+            Write("other");
+            Assert.That(_cache.Read(_buffer, true, out LogItem[] wrapped), Is.EqualTo(2));
+            Assert.That(wrapped[0].message, Is.EqualTo("repeat"));
+            Assert.That(_cache.GetRepeatCount(0), Is.EqualTo(1));
+            Assert.That(_cache.GetRepeatCount(1), Is.EqualTo(2));
+            _buffer.Resize(128);
+            Assert.That(_cache.Read(_buffer, true, out _), Is.EqualTo(2));
+            Write("other");
+            Assert.That(_cache.Read(_buffer, true, out _), Is.EqualTo(2));
+            Assert.That(_cache.GetRepeatCount(1), Is.EqualTo(3));
+            Assert.That(_cache.Read(null, true, out _), Is.Zero);
+            Assert.That(_cache.SourceCount, Is.Zero);
+            Assert.That(_cache.Read(_buffer, true, out _), Is.EqualTo(2));
+            _buffer.Clear();
+            Assert.That(_cache.Read(_buffer, true, out _), Is.Zero);
+            Assert.That(_cache.SourceCount, Is.Zero);
+            Assert.Throws<ArgumentOutOfRangeException>(() => _cache.GetRenderedIndex(0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => _cache.GetRepeatCount(0));
+        }
+
         private void Write(params string[] messages)
         {
             foreach (string message in messages)
             {
-                Assert.IsTrue(_buffer.HandleLog(message, TerminalLogType.Message), $"Sanity: '{message}' was written, not filtered");
+                Assert.IsTrue(_buffer.HandleLog(message, string.Empty, TerminalLogType.Message), $"Sanity: '{message}' was written, not filtered");
             }
         }
     }

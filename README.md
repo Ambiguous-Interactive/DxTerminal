@@ -179,6 +179,9 @@ The terminal's Window settings include `narrowWindowBreakpoint` (default 480 UI 
 header wraps and controls grow. The minimum height applies only to the small terminal in that layout and never exceeds the full height set by `maxHeight`. Set the breakpoint to
 zero to disable narrow layout, or the minimum to zero to use `smallTerminalRatio` alone. Negative values act as zero. Both settings can change at runtime without resizing the view.
 
+`windowAnchor` selects Top, Bottom, or Auto (default). Auto uses a bottom sheet in narrow layout and the top edge otherwise. `respectSafeArea` (default true) keeps the terminal
+inside the screen safe area. Heights use the panel scale and available safe height.
+
 Stack-trace capture (`stackTraceMode`): `All` (default) records a caller stack trace for every log entry, exactly as before. `ErrorsAndWarnings` records traces only for error,
 assert, exception, and warning entries. `Disabled` records none. Trace extraction is the most expensive part of a logged line, so games that log frequently during gameplay
 (per-frame state dumps, command chatter) can drop it for routine messages without losing diagnostics when something actually goes wrong.
@@ -627,6 +630,10 @@ all retained entries, independent of search or visibility. Search and `find` mat
 to fit its controls and one log row, up to full height. A zero minimum height disables that floor.
 
 Each log row shows its UTC capture time and a severity marker. Selection, copying, and search use the message text.
+
+Use **Collapse** to group consecutive entries with identical messages, types, and stack traces. A repeat count appears beside the timestamp. Search and severity counts still
+include each entry. Match navigation visits each matching entry, including entries in the same collapsed row. Collapse changes only the view and persists across close and rebuild.
+Hidden entries break repeat groups.
 
 The count includes the current match. `2 of 3 (1/2)` means two matches among three searchable lines, with the first match selected.
 

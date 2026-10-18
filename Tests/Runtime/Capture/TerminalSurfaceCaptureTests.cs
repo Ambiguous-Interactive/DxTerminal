@@ -469,7 +469,8 @@
         public IEnumerator CapturesNarrowScreenTerminalSmall()
         {
             yield return SpawnCalibratedTerminal(TerminalState.OpenSmall);
-            Terminal.Log("capture-narrow ready");
+            Terminal.Buffer.HandleLog("capture-narrow ready", string.Empty, TerminalLogType.Message);
+            Terminal.Buffer.HandleLog("capture-narrow ready", string.Empty, TerminalLogType.Message);
             Terminal.Log(WrappedLine);
             _terminal.SetCursorBlinkPaused(true);
             _terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput").value = "capture";
@@ -478,6 +479,21 @@
             {
                 yield return SettleRenders();
                 VisualElement root = _terminal._uiDocument.rootVisualElement;
+                using (NavigationSubmitEvent submit = NavigationSubmitEvent.GetPooled())
+                {
+                    Button collapse = root.Q<Button>("LogCollapse");
+                    submit.target = collapse;
+                    collapse.SendEvent(submit);
+                }
+                yield return SettleRenders();
+                VisualElement logContent = root.Q<ScrollView>("LogScrollView").contentContainer;
+                Assert.That(logContent.childCount, Is.EqualTo(2), "The repeat group and wrapped message remain visible");
+                TextField repeat = (TextField)logContent[0];
+                Assert.That(repeat.label, Does.EndWith(" x2"));
+                Vector2 metadataSize = repeat.labelElement.MeasureTextSize(repeat.label, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
+                Assert.That(repeat.labelElement.layout.width + 0.5f, Is.GreaterThanOrEqualTo(metadataSize.x), "The repeat badge fits");
+                Assert.That(root.Q("TerminalRoot").ClassListContains("terminal-root--bottom"), Is.True);
+                Assert.That(root.worldBound.yMax, Is.EqualTo(root.panel.visualTree.worldBound.yMax).Within(0.5f), "Auto pins the narrow sheet to the viewport bottom");
                 _lastOutcome = FinishCapture(nameof(CapturesNarrowScreenTerminalSmall), target, CaptureBounds.Default(), root);
                 AssertAcceptable(_lastOutcome);
                 Assert.That(root.Q("TerminalRoot").ClassListContains("terminal-root--narrow"), Is.True);
@@ -493,6 +509,7 @@
                         "LogMessages",
                         "LogWarnings",
                         "LogErrors",
+                        "LogCollapse",
                         "CommandInput",
                     }
                 )
@@ -510,7 +527,7 @@
                 terminalRoot.style.width = 220;
                 yield return SettleRenders();
                 Assert.That(root.Q<ScrollView>("LogScrollView").layout.height, Is.GreaterThanOrEqualTo(30), "Wrapped controls still leave a log row");
-                foreach (string name in new[] { "LogMessages", "LogWarnings", "LogErrors", "CommandInput" })
+                foreach (string name in new[] { "LogMessages", "LogWarnings", "LogErrors", "LogCollapse", "CommandInput" })
                 {
                     VisualElement control = root.Q(name);
                     Assert.That(control.worldBound.xMax, Is.LessThanOrEqualTo(terminalRoot.worldBound.xMax + 0.5f), name);

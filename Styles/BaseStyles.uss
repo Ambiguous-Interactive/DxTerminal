@@ -252,7 +252,7 @@
 }
 
 .terminal-output-label > .unity-base-field__label {
-    width: 90px;
+    width: auto;
     min-width: 90px;
     flex-shrink: 0;
     align-self: flex-start;

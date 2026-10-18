@@ -112,6 +112,11 @@
         [Min(0)]
         public int narrowWindowMinimumHeight = 288;
 
+        [Tooltip("Auto anchors narrow windows to the bottom and wider windows to the top.")]
+        public TerminalAnchor windowAnchor = TerminalAnchor.Auto;
+
+        public bool respectSafeArea = true;
+
         [Tooltip("Curve the console follows to go from closed -> open")]
         public AnimationCurve easeOutCurve = new() { keys = new[] { new Keyframe(0, 0), new Keyframe(1, 1) } };
 
@@ -326,6 +331,9 @@
         private Button _logSearchNext;
         private Button _logSearchClear;
         private Button _sizeButton;
+        private Button _collapseButton;
+        private bool _collapseLogs;
+        private bool _lastSeenCollapse;
         private readonly Button[] _severityButtons = new Button[3];
         private readonly int?[] _lastSeverityCounts = new int?[3];
         private int? _lastSearchCount;
@@ -1944,6 +1952,7 @@
             _logSearchNext = null;
             _logSearchClear = null;
             _sizeButton = null;
+            _collapseButton = null;
             Array.Clear(_severityButtons, 0, _severityButtons.Length);
             Array.Clear(_lastSeverityCounts, 0, _lastSeverityCounts.Length);
             _lastSearchCount = null;
@@ -2290,6 +2299,85 @@
             return true;
         }
 
+        internal float ResetWindowIdempotent(Rect viewport, Rect safeArea, Vector2 screenSize)
+        {
+            VisualElement root = _terminalContainer?.parent;
+            float width = root?.layout.width ?? 0f;
+            bool narrow = 0 < width && width < Math.Max(0, narrowWindowBreakpoint);
+            root?.EnableInClassList("terminal-root--narrow", narrow);
+
+            if (!respectSafeArea)
+            {
+                safeArea = new Rect(Vector2.zero, screenSize);
+            }
+            if (!IsPaletteSurfaceOpen())
+            {
+                ApplyWindowAnchor(narrow, viewport, safeArea, screenSize);
+            }
+            float height = viewport.height;
+            if (!float.IsFinite(height) || height <= 0f)
+            {
+                height = screenSize.y;
+            }
+            if (0f < screenSize.y)
+            {
+                height *= safeArea.height / screenSize.y;
+            }
+            float fullHeight = height * maxHeight;
+            float smallHeight = fullHeight * smallTerminalRatio;
+            if (narrow)
+            {
+                float minimumHeight = Math.Max(0, narrowWindowMinimumHeight);
+                if (0 < minimumHeight)
+                {
+                    float controlsHeight =
+                        (_logToolbar?.layout.height ?? 0f)
+                        + (_inputContainer?.layout.height ?? 0f)
+                        + (_autoCompleteContainer?.layout.height ?? 0f)
+                        + (_logCopyStatus?.layout.height ?? 0f);
+                    if (float.IsFinite(controlsHeight))
+                    {
+                        minimumHeight = Math.Max(minimumHeight, controlsHeight + MinimumVisibleLogHeight);
+                    }
+                }
+                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, minimumHeight));
+            }
+            float oldTargetHeight = _targetWindowHeight;
+            try
+            {
+                switch (_state)
+                {
+                    case TerminalState.OpenSmall:
+                    {
+                        _realWindowHeight = smallHeight;
+                        _targetWindowHeight = _realWindowHeight;
+                        break;
+                    }
+                    case TerminalState.OpenFull:
+                    {
+                        _realWindowHeight = fullHeight;
+                        _targetWindowHeight = _realWindowHeight;
+                        break;
+                    }
+                    default:
+                    {
+                        _realWindowHeight = smallHeight;
+                        _targetWindowHeight = 0;
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                // ReSharper disable once CompareOfFloatsByEqualityOperator
+                if (oldTargetHeight != _targetWindowHeight)
+                {
+                    StartHeightAnimation();
+                }
+            }
+            return _targetWindowHeight;
+        }
+
         /*
             Every line the search writes, through one door.
 
@@ -2560,66 +2648,35 @@
             _needsFocus = true;
         }
 
+        private void ApplyWindowAnchor(bool narrow, Rect viewport, Rect safeArea, Vector2 screenSize)
+        {
+            if (_uiDocument == null)
+            {
+                return;
+            }
+            VisualElement documentRoot = _uiDocument.rootVisualElement;
+            if (documentRoot == null)
+            {
+                return;
+            }
+            float scaleX = 0f < screenSize.x && float.IsFinite(viewport.width) && 0f < viewport.width ? viewport.width / screenSize.x : 1f;
+            float scaleY = 0f < screenSize.y && float.IsFinite(viewport.height) && 0f < viewport.height ? viewport.height / screenSize.y : 1f;
+            bool bottom = windowAnchor == TerminalAnchor.Bottom || (windowAnchor == TerminalAnchor.Auto && narrow);
+            documentRoot.style.position = Position.Absolute;
+            documentRoot.style.width = StyleKeyword.Auto;
+            documentRoot.style.left = safeArea.xMin * scaleX;
+            documentRoot.style.right = (screenSize.x - safeArea.xMax) * scaleX;
+            documentRoot.style.top = bottom ? new StyleLength(StyleKeyword.Auto) : new StyleLength((screenSize.y - safeArea.yMax) * scaleY);
+            documentRoot.style.bottom = bottom ? new StyleLength(safeArea.yMin * scaleY) : new StyleLength(StyleKeyword.Auto);
+            _terminalContainer?.parent?.EnableInClassList("terminal-root--bottom", bottom);
+        }
+
         private void ResetWindowIdempotent()
         {
-            VisualElement root = _terminalContainer?.parent;
-            float width = root?.layout.width ?? 0f;
-            bool narrow = 0 < width && width < Math.Max(0, narrowWindowBreakpoint);
-            root?.EnableInClassList("terminal-root--narrow", narrow);
-
-            int height = Screen.height;
-            float fullHeight = height * maxHeight;
-            float smallHeight = fullHeight * smallTerminalRatio;
-            if (narrow)
-            {
-                float minimumHeight = Math.Max(0, narrowWindowMinimumHeight);
-                if (0 < minimumHeight)
-                {
-                    float controlsHeight =
-                        (_logToolbar?.layout.height ?? 0f)
-                        + (_inputContainer?.layout.height ?? 0f)
-                        + (_autoCompleteContainer?.layout.height ?? 0f)
-                        + (_logCopyStatus?.layout.height ?? 0f);
-                    if (float.IsFinite(controlsHeight))
-                    {
-                        minimumHeight = Math.Max(minimumHeight, controlsHeight + MinimumVisibleLogHeight);
-                    }
-                }
-                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, minimumHeight));
-            }
-            float oldTargetHeight = _targetWindowHeight;
-            try
-            {
-                switch (_state)
-                {
-                    case TerminalState.OpenSmall:
-                    {
-                        _realWindowHeight = smallHeight;
-                        _targetWindowHeight = _realWindowHeight;
-                        break;
-                    }
-                    case TerminalState.OpenFull:
-                    {
-                        _realWindowHeight = fullHeight;
-                        _targetWindowHeight = _realWindowHeight;
-                        break;
-                    }
-                    default:
-                    {
-                        _realWindowHeight = smallHeight;
-                        _targetWindowHeight = 0;
-                        break;
-                    }
-                }
-            }
-            finally
-            {
-                // ReSharper disable once CompareOfFloatsByEqualityOperator
-                if (oldTargetHeight != _targetWindowHeight)
-                {
-                    StartHeightAnimation();
-                }
-            }
+            Vector2 screenSize = new(Screen.width, Screen.height);
+            Rect viewport =
+                _uiDocument != null ? _uiDocument.rootVisualElement?.panel?.visualTree.layout ?? new Rect(Vector2.zero, screenSize) : new Rect(Vector2.zero, screenSize);
+            ResetWindowIdempotent(viewport, Screen.safeArea, screenSize);
         }
 
         /*
@@ -2998,6 +3055,18 @@
             AddSeverityButton(types, 0, TerminalLogType.Message, "LogMessages");
             AddSeverityButton(types, 1, TerminalLogType.Warning, "LogWarnings");
             AddSeverityButton(types, 2, TerminalLogType.Error, "LogErrors");
+            _collapseButton = AddToolbarButton(
+                types,
+                "LogCollapse",
+                "Collapse",
+                () =>
+                {
+                    _collapseLogs = !_collapseLogs;
+                    DropFindScroll();
+                }
+            );
+            _collapseButton.AddToClassList("terminal-type-chip");
+            _collapseButton.tooltip = "Group consecutive entries with the same message, type, and trace.";
         }
 
         private void AddSeverityButton(VisualElement parent, int index, TerminalLogType severity, string name)
@@ -3325,7 +3394,7 @@
             VisualElement content = _logScrollView.contentContainer;
             long bufferVersion = buffer.Version;
             bool newLogs = !ReferenceEquals(_lastSeenBuffer, buffer) || _lastSeenBufferVersion != bufferVersion;
-            bool dirty = newLogs || _lastSeenFilterGeneration != _logFilter.Generation;
+            bool dirty = newLogs || _lastSeenFilterGeneration != _logFilter.Generation || _lastSeenCollapse != _collapseLogs;
 
             /*
                 One consistent read of the whole window, not a count followed
@@ -3338,7 +3407,8 @@
                 the count the view lays out is the count it draws.
              */
             int logCount = ReadRenderedLogWindow(buffer, out LogItem[] rendered);
-            RefreshLogSearch(logCount);
+            RefreshLogSearch(_logWindowCache.SourceCount);
+            _collapseButton.EnableInClassList("terminal-type-chip--excluded", !_collapseLogs);
             if (dirty || !_lastSeverityCounts[0].HasValue)
             {
                 RefreshLogSeverities(buffer);
@@ -3397,9 +3467,9 @@
 
                     LogItem logItem = rendered[i];
                     SetupLogText(logText, logItem);
+                    logText.SetMetadata(logItem.TimestampUtc, logItem.type, _logWindowCache.GetRepeatCount(i));
                     if (logText.Sequence != logItem.Sequence)
                     {
-                        logText.SetMetadata(logItem.TimestampUtc, logItem.type);
                         if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
                         {
                             logText.SetValueWithoutNotify(logItem.message);
@@ -3416,6 +3486,7 @@
                     // Do not acknowledge writes that arrived after this frame's window copy.
                     _lastSeenBufferVersion = bufferVersion;
                     _lastSeenFilterGeneration = _logFilter.Generation;
+                    _lastSeenCollapse = _collapseLogs;
                 }
             }
 
@@ -3442,7 +3513,7 @@
          */
         private int ReadRenderedLogWindow(CommandLog buffer, out LogItem[] rendered)
         {
-            return _logWindowCache.Read(buffer, out rendered);
+            return _logWindowCache.Read(buffer, _collapseLogs, out rendered);
         }
 
         /*
@@ -3513,7 +3584,13 @@
                 return;
             }
 
-            int index = pending.GetValueOrDefault() - 1;
+            int sourceIndex = pending.GetValueOrDefault() - 1;
+            if (sourceIndex < 0 || _logWindowCache.SourceCount <= sourceIndex)
+            {
+                DropFindScroll();
+                return;
+            }
+            int index = _logWindowCache.GetRenderedIndex(sourceIndex);
             if (index < 0 || logCount <= index)
             {
                 DropFindScroll();
@@ -3966,7 +4043,9 @@
                 return;
             }
 
-            _stateButtonContainer.style.top = _currentWindowHeight;
+            bool bottom = _terminalContainer?.parent?.ClassListContains("terminal-root--bottom") == true;
+            _stateButtonContainer.style.top = bottom ? new StyleLength(StyleKeyword.Auto) : new StyleLength(_currentWindowHeight);
+            _stateButtonContainer.style.bottom = bottom ? new StyleLength(_currentWindowHeight) : new StyleLength(StyleKeyword.Auto);
             if (_sizeButton != null)
             {
                 _sizeButton.text = _state == TerminalState.OpenFull ? "Small" : "Full";
@@ -4169,16 +4248,17 @@
 
             private long? _timestampSecond;
             private TerminalLogType? _type;
+            private int _repeatCount;
 
             public LogTextField()
             {
                 labelElement.pickingMode = PickingMode.Ignore;
             }
 
-            public void SetMetadata(DateTime timestampUtc, TerminalLogType type)
+            public void SetMetadata(DateTime timestampUtc, TerminalLogType type, int repeatCount)
             {
                 long second = timestampUtc.Ticks / TimeSpan.TicksPerSecond;
-                if (_timestampSecond == second && _type == type)
+                if (_timestampSecond == second && _type == type && _repeatCount == repeatCount)
                 {
                     return;
                 }
@@ -4194,6 +4274,11 @@
                     _ => "?",
                 };
                 label = $"{timestampUtc.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}Z [{marker}]";
+                if (1 < repeatCount)
+                {
+                    label = $"{label} x{repeatCount.ToString(CultureInfo.InvariantCulture)}";
+                }
+                _repeatCount = repeatCount;
                 _timestampSecond = second;
                 _type = type;
             }

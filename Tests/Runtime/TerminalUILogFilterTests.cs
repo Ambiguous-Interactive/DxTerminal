@@ -214,6 +214,57 @@
         }
 
         [UnityTest]
+        public IEnumerator CollapseKeepsMessageSelectionAndSearchCounts()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Buffer.HandleLog("repeat", "collapse trace", TerminalLogType.ShellMessage);
+            Terminal.Buffer.HandleLog("repeat", "collapse trace", TerminalLogType.ShellMessage);
+            Terminal.Buffer.HandleLog("different", "collapse trace", TerminalLogType.ShellMessage);
+            yield return WaitForDrawnCount(3, "Collapse starts disabled");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Button collapse = root.Q<Button>("LogCollapse");
+            Assert.That(collapse, Is.Not.Null, "The log exposes repeat collapse");
+            long version = Terminal.Buffer.Version;
+            Submit(collapse);
+            yield return WaitForDrawnCount(2, "Consecutive repeats use one row");
+            TextField row = (TextField)LogContent()[0];
+            Assert.That(row.value, Is.EqualTo("repeat"));
+            Assert.That(row.label, Does.EndWith(" x2"));
+            Vector2 textSize = row.labelElement.MeasureTextSize(row.label, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
+            if (0f < row.labelElement.layout.width)
+            {
+                Assert.That(row.labelElement.layout.width + 0.5f, Is.GreaterThanOrEqualTo(textSize.x), "The repeat badge fits beside the message");
+            }
+            row.Focus();
+            row.SelectRange(1, 4);
+            Assert.That(row.cursorIndex, Is.EqualTo(1), "The selection arrange holds before refresh");
+            Assert.That(row.selectIndex, Is.EqualTo(4));
+            Terminal.Buffer.HandleLog("different", "collapse trace", TerminalLogType.ShellMessage);
+            _terminal.RefreshUI();
+            Assert.That(row.cursorIndex, Is.EqualTo(1));
+            Assert.That(row.selectIndex, Is.EqualTo(4));
+            yield return Settle();
+            Assert.That(((TextField)LogContent()[1]).label, Does.EndWith(" x2"));
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("4 lines"));
+            Assert.That(Terminal.Buffer.Version, Is.EqualTo(version + 1), "Collapse never rewrites the buffer");
+            root.Q<TextField>("LogSearchInput").value = "repeat";
+            yield return WaitForDrawnCount(1, "Search works on collapsed entries");
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 4 (1/2)"));
+            Submit(root.Q<Button>("LogSearchNext"));
+            yield return Settle();
+            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 4 (2/2)"));
+            _terminal.TeardownUI();
+            _terminal.EnsureUI();
+            yield return Settle();
+            root = _terminal._uiDocument.rootVisualElement;
+            Assert.That(root.Q<Button>("LogCollapse").ClassListContains("terminal-type-chip--excluded"), Is.False);
+            Assert.That(LogContent().childCount, Is.EqualTo(1), "Collapse survives a UI rebuild");
+            Submit(root.Q<Button>("LogCollapse"));
+            yield return WaitForDrawnCount(2, "Disabling collapse restores every match");
+        }
+
+        [UnityTest]
         public IEnumerator LogRowsExposeUtcTimeAndSeverityWithoutChangingMessageText()
         {
             yield return SpawnOpenTerminal();
