@@ -175,6 +175,10 @@ To share one configuration across terminals, `Assets > Create > Wallstop Studios
 stack-trace capture mode, and the palette hotkey) win over the component's serialized values — applied when the component wakes and re-applied whenever the terminal rebuilds its
 UI. Leave the slot empty and behavior is unchanged. Window geometry, animation curves, terminal ids, and the player's persisted theme/font choices stay per-component.
 
+The terminal's Window settings include `narrowWindowBreakpoint` (default 480 UI Toolkit points) and `narrowWindowMinimumHeight` (default 288 points). Below the breakpoint, the
+header wraps and controls grow. The minimum height applies only to the small terminal in that layout and never exceeds the full height set by `maxHeight`. Set the breakpoint to
+zero to disable narrow layout, or the minimum to zero to use `smallTerminalRatio` alone. Negative values act as zero. Both settings can change at runtime without resizing the view.
+
 Stack-trace capture (`stackTraceMode`): `All` (default) records a caller stack trace for every log entry, exactly as before. `ErrorsAndWarnings` records traces only for error,
 assert, exception, and warning entries. `Disabled` records none. Trace extraction is the most expensive part of a logged line, so games that log frequently during gameplay
 (per-frame state dumps, command chatter) can drop it for routine messages without losing diagnostics when something actually goes wrong.
@@ -614,6 +618,15 @@ following. A log that has not been laid out - a headless editor, or a view with 
 
 ## Searching the log
 
+Use **Search** in the terminal header to filter output. **Prev**, **Next**, Enter, and Shift+Enter step matches. **Clear**, or an empty field, restores all lines. The count updates
+with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`. Searches persist when the terminal closes. Header and log focus preserve
+the command draft; return to the command line for history, completion, and submission.
+
+The count includes the current match. `2 of 3 (1/2)` means two matches among three searchable lines, with the first match selected.
+
+The header also has **Small** / **Full** and **Close** controls. Below `narrowWindowBreakpoint` (480 UI Toolkit points by default), controls grow to at least 44 points. The
+optional legacy state buttons remain available as closed-terminal launchers.
+
 The log holds the newest 256 lines by default and nothing else, so reaching one of them means reading past the rest. Two commands narrow the view and one steps through it:
 
 - `find NullRef` shows only the lines holding the text, and jumps to the first one.
@@ -627,23 +640,20 @@ however many times you run it.
 
 The search is over the text as the log shows it, so what you can see is what you can find, and it ignores case: `nullref` reaches `NullReferenceException`.
 
-Four limits worth knowing before you rely on it:
+Search limits:
 
 - It does not find the commands you ran, or the console's own answers. Both surfaces echo the line you typed into the log, and a search that matched its own echo would report a hit
   for every query, including one that appears nowhere; the same goes for the line the search writes when it tells you what it found. Use `copy-log` for a transcript with your
   commands in it.
-- The query is only recorded as the `find` line in the log. Once that line rotates out of the buffer - or you run `clear-console` - nothing on screen says the view is filtered, and
-  the query is gone. `clear-filter` is how you put the log back.
 - `clear-console` does not drop the search. The view goes empty until the next `clear-filter` or a new `find`.
-- F3 and Shift+F3 need the command line to hold focus, as the paging keys do, and the jump to a match needs a log view that has been laid out. A view with no rendered Game view
-  filters but does not scroll.
+- F3 and Shift+F3 work from the command line, search field, or a selected log row. A jump needs a laid-out log view. A view with no rendered Game view filters but does not scroll.
 
 Binding a hotkey to `f3` fires that binding as well while a search is set; the terminal reads the key independently of your bindings.
 
 ## Typing wins over a character binding, except the toggles
 
-A binding that presses a character key is left to the field being typed into. While the command line or the palette search bar has focus, pressing the key types the character and
-does not run the binding.
+A binding that presses a character key is left to the field being typed into. While the command line, log search, or palette search bar has focus, pressing the key types the
+character and does not run the binding.
 
 The toggle bindings are the exception: the console key is reserved by the surface it opens. `` ` `` (toggle) and `` #` `` (full) open and close their surface every press, even
 while a field has focus - the stroke that opens the console is the stroke that closes it. The cost of the reservation is the character: a toggle press that closes the console
@@ -654,16 +664,17 @@ Each surface answers its own toggle key: the terminal's key toggles the terminal
 press would then reach both polls in the same frame, and which surface ends up open depends on script execution order. (Opening one surface always closes the other, so the surfaces
 never stack; only the winner is unordered.)
 
-All other bindings that press no character keep working while you type: navigation and editing keys (arrows, Home, End, PageUp/PageDown, Enter, Tab, Escape, Backspace, Insert,
-Delete), function keys, modifiers, lock and media keys, and mouse or joystick buttons - plus any `ctrl+` chord. `TerminalKeyboardController` only reads `shift+` and `ctrl+`; a
-`cmd+`/`super+`/`alt+` prefix is not parsed, so such a binding never fires.
+From the command line or palette, bindings that press no character keep working while you type: navigation and editing keys (arrows, Home, End, PageUp/PageDown, Enter, Tab, Escape,
+Backspace, Insert, Delete), function keys, modifiers, lock and media keys, and mouse or joystick buttons - plus any `ctrl+` chord. `TerminalKeyboardController` only reads `shift+`
+and `ctrl+`; a `cmd+`/`super+`/`alt+` prefix is not parsed, so such a binding never fires.
 
 Keep `closeHotkey` on a key that presses no character (Escape by default): a character bound to it cannot close the terminal while the field has focus. Escape, or any `ctrl+`
 chord, closes from inside.
 
 `PlayerInput` messages follow the same rule. The console asks the action which control performed it, so a `HandlePrevious` action bound to a character key leaves that character to
 the field instead of running. `ToggleSmall` and `ToggleFull` sit outside the rule: they run whatever holds focus, matching the polled console key. The control that fired decides
-for everything else, not the action's binding list: a gamepad button, a mouse button, a `ctrl+` chord, and a composite driven by any of those all keep working while you type.
+for everything else, not the action's binding list: a gamepad button, a mouse button, a `ctrl+` chord, and a composite driven by any of those all keep working while you type in the
+command line.
 
 Bind a message to a `Button` action. A `Value` action also sends a message when the key is released: the rule covers both halves of a character binding, and a toggle on either kind
 of key runs both halves, so a Value-bound toggle opens the console and immediately closes it again. A message sent by hand, or one whose action the asset cannot resolve, runs as it

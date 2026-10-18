@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
 #if ENABLE_INPUT_SYSTEM
     using System;
@@ -78,6 +78,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
         private TerminalUI _terminal;
 
+        private KeyboardTestScope _keyboardScope;
+
         private GameObject _terminalObject;
 
         private PanelSettings _panelSettings;
@@ -144,6 +146,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             }
         }
 
+        [SetUp]
+        public void SetUp()
+        {
+            _keyboardScope = new KeyboardTestScope();
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -184,6 +192,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             _actions.Clear();
             _performedControls.Clear();
             ActionType = InputActionType.Button;
+            _keyboardScope?.Dispose();
         }
 
         /*

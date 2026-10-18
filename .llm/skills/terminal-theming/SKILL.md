@@ -56,6 +56,15 @@ Built-in packs ship as ScriptableObject assets under `Packs/Themes/` and `Packs/
   palette renders when no theme sheet is attached. `npm --prefix tooling~ run lint:theme-palette-tokens` enforces both contracts (and that every theme block defines the full
   required list).
 
+## Responsive layout settings
+
+- Device-dependent layout thresholds belong in serialized per-terminal Window settings, alongside `maxHeight` and `smallTerminalRatio`, rather than shared session settings or
+  private constants. `narrowWindowBreakpoint` and `narrowWindowMinimumHeight` use UI Toolkit points; zero disables the corresponding behavior and negative runtime writes act as
+  zero.
+- Recompute responsive classes and height targets together when geometry or settings change. A width-change callback alone misses a breakpoint edit at an unchanged width.
+- Keep the narrow small-window floor bounded by the configured full height. Validate the effective runtime value as well as supplying inspector attributes.
+- Test defaults, threshold equality, runtime edits without a resize, geometry changes, disabled/invalid values, and oversized floors through the rendered terminal tree.
+
 ## Editor inspection
 
 `TerminalThemePackEditor` and `TerminalFontPackEditor` provide custom inspectors (pack contents, available commands to ignore for terminals via `TerminalUIEditor`). When adding

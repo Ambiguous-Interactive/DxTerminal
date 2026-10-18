@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     /*
         Every member needs the Input System's device APIs and the
@@ -8,6 +8,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
      */
 #if ENABLE_INPUT_SYSTEM
     using System.Collections;
+    using Components;
     using Input;
     using NUnit.Framework;
     using UnityEngine.InputSystem;
@@ -40,6 +41,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             covers them all.
          */
         private static readonly string[] DefaultHotkeys = { "`", "#`", "tab", "#tab", "up", "down", "enter", "return", "escape" };
+
+        private KeyboardTestScope _keyboardScope;
 
         private static void PollAllDefaultHotkeys()
         {
@@ -76,21 +79,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [SetUp]
         public void SetUp()
         {
-            InputHelpers.ResetControlMemoForTesting();
+            _keyboardScope = new KeyboardTestScope();
         }
 
         [TearDown]
         public void TearDown()
         {
-            /*
-                A test that failed mid-removal leaves no keyboard for the
-                suites after this one; the reset is idempotent when the
-                keyboard is already back.
-             */
-            if (Keyboard.current == null)
-            {
-                InputSystem.AddDevice<Keyboard>();
-            }
+            _keyboardScope?.Dispose();
         }
 
         /*
@@ -105,7 +100,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             if (Keyboard.current == null)
             {
-                InputSystem.AddDevice<Keyboard>();
+                _keyboardScope.AddKeyboard();
             }
 
             /*
@@ -176,7 +171,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Keyboard keyboard = Keyboard.current;
             Assert.That(keyboard != null, "Sanity: this host has no keyboard device to remove");
 
-            InputSystem.RemoveDevice(keyboard);
+            _keyboardScope.RemoveKeyboards();
             try
             {
                 Assert.That(Keyboard.current == null, "Sanity: the removal left no current keyboard");
@@ -188,7 +183,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             }
             finally
             {
-                InputSystem.AddDevice<Keyboard>();
+                _keyboardScope.AddKeyboard();
             }
 
             Assert.That(Keyboard.current != null, "The re-added keyboard answers polls again");
@@ -201,7 +196,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             if (Keyboard.current == null)
             {
-                InputSystem.AddDevice<Keyboard>();
+                _keyboardScope.AddKeyboard();
             }
 
             PollAllDefaultHotkeys();
@@ -217,8 +212,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 one device, and a stale control would read a dead device's
                 state.
              */
-            InputSystem.RemoveDevice(Keyboard.current);
-            InputSystem.AddDevice<Keyboard>();
+            _keyboardScope.RemoveKeyboards();
+            _keyboardScope.AddKeyboard();
             PollAllDefaultHotkeys();
             Assert.That(resolutionsAfterFirstPass < InputHelpers.ControlResolutionsForTesting, "A different keyboard re-resolves the controls");
 

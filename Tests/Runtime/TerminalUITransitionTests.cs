@@ -47,6 +47,16 @@
         private PanelSettings _panelSettings;
         private readonly List<GameObject> _spawnedObjects = new();
 
+#if ENABLE_INPUT_SYSTEM
+        private KeyboardTestScope _keyboardScope;
+
+        [SetUp]
+        public void SetUp()
+        {
+            _keyboardScope = new KeyboardTestScope();
+        }
+#endif
+
         [TearDown]
         public void TearDown()
         {
@@ -81,6 +91,9 @@
             {
                 UnityEngine.Object.Destroy(_panelSettings);
             }
+#if ENABLE_INPUT_SYSTEM
+            _keyboardScope?.Dispose();
+#endif
         }
 
         [Test]
@@ -108,6 +121,83 @@
             Assert.That(restored.findNext, Is.Empty);
             AssertMatch(restored.findNext, KeyCode.F3, EventModifiers.None, false);
             AssertMatch(restored.undo, KeyCode.Z, EventModifiers.Control, true);
+        }
+
+        [UnityTest]
+        public IEnumerator ResponsiveWindowSettingsApplyWithoutResizing()
+        {
+            yield return SpawnTerminal(open: true);
+#if UNITY_EDITOR
+            SerializedObject settings = new(_terminal);
+            settings.FindProperty("_trackChangesInEditor").boolValue = false;
+            settings.ApplyModifiedPropertiesWithoutUndo();
+#endif
+            VisualElement root = _terminal._uiDocument.rootVisualElement.Q("TerminalRoot");
+            VisualElement container = root.Q("TerminalContainer");
+            root.style.width = 320;
+            _terminal.maxHeight = 1f;
+            _terminal.smallTerminalRatio = 0f;
+            SetResponsiveWindowSettings(321, 120);
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return null;
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.True);
+            Assert.That(container.style.height.value.value, Is.EqualTo(Mathf.Min(Screen.height, 120)));
+
+            SetResponsiveWindowSettings(320, 200);
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.False, "The breakpoint is exclusive.");
+            Assert.That(container.style.height.value.value, Is.Zero);
+
+            SetResponsiveWindowSettings(321, 200);
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.True);
+            Assert.That(container.style.height.value.value, Is.EqualTo(Mathf.Min(Screen.height, 200)));
+
+            SetResponsiveWindowSettings(int.MaxValue, int.MaxValue);
+            yield return null;
+            Assert.That(container.style.height.value.value, Is.EqualTo(Screen.height), "The minimum cannot exceed the full window.");
+
+            SetResponsiveWindowSettings(321, -1);
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.True);
+            Assert.That(container.style.height.value.value, Is.Zero, "A negative minimum acts as zero.");
+
+            SetResponsiveWindowSettings(-1, 200);
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.False, "A negative breakpoint disables narrow layout.");
+        }
+
+        [UnityTest]
+        public IEnumerator ResponsiveWindowSettingsFollowGeometryAndPreserveDefaults()
+        {
+            yield return SpawnTerminal(open: true);
+#if UNITY_EDITOR
+            SerializedObject settings = new(_terminal);
+            Assert.That(settings.FindProperty("narrowWindowBreakpoint")?.intValue, Is.EqualTo(480));
+            Assert.That(settings.FindProperty("narrowWindowMinimumHeight")?.intValue, Is.EqualTo(288));
+#endif
+            VisualElement root = _terminal._uiDocument.rootVisualElement.Q("TerminalRoot");
+            VisualElement container = root.Q("TerminalContainer");
+            _terminal.maxHeight = 1f;
+            _terminal.smallTerminalRatio = 0f;
+            _terminal.SetState(TerminalState.OpenSmall);
+            root.style.width = 480;
+            yield return null;
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.False);
+            Assert.That(container.style.height.value.value, Is.Zero);
+
+            root.style.width = 479;
+            yield return null;
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.True);
+            Assert.That(container.style.height.value.value, Is.EqualTo(Mathf.Min(Screen.height, 288)));
+
+            SetResponsiveWindowSettings(0, 0);
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--narrow"), Is.False);
+            Assert.That(container.style.height.value.value, Is.Zero);
         }
 
         [UnityTest]
@@ -738,6 +828,12 @@
             }
 
             Assert.IsTrue(_terminal.IsClosed, message);
+        }
+
+        private void SetResponsiveWindowSettings(int breakpoint, int minimumHeight)
+        {
+            _terminal.narrowWindowBreakpoint = breakpoint;
+            _terminal.narrowWindowMinimumHeight = minimumHeight;
         }
 
         private IEnumerator SpawnTerminal(bool open, bool withHotkeyController = false, bool withPalette = false)

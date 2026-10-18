@@ -102,6 +102,14 @@
         [Range(0, 1)]
         public float smallTerminalRatio = 0.4714285f;
 
+        [Tooltip("Use narrow layout below this width in UI Toolkit points. Zero disables it; negative values act as zero.")]
+        [Min(0)]
+        public int narrowWindowBreakpoint = 480;
+
+        [Tooltip("Minimum small-window height in UI Toolkit points for narrow layout, capped by full height. Zero disables the floor; negative values act as zero.")]
+        [Min(0)]
+        public int narrowWindowMinimumHeight = 288;
+
         [Tooltip("Curve the console follows to go from closed -> open")]
         public AnimationCurve easeOutCurve = new() { keys = new[] { new Keyframe(0, 0), new Keyframe(1, 1) } };
 
@@ -260,6 +268,7 @@
         private bool _needsScrollToEnd;
         private LogTailFollower _logTail;
         private long? _lastSeenBufferVersion;
+        private long? _lastSeenFilterGeneration;
 
         /*
             The search the developer set over the log view, and where in it
@@ -307,6 +316,17 @@
 
         private VisualElement _terminalContainer;
         private ScrollView _logScrollView;
+        private VisualElement _logToolbar;
+        private TextField _logSearchInput;
+        private Label _logSearchCount;
+        private Button _logSearchPrevious;
+        private Button _logSearchNext;
+        private Button _logSearchClear;
+        private Button _sizeButton;
+        private int? _lastSearchCount;
+        private int? _lastSearchTotal;
+        private int? _lastSearchPosition;
+        private bool _lastSearchActive;
         private VisualElement _inputContainer;
         private Button _runButton;
         private Button _jumpLatestButton;
@@ -467,7 +487,7 @@
             };
             TrackProperties(staticStaticPropertiesTracked, _staticStateProperties);
 
-            string[] windowPropertiesTracked = { nameof(maxHeight), nameof(smallTerminalRatio) };
+            string[] windowPropertiesTracked = { nameof(maxHeight), nameof(smallTerminalRatio), nameof(narrowWindowBreakpoint), nameof(narrowWindowMinimumHeight) };
             TrackProperties(windowPropertiesTracked, _windowProperties);
 
             string[] logUnityMessagePropertiesTracked = { nameof(_logUnityMessages) };
@@ -898,6 +918,15 @@
             }
         }
 
+        internal bool SearchOwnsFocus
+        {
+            get
+            {
+                VisualElement focused = _logSearchInput?.panel?.focusController?.focusedElement as VisualElement;
+                return IsOpenState(_state) && focused != null && (focused == _logSearchInput || _logSearchInput.Contains(focused));
+            }
+        }
+
         internal bool LogOwnsFocus
         {
             get
@@ -908,7 +937,7 @@
                 }
 
                 VisualElement focused = _logScrollView.panel?.focusController?.focusedElement as VisualElement;
-                return focused != null && (_logScrollView.Contains(focused) || focused == _jumpLatestButton || (_jumpLatestButton != null && _jumpLatestButton.Contains(focused)));
+                return IsLogFocusTarget(focused);
             }
         }
 
@@ -946,7 +975,7 @@
 
         /// <summary>
         ///     Reports whether any console text field - a live terminal's
-        ///     command line or a palette's query - holds panel focus. The
+        ///     command line, log search, or a palette's query - holds panel focus. The
         ///     input polls that still hold a text-producing key back (the
         ///     six non-toggle controls on the keyboard controller, the
         ///     PlayerInput messages the typing rule covers) ask this so the
@@ -961,7 +990,7 @@
         }
 
         /// <summary>
-        ///     Reports whether any live terminal's command field holds panel
+        ///     Reports whether any live terminal's command or search field holds panel
         ///     focus. The keyboard controller's typed-text hold asks
         ///     <see cref="AnyConsoleFieldOwnsFocus"/> (which asks this) so a
         ///     key that types text is left to the surface being typed into
@@ -974,13 +1003,21 @@
             for (int index = liveCount - 1; 0 <= index; --index)
             {
                 TerminalUI candidate = LiveTerminals[index];
-                if (candidate != null && candidate.InputOwnsFocus)
+                if (candidate != null && (candidate.InputOwnsFocus || candidate.SearchOwnsFocus))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        private static Button AddToolbarButton(VisualElement parent, string name, string text, Action action)
+        {
+            Button button = new(action) { name = name, text = text };
+            button.AddToClassList("terminal-button");
+            parent.Add(button);
+            return button;
         }
 
         private static void ConsumeAndLogErrors()
@@ -1895,6 +1932,16 @@
         {
             _terminalContainer = null;
             _logScrollView = null;
+            _logToolbar = null;
+            _logSearchInput = null;
+            _logSearchCount = null;
+            _logSearchPrevious = null;
+            _logSearchNext = null;
+            _logSearchClear = null;
+            _sizeButton = null;
+            _lastSearchCount = null;
+            _lastSearchTotal = null;
+            _lastSeenFilterGeneration = null;
             _autoCompleteContainer = null;
             _inputContainer = null;
             _runButton = null;
@@ -1954,7 +2001,7 @@
              */
             _uiDocument.rootVisualElement.style.height = _currentWindowHeight;
             _terminalContainer.style.height = _currentWindowHeight;
-            _terminalContainer.style.width = Screen.width;
+            _logToolbar.style.display = IsOpenState(_state) ? DisplayStyle.Flex : DisplayStyle.None;
             DisplayStyle commandInputStyle = _currentWindowHeight <= 30 ? DisplayStyle.None : DisplayStyle.Flex;
 
             _needsFocus |= _inputContainer.resolvedStyle.display != commandInputStyle && commandInputStyle == DisplayStyle.Flex;
@@ -2062,7 +2109,7 @@
             match than the developer can count on screen, every time they ran
             it.
          */
-        internal void SetLogFilter(string query)
+        internal void SetLogFilter(string query, bool report = true)
         {
             if (Terminal.Buffer == null)
             {
@@ -2073,7 +2120,10 @@
                     matches", which would be an answer about a log that is not
                     there.
                  */
-                LogFindWarning("There is no log to search yet.");
+                if (report)
+                {
+                    LogFindWarning("There is no log to search yet.");
+                }
                 return;
             }
 
@@ -2088,6 +2138,10 @@
                 return;
             }
 
+            if (report)
+            {
+                _logSearchInput?.SetValueWithoutNotify(_logFilter.Query);
+            }
             int matches = ReadRenderedLogWindow(Terminal.Buffer, out _);
             if (matches < 1)
             {
@@ -2098,7 +2152,10 @@
                     nothing.
                  */
                 DropFindScroll();
-                LogFindWarning("No log line matches the search. clear-filter shows every line again.");
+                if (report)
+                {
+                    LogFindWarning("No log line matches the search. clear-filter shows every line again.");
+                }
                 return;
             }
 
@@ -2110,7 +2167,10 @@
                 interchangeable words here, and "matching log lines" on the
                 total would say the opposite of what the number means.
              */
-            LogFindReply($"Showing {matches} of {_logFilter.TotalCount} log lines.");
+            if (report)
+            {
+                LogFindReply($"Showing {matches} of {_logFilter.TotalCount} log lines.");
+            }
         }
 
         /*
@@ -2122,11 +2182,14 @@
             through are the ones the log holds now, not the ones it held when
             they typed the search.
          */
-        internal void StepLogFilter(bool forward)
+        internal void StepLogFilter(bool forward, bool report = true)
         {
             if (!_logFilter.IsActive)
             {
-                LogFindWarning("No search is set. find <text> sets one.");
+                if (report)
+                {
+                    LogFindWarning("No search is set. find <text> sets one.");
+                }
                 return;
             }
 
@@ -2137,32 +2200,48 @@
                     no log there is nothing to step through - stepping anyway
                     would answer "Match 7 of 20" for a log that holds nothing.
                  */
-                LogFindWarning("There is no log to search yet.");
+                if (report)
+                {
+                    LogFindWarning("There is no log to search yet.");
+                }
                 return;
             }
 
             ReadRenderedLogWindow(Terminal.Buffer, out _);
             if (!(forward ? _logFilter.StepForward() : _logFilter.StepBackward()))
             {
-                LogFindWarning("No log line matches the search.");
+                if (report)
+                {
+                    LogFindWarning("No log line matches the search.");
+                }
                 return;
             }
 
             QueueFindScroll();
-            LogFindReply($"Match {_logFilter.CurrentMatch} of {_logFilter.MatchCount}.");
+            if (report)
+            {
+                LogFindReply($"Match {_logFilter.CurrentMatch} of {_logFilter.MatchCount}.");
+            }
         }
 
-        internal void ClearLogFilter()
+        internal void ClearLogFilter(bool report = true)
         {
             if (!_logFilter.IsActive)
             {
-                LogFindReply("No search is set.");
+                if (report)
+                {
+                    LogFindReply("No search is set.");
+                }
                 return;
             }
 
             _logFilter.Clear();
+            _logSearchInput?.SetValueWithoutNotify(string.Empty);
             DropFindScroll();
-            LogFindReply("Search cleared. The log shows every line again.");
+            if (report)
+            {
+                LogFindReply("Search cleared. The log shows every line again.");
+            }
         }
 
         /*
@@ -2475,7 +2554,18 @@
 
         private void ResetWindowIdempotent()
         {
+            VisualElement root = _terminalContainer?.parent;
+            float width = root?.layout.width ?? 0f;
+            bool narrow = 0 < width && width < Math.Max(0, narrowWindowBreakpoint);
+            root?.EnableInClassList("terminal-root--narrow", narrow);
+
             int height = Screen.height;
+            float fullHeight = height * maxHeight;
+            float smallHeight = fullHeight * smallTerminalRatio;
+            if (narrow)
+            {
+                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, Math.Max(0, narrowWindowMinimumHeight)));
+            }
             float oldTargetHeight = _targetWindowHeight;
             try
             {
@@ -2483,19 +2573,19 @@
                 {
                     case TerminalState.OpenSmall:
                     {
-                        _realWindowHeight = height * maxHeight * smallTerminalRatio;
+                        _realWindowHeight = smallHeight;
                         _targetWindowHeight = _realWindowHeight;
                         break;
                     }
                     case TerminalState.OpenFull:
                     {
-                        _realWindowHeight = height * maxHeight;
+                        _realWindowHeight = fullHeight;
                         _targetWindowHeight = _realWindowHeight;
                         break;
                     }
                     default:
                     {
-                        _realWindowHeight = height * maxHeight * smallTerminalRatio;
+                        _realWindowHeight = smallHeight;
                         _targetWindowHeight = 0;
                         break;
                     }
@@ -2558,6 +2648,7 @@
             uiRoot.Add(root);
             root.name = TerminalRootName;
             root.AddToClassList("terminal-root");
+            root.RegisterCallback<GeometryChangedEvent, TerminalUI>(static (_, context) => context.ResetWindowIdempotent(), this);
 
             InitializeTheme(root);
             InitializeFont();
@@ -2577,6 +2668,8 @@
             _uiDocument.rootVisualElement.style.height = new StyleLength(_realWindowHeight);
             _terminalContainer.style.height = new StyleLength(_realWindowHeight);
             root.Add(_terminalContainer);
+
+            SetupLogToolbar();
 
             _logScrollView = new ScrollView();
             InitializeScrollView(_logScrollView);
@@ -2819,6 +2912,107 @@
             _needsInitialRefresh = true;
         }
 
+        private void SetupLogToolbar()
+        {
+            _lastSearchCount = null;
+            _lastSearchTotal = null;
+            _logToolbar = new VisualElement { name = "LogToolbar" };
+            _logToolbar.AddToClassList("terminal-toolbar");
+            _terminalContainer.Add(_logToolbar);
+            VisualElement header = new() { name = "TerminalHeader" };
+            header.AddToClassList("terminal-header");
+            _logToolbar.Add(header);
+            Label title = new("DxTerminal");
+            title.AddToClassList("terminal-header-title");
+            header.Add(title);
+            _sizeButton = AddToolbarButton(
+                header,
+                "TerminalSizeButton",
+                "Full",
+                () => SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull)
+            );
+            _sizeButton.AddToClassList("terminal-header-size");
+            AddToolbarButton(header, "TerminalCloseButton", "Close", () => SetState(TerminalState.Closed)).AddToClassList("terminal-header-close");
+            VisualElement search = new() { name = "LogSearch" };
+            search.AddToClassList("terminal-search");
+            _logToolbar.Add(search);
+            _logSearchInput = new TextField("Search") { name = "LogSearchInput", tooltip = "Search log output. Enter selects the next match." };
+            _logSearchInput.AddToClassList("terminal-search-field");
+            _logSearchInput.SetValueWithoutNotify(_logFilter.Query ?? string.Empty);
+            _logSearchInput.RegisterCallback<ChangeEvent<string>, TerminalUI>(static (evt, terminal) => terminal.OnLogSearchChanged(evt), this);
+            _logSearchInput.RegisterCallback<KeyDownEvent, TerminalUI>(
+                static (evt, terminal) =>
+                {
+                    if (
+                        TextFieldPaste.TryApply(terminal._logSearchInput, evt, out _, terminal.KeyBindings)
+                        || TextFieldCopyCut.TryApply(terminal._logSearchInput, evt, out _, terminal.KeyBindings)
+                    )
+                    {
+                        KeyEvents.Consume(terminal._logSearchInput, evt);
+                    }
+                    else if (evt.keyCode is KeyCode.Return or KeyCode.KeypadEnter)
+                    {
+                        terminal.StepLogSearch(!evt.shiftKey);
+                        KeyEvents.Consume(terminal._logSearchInput, evt);
+                    }
+                    else if (LogFindKeys.IsStepForward(evt, terminal.KeyBindings) || LogFindKeys.IsStepBackward(evt, terminal.KeyBindings))
+                    {
+                        terminal.StepLogSearch(LogFindKeys.IsStepForward(evt, terminal.KeyBindings));
+                        KeyEvents.Consume(terminal._logSearchInput, evt);
+                    }
+                },
+                this,
+                TrickleDown.TrickleDown
+            );
+            search.Add(_logSearchInput);
+            _logSearchCount = new Label { name = "LogSearchCount", tooltip = "Matching lines of searchable lines (current match / matching lines)." };
+            _logSearchCount.AddToClassList("terminal-search-count");
+            search.Add(_logSearchCount);
+            _logSearchPrevious = AddToolbarButton(search, "LogSearchPrevious", "Prev", () => StepLogSearch(false));
+            _logSearchNext = AddToolbarButton(search, "LogSearchNext", "Next", () => StepLogSearch(true));
+            _logSearchClear = AddToolbarButton(search, "LogSearchClear", "Clear", () => ClearLogFilter(false));
+        }
+
+        private void OnLogSearchChanged(ChangeEvent<string> evt)
+        {
+            if (string.IsNullOrWhiteSpace(evt.newValue))
+            {
+                ClearLogFilter(false);
+            }
+            else
+            {
+                SetLogFilter(evt.newValue, false);
+            }
+        }
+
+        private void StepLogSearch(bool forward)
+        {
+            StepLogFilter(forward, false);
+        }
+
+        private void RefreshLogSearch(int renderedCount)
+        {
+            bool active = _logFilter.IsActive;
+            int count = active ? _logFilter.MatchCount : renderedCount;
+            int total = active ? _logFilter.TotalCount : renderedCount;
+            int? position = active ? _logFilter.CurrentMatch : null;
+            if (_lastSearchCount != count || _lastSearchTotal != total || _lastSearchPosition != position || _lastSearchActive != active)
+            {
+                _logSearchCount.text = active
+                    ? position.HasValue
+                        ? $"{count} of {total} ({position}/{count})"
+                        : $"{count} of {total}"
+                    : $"{total} lines";
+                _logSearchPrevious.SetEnabled(active && 0 < count);
+                _logSearchNext.SetEnabled(active && 0 < count);
+                _logSearchClear.SetEnabled(active);
+                _lastSearchCount = count;
+                _lastSearchTotal = total;
+                _lastSearchPosition = position;
+                _lastSearchActive = active;
+            }
+        }
+
         private void InitializeTheme(VisualElement root)
         {
             if (_themePack == null)
@@ -2957,10 +3151,22 @@
                 .Every(_cursorBlinkRateMilliseconds);
         }
 
+        private bool IsLogFocusTarget(VisualElement focused)
+        {
+            return focused != null
+                && (
+                    focused == _logScrollView
+                    || (_logScrollView != null && _logScrollView.Contains(focused))
+                    || (_logToolbar != null && _logToolbar.Contains(focused))
+                    || focused == _jumpLatestButton
+                    || (_jumpLatestButton != null && _jumpLatestButton.Contains(focused))
+                );
+        }
+
         private void ReleaseLogFocus()
         {
             VisualElement focused = _logScrollView?.panel?.focusController?.focusedElement as VisualElement;
-            if (focused != null && _logScrollView.Contains(focused))
+            if (IsLogFocusTarget(focused))
             {
                 focused.Blur();
             }
@@ -2973,8 +3179,7 @@
                 return false;
             }
 
-            VisualElement focused = _textInput.focusController.focusedElement as VisualElement;
-            return allowLogFocus || _logScrollView == null || focused == null || !_logScrollView.Contains(focused);
+            return allowLogFocus || !LogOwnsFocus;
         }
 
         private void FocusInput(bool allowLogFocus = false)
@@ -3036,7 +3241,7 @@
 
             VisualElement content = _logScrollView.contentContainer;
             bool newLogs = _lastSeenBufferVersion != buffer.Version;
-            bool dirty = newLogs;
+            bool dirty = newLogs || _lastSeenFilterGeneration != _logFilter.Generation;
 
             /*
                 One consistent read of the whole window, not a count followed
@@ -3049,6 +3254,7 @@
                 the count the view lays out is the count it draws.
              */
             int logCount = ReadRenderedLogWindow(buffer, out LogItem[] rendered);
+            RefreshLogSearch(logCount);
             if (content.childCount != logCount)
             {
                 dirty = true;
@@ -3118,6 +3324,7 @@
                 if (logCount == content.childCount)
                 {
                     _lastSeenBufferVersion = buffer.Version;
+                    _lastSeenFilterGeneration = _logFilter.Generation;
                 }
             }
 
@@ -3669,7 +3876,11 @@
             }
 
             _stateButtonContainer.style.top = _currentWindowHeight;
-            DisplayStyle displayStyle = showGUIButtons ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_sizeButton != null)
+            {
+                _sizeButton.text = _state == TerminalState.OpenFull ? "Small" : "Full";
+            }
+            DisplayStyle displayStyle = showGUIButtons && !IsOpenState(_state) ? DisplayStyle.Flex : DisplayStyle.None;
 
             int stateButtonCount = _stateButtonContainer.childCount;
             for (int i = 0; i < stateButtonCount; ++i)
