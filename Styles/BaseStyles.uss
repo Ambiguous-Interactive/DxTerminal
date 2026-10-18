@@ -28,7 +28,8 @@
 }
 
 .terminal-header,
-.terminal-search {
+.terminal-search,
+.terminal-severities {
     flex-direction: row;
     flex-wrap: wrap;
     flex-shrink: 0;
@@ -48,7 +49,8 @@
 }
 
 .terminal-header .terminal-button,
-.terminal-search .terminal-button {
+.terminal-search .terminal-button,
+.terminal-severities .terminal-button {
     flex-shrink: 0;
     min-height: 24px;
     background-color: var(--button-bg);
@@ -56,7 +58,8 @@
 }
 
 .terminal-header .terminal-button:hover,
-.terminal-search .terminal-button:hover {
+.terminal-search .terminal-button:hover,
+.terminal-severities .terminal-button:hover {
     background-color: var(--button-hover-bg);
     color: var(--button-hover-text);
 }
@@ -100,6 +103,7 @@
 
 .terminal-root--narrow .terminal-header .terminal-button,
 .terminal-root--narrow .terminal-search .terminal-button,
+.terminal-root--narrow .terminal-severities .terminal-button,
 .terminal-root--narrow .input-container .terminal-button,
 .terminal-root--narrow .state-button-container .terminal-button,
 .terminal-root--narrow .autocomplete-popup .terminal-button {
@@ -108,7 +112,8 @@
 }
 
 .terminal-root--narrow .terminal-header,
-.terminal-root--narrow .terminal-search {
+.terminal-root--narrow .terminal-search,
+.terminal-root--narrow .terminal-severities {
     padding: 2px;
 }
 
@@ -246,7 +251,21 @@
     padding: 0;
 }
 
+.terminal-output-label > .unity-base-field__label {
+    width: 90px;
+    min-width: 90px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 0;
+    margin: 0 6px 0 0;
+}
+
 .terminal-output-label #unity-text-input {
+    min-width: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
     white-space: normal;
     --unity-cursor-color: transparent;
     background-color: transparent;
@@ -416,6 +435,23 @@
 .terminal-output-label--error #unity-text-input,
 .terminal-output-label--error .unity-text-element {
     color: var(--text-error);
+}
+
+
+.terminal-severities .terminal-type-chip {
+    background-color: var(--button-selected-bg);
+    color: var(--button-selected-text);
+}
+
+.terminal-severities .terminal-type-chip--excluded {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border-bottom-width: 2px;
+    border-bottom-color: var(--text-shell);
+}
+
+.terminal-root--narrow .terminal-type-chip {
+    font-size: 12px;
 }
 
 /* -- Command palette -- */

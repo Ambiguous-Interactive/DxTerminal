@@ -71,6 +71,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
          */
         private readonly CyclicBuffer<LogItem> _logs;
 
+        // Immutable per buffer; providers run on the logging thread and must be thread-safe.
+        private readonly Func<DateTime> _utcNow;
+
         /*
             The ignore filter, guarded by the ring's lock: the write path
             reads it inside the critical section that owns the write, and
@@ -90,14 +93,31 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private readonly object _traceBuilderLock = new();
 
+        // Indexed by canonical severity; counts share the ring lock and eviction order.
+        private readonly int[] _severityCounts = new int[(int)TerminalLogType.ShellMessage + 1];
+
         private long _version;
 
         private TerminalStackTraceMode _stackTraceMode = TerminalStackTraceMode.All;
 
         public CommandLog(int maxItems, IEnumerable<TerminalLogType> ignoredLogTypes = null)
+            : this(maxItems, ignoredLogTypes, static () => DateTime.UtcNow) { }
+
+        internal CommandLog(int maxItems, IEnumerable<TerminalLogType> ignoredLogTypes, Func<DateTime> utcNow)
         {
+            _utcNow = utcNow ?? throw new ArgumentNullException(nameof(utcNow));
             _logs = new CyclicBuffer<LogItem>(maxItems);
             _ignoredLogTypes = new HashSet<TerminalLogType>(ignoredLogTypes ?? Array.Empty<TerminalLogType>());
+        }
+
+        internal static TerminalLogType SeverityOf(TerminalLogType type)
+        {
+            return type switch
+            {
+                TerminalLogType.Error or TerminalLogType.Assert or TerminalLogType.Exception => TerminalLogType.Error,
+                TerminalLogType.Warning => TerminalLogType.Warning,
+                _ => TerminalLogType.Message,
+            };
         }
 
         public bool HandleLog(string message, TerminalLogType type, bool includeStackTrace = true)
@@ -144,7 +164,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 callback, and direct callers - so this is the one place log
                 text is normalized.
              */
-            LogItem log = new(type, LogTextSanitizer.Sanitize(message), CapturesStackTrace(type) ? LogTextSanitizer.Sanitize(stackTrace) : string.Empty);
+            LogItem log = new(type, LogTextSanitizer.Sanitize(message), CapturesStackTrace(type) ? LogTextSanitizer.Sanitize(stackTrace) : string.Empty, _utcNow());
 
             lock (_logs.SyncRoot)
             {
@@ -173,6 +193,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     was before: the version is a change signal, not a receipt.
                  */
                 Interlocked.Increment(ref _version);
+                int capacity = _logs.Capacity;
+                if (0 < capacity)
+                {
+                    if (_logs.Count == capacity)
+                    {
+                        --_severityCounts[(int)SeverityOf(_logs[0].type)];
+                    }
+                    ++_severityCounts[(int)SeverityOf(type)];
+                }
                 _logs.Add(log);
             }
 
@@ -185,6 +214,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 int logCount = _logs.Count;
                 _logs.Clear();
+                Array.Clear(_severityCounts, 0, _severityCounts.Length);
                 Interlocked.Increment(ref _version);
                 return logCount;
             }
@@ -194,8 +224,17 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         {
             lock (_logs.SyncRoot)
             {
-                if (newCapacity < _logs.Count)
+                if (newCapacity < 0)
                 {
+                    throw new ArgumentException(nameof(newCapacity));
+                }
+                int count = _logs.Count;
+                if (newCapacity < count)
+                {
+                    for (int i = newCapacity; i < count; ++i)
+                    {
+                        --_severityCounts[(int)SeverityOf(_logs[i].type)];
+                    }
                     Interlocked.Increment(ref _version);
                 }
 
@@ -238,6 +277,17 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             lock (_logs.SyncRoot)
             {
                 return _logs.CopyTo(destination);
+            }
+        }
+
+        internal void ReadSeverityCounts(out int messages, out int warnings, out int errors)
+        {
+            lock (_logs.SyncRoot)
+            {
+                messages = _severityCounts[(int)TerminalLogType.Message];
+                warnings = _severityCounts[(int)TerminalLogType.Warning];
+                errors = _severityCounts[(int)TerminalLogType.Error];
+                return;
             }
         }
 

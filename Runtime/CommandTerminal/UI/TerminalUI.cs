@@ -19,6 +19,8 @@
     [DisallowMultipleComponent]
     public sealed class TerminalUI : MonoBehaviour
     {
+        private const int MinimumVisibleLogHeight = 30;
+
         private const string TerminalRootName = "TerminalRoot";
 
         /*
@@ -267,6 +269,7 @@
         private bool _needsFocus;
         private bool _needsScrollToEnd;
         private LogTailFollower _logTail;
+        private CommandLog _lastSeenBuffer;
         private long? _lastSeenBufferVersion;
         private long? _lastSeenFilterGeneration;
 
@@ -323,6 +326,8 @@
         private Button _logSearchNext;
         private Button _logSearchClear;
         private Button _sizeButton;
+        private readonly Button[] _severityButtons = new Button[3];
+        private readonly int?[] _lastSeverityCounts = new int?[3];
         private int? _lastSearchCount;
         private int? _lastSearchTotal;
         private int? _lastSearchPosition;
@@ -1939,8 +1944,11 @@
             _logSearchNext = null;
             _logSearchClear = null;
             _sizeButton = null;
+            Array.Clear(_severityButtons, 0, _severityButtons.Length);
+            Array.Clear(_lastSeverityCounts, 0, _lastSeverityCounts.Length);
             _lastSearchCount = null;
             _lastSearchTotal = null;
+            _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
             _autoCompleteContainer = null;
             _inputContainer = null;
@@ -2184,7 +2192,7 @@
          */
         internal void StepLogFilter(bool forward, bool report = true)
         {
-            if (!_logFilter.IsActive)
+            if (!_logFilter.HasQuery)
             {
                 if (report)
                 {
@@ -2224,7 +2232,7 @@
             }
         }
 
-        internal void ClearLogFilter(bool report = true)
+        internal void ClearLogFilter(bool report = true, bool clearSeverities = true)
         {
             if (!_logFilter.IsActive)
             {
@@ -2235,7 +2243,7 @@
                 return;
             }
 
-            _logFilter.Clear();
+            _logFilter.Clear(clearSeverities);
             _logSearchInput?.SetValueWithoutNotify(string.Empty);
             DropFindScroll();
             if (report)
@@ -2564,7 +2572,20 @@
             float smallHeight = fullHeight * smallTerminalRatio;
             if (narrow)
             {
-                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, Math.Max(0, narrowWindowMinimumHeight)));
+                float minimumHeight = Math.Max(0, narrowWindowMinimumHeight);
+                if (0 < minimumHeight)
+                {
+                    float controlsHeight =
+                        (_logToolbar?.layout.height ?? 0f)
+                        + (_inputContainer?.layout.height ?? 0f)
+                        + (_autoCompleteContainer?.layout.height ?? 0f)
+                        + (_logCopyStatus?.layout.height ?? 0f);
+                    if (float.IsFinite(controlsHeight))
+                    {
+                        minimumHeight = Math.Max(minimumHeight, controlsHeight + MinimumVisibleLogHeight);
+                    }
+                }
+                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, minimumHeight));
             }
             float oldTargetHeight = _targetWindowHeight;
             try
@@ -2971,13 +2992,75 @@
             _logSearchPrevious = AddToolbarButton(search, "LogSearchPrevious", "Prev", () => StepLogSearch(false));
             _logSearchNext = AddToolbarButton(search, "LogSearchNext", "Next", () => StepLogSearch(true));
             _logSearchClear = AddToolbarButton(search, "LogSearchClear", "Clear", () => ClearLogFilter(false));
+            VisualElement types = new() { name = "LogSeverities" };
+            types.AddToClassList("terminal-severities");
+            _logToolbar.Add(types);
+            AddSeverityButton(types, 0, TerminalLogType.Message, "LogMessages");
+            AddSeverityButton(types, 1, TerminalLogType.Warning, "LogWarnings");
+            AddSeverityButton(types, 2, TerminalLogType.Error, "LogErrors");
+        }
+
+        private void AddSeverityButton(VisualElement parent, int index, TerminalLogType severity, string name)
+        {
+            Button button = AddToolbarButton(
+                parent,
+                name,
+                string.Empty,
+                () =>
+                {
+                    _logFilter.ToggleSeverity(severity);
+                    DropFindScroll();
+                }
+            );
+            button.AddToClassList("terminal-type-chip");
+            button.tooltip = severity switch
+            {
+                TerminalLogType.Error => "Toggle errors, assertions, and exceptions. Count includes all retained entries.",
+                TerminalLogType.Warning => "Toggle warnings. Count includes all retained entries.",
+                _ => "Toggle messages, command echoes, and output. Count includes all retained entries.",
+            };
+            _severityButtons[index] = button;
+            _lastSeverityCounts[index] = null;
+        }
+
+        private void RefreshLogSeverities(CommandLog buffer)
+        {
+            buffer.ReadSeverityCounts(out int messages, out int warnings, out int errors);
+            for (int i = 0; i < _severityButtons.Length; ++i)
+            {
+                TerminalLogType severity = i switch
+                {
+                    1 => TerminalLogType.Warning,
+                    2 => TerminalLogType.Error,
+                    _ => TerminalLogType.Message,
+                };
+                Button button = _severityButtons[i];
+                int count = severity switch
+                {
+                    TerminalLogType.Warning => warnings,
+                    TerminalLogType.Error => errors,
+                    _ => messages,
+                };
+                if (_lastSeverityCounts[i] != count)
+                {
+                    string label = severity switch
+                    {
+                        TerminalLogType.Warning => "Warnings",
+                        TerminalLogType.Error => "Errors",
+                        _ => "Messages",
+                    };
+                    button.text = $"{label} {count}";
+                    _lastSeverityCounts[i] = count;
+                }
+                button.EnableInClassList("terminal-type-chip--excluded", !_logFilter.IsSeverityEnabled(severity));
+            }
         }
 
         private void OnLogSearchChanged(ChangeEvent<string> evt)
         {
             if (string.IsNullOrWhiteSpace(evt.newValue))
             {
-                ClearLogFilter(false);
+                ClearLogFilter(false, false);
             }
             else
             {
@@ -2995,7 +3078,7 @@
             bool active = _logFilter.IsActive;
             int count = active ? _logFilter.MatchCount : renderedCount;
             int total = active ? _logFilter.TotalCount : renderedCount;
-            int? position = active ? _logFilter.CurrentMatch : null;
+            int? position = _logFilter.HasQuery ? _logFilter.CurrentMatch : null;
             if (_lastSearchCount != count || _lastSearchTotal != total || _lastSearchPosition != position || _lastSearchActive != active)
             {
                 _logSearchCount.text = active
@@ -3003,8 +3086,8 @@
                         ? $"{count} of {total} ({position}/{count})"
                         : $"{count} of {total}"
                     : $"{total} lines";
-                _logSearchPrevious.SetEnabled(active && 0 < count);
-                _logSearchNext.SetEnabled(active && 0 < count);
+                _logSearchPrevious.SetEnabled(_logFilter.HasQuery && 0 < count);
+                _logSearchNext.SetEnabled(_logFilter.HasQuery && 0 < count);
                 _logSearchClear.SetEnabled(active);
                 _lastSearchCount = count;
                 _lastSearchTotal = total;
@@ -3240,7 +3323,8 @@
             }
 
             VisualElement content = _logScrollView.contentContainer;
-            bool newLogs = _lastSeenBufferVersion != buffer.Version;
+            long bufferVersion = buffer.Version;
+            bool newLogs = !ReferenceEquals(_lastSeenBuffer, buffer) || _lastSeenBufferVersion != bufferVersion;
             bool dirty = newLogs || _lastSeenFilterGeneration != _logFilter.Generation;
 
             /*
@@ -3255,6 +3339,10 @@
              */
             int logCount = ReadRenderedLogWindow(buffer, out LogItem[] rendered);
             RefreshLogSearch(logCount);
+            if (dirty || !_lastSeverityCounts[0].HasValue)
+            {
+                RefreshLogSeverities(buffer);
+            }
             if (content.childCount != logCount)
             {
                 dirty = true;
@@ -3311,6 +3399,7 @@
                     SetupLogText(logText, logItem);
                     if (logText.Sequence != logItem.Sequence)
                     {
+                        logText.SetMetadata(logItem.TimestampUtc, logItem.type);
                         if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
                         {
                             logText.SetValueWithoutNotify(logItem.message);
@@ -3323,7 +3412,9 @@
 
                 if (logCount == content.childCount)
                 {
-                    _lastSeenBufferVersion = buffer.Version;
+                    _lastSeenBuffer = buffer;
+                    // Do not acknowledge writes that arrived after this frame's window copy.
+                    _lastSeenBufferVersion = bufferVersion;
                     _lastSeenFilterGeneration = _logFilter.Generation;
                 }
             }
@@ -3562,7 +3653,7 @@
                 return false;
             }
 
-            if (!_logFilter.IsActive)
+            if (!_logFilter.HasQuery)
             {
                 return false;
             }
@@ -4075,6 +4166,37 @@
         private sealed class LogTextField : TextField
         {
             public long Sequence { get; set; }
+
+            private long? _timestampSecond;
+            private TerminalLogType? _type;
+
+            public LogTextField()
+            {
+                labelElement.pickingMode = PickingMode.Ignore;
+            }
+
+            public void SetMetadata(DateTime timestampUtc, TerminalLogType type)
+            {
+                long second = timestampUtc.Ticks / TimeSpan.TicksPerSecond;
+                if (_timestampSecond == second && _type == type)
+                {
+                    return;
+                }
+                string marker = type switch
+                {
+                    TerminalLogType.Error => "E",
+                    TerminalLogType.Assert => "A",
+                    TerminalLogType.Warning => "W",
+                    TerminalLogType.Message => "I",
+                    TerminalLogType.Exception => "X",
+                    TerminalLogType.Input => ">",
+                    TerminalLogType.ShellMessage => "<",
+                    _ => "?",
+                };
+                label = $"{timestampUtc.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}Z [{marker}]";
+                _timestampSecond = second;
+                _type = type;
+            }
         }
 
         private enum ScrollBarCaptureState

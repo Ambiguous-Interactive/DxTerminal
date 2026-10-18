@@ -38,4 +38,10 @@ editors; too high silently degrades behavior (or emits deprecation warnings) on 
 - `npm run docs:build` compiles Runtime sources against UnityEngine 2021.3.33 reference assemblies (tooling~/docs): catches type-level leaks below the minimum editor. It suppresses
   member-level errors (CS1061), so it is a type-level tripwire only.
 - After compiling on the pinned host, check the console for CS0618 warnings; the repo's zero-warnings rule makes any deprecation warning a failure.
-- After compiling on the pinned host, check the console for CS0618 warnings; the repo's zero-warnings rule makes any deprecation warning a failure.
+
+## .NET API checks
+
+Check the BCL target as well as Unity's version before adding a fallback. `float.IsFinite` is part of
+[.NET Standard 2.1](https://learn.microsoft.com/dotnet/api/system.single.isfinite).
+[Unity 2021.3 supports 2.1 in both profiles](https://docs.unity3d.com/2021.3/Documentation/Manual/dotnetProfileSupport.html), so use it instead of paired NaN/infinity checks. An
+infinity-only check may intentionally accept NaN, such as the numeric-overflow parser; preserve that distinction during a sweep.

@@ -142,7 +142,7 @@
             yield return null;
             yield return null;
             Assert.That(root.ClassListContains("terminal-root--narrow"), Is.True);
-            Assert.That(container.style.height.value.value, Is.EqualTo(Mathf.Min(Screen.height, 120)));
+            Assert.That(container.style.height.value.value, Is.InRange(Mathf.Min(Screen.height, 120), (float)Screen.height));
 
             SetResponsiveWindowSettings(320, 200);
             yield return null;
@@ -152,7 +152,7 @@
             SetResponsiveWindowSettings(321, 200);
             yield return null;
             Assert.That(root.ClassListContains("terminal-root--narrow"), Is.True);
-            Assert.That(container.style.height.value.value, Is.EqualTo(Mathf.Min(Screen.height, 200)));
+            Assert.That(container.style.height.value.value, Is.InRange(Mathf.Min(Screen.height, 200), (float)Screen.height));
 
             SetResponsiveWindowSettings(int.MaxValue, int.MaxValue);
             yield return null;

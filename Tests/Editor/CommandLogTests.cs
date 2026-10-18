@@ -102,6 +102,118 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return new TestCaseData(TerminalStackTraceMode.Disabled, TerminalLogType.ShellMessage, false).SetName("Mode.Disabled.SkipsRoutine");
         }
 
+        private static void AssertSeverityCounts(CommandLog log, LogItem[] window)
+        {
+            int count = log.CopyTo(window);
+            int messages = 0;
+            int warnings = 0;
+            int errors = 0;
+            for (int i = 0; i < count; ++i)
+            {
+                switch (window[i].type)
+                {
+                    case TerminalLogType.Warning:
+                        ++warnings;
+                        break;
+                    case TerminalLogType.Error:
+                    case TerminalLogType.Assert:
+                    case TerminalLogType.Exception:
+                        ++errors;
+                        break;
+                    default:
+                        ++messages;
+                        break;
+                }
+            }
+            log.ReadSeverityCounts(out int actualMessages, out int actualWarnings, out int actualErrors);
+            Assert.That(actualMessages, Is.EqualTo(messages));
+            Assert.That(actualWarnings, Is.EqualTo(warnings));
+            Assert.That(actualErrors, Is.EqualTo(errors));
+        }
+
+        [Test]
+        public void EntryTimeIsUtcAndSurvivesBufferCopies()
+        {
+            DateTime first = new(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+            DateTime current = first;
+            CommandLog log = new(2, null, () => current);
+            log.HandleLog("first entry", string.Empty, TerminalLogType.Message);
+            current = first.AddSeconds(1);
+            log.HandleLog("second entry", string.Empty, TerminalLogType.Message);
+            current = first.AddDays(1);
+            LogItem[] window = new LogItem[2];
+            Assert.That(log.CopyTo(window), Is.EqualTo(2));
+            Assert.That(window[0].TimestampUtc.Kind, Is.EqualTo(DateTimeKind.Utc));
+            Assert.That(window[0].TimestampUtc, Is.EqualTo(first));
+            Assert.That(window[1].TimestampUtc, Is.EqualTo(first.AddSeconds(1)));
+            Assert.That(log.TryGetLast(out LogItem last), Is.True);
+            Assert.That(last.TimestampUtc, Is.EqualTo(window[1].TimestampUtc));
+            log.Resize(4);
+            Assert.That(log.TryGetLast(out last), Is.True);
+            Assert.That(last.TimestampUtc, Is.EqualTo(window[1].TimestampUtc));
+        }
+
+        [Test]
+        public void ClocksAreIsolatedBetweenBuffers()
+        {
+            DateTime firstTime = new(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime secondTime = firstTime.AddYears(1);
+            CommandLog first = new(1, null, () => firstTime);
+            CommandLog second = new(1, null, () => secondTime);
+            first.HandleLog("first", string.Empty, TerminalLogType.Message);
+            second.HandleLog("second", string.Empty, TerminalLogType.Message);
+            Assert.That(first.TryGetLast(out LogItem firstEntry), Is.True);
+            Assert.That(second.TryGetLast(out LogItem secondEntry), Is.True);
+            Assert.That(firstEntry.TimestampUtc, Is.EqualTo(firstTime));
+            Assert.That(secondEntry.TimestampUtc, Is.EqualTo(secondTime));
+        }
+
+        [Test]
+        public void NullClockIsRejected()
+        {
+            Assert.Throws<ArgumentNullException>(() => new CommandLog(1, null, null));
+        }
+
+        [TestCase(DateTimeKind.Local)]
+        [TestCase(DateTimeKind.Unspecified)]
+        public void NonUtcClockIsRejectedWithoutChangingBuffer(DateTimeKind kind)
+        {
+            CommandLog log = new(1, null, () => new DateTime(2000, 1, 1, 0, 0, 0, kind));
+            Assert.Throws<ArgumentException>(() => log.HandleLog("entry", string.Empty, TerminalLogType.Message));
+            Assert.That(log.Count, Is.Zero);
+            Assert.That(log.Version, Is.Zero);
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(5)]
+        public void SeverityCountsFollowTheRetainedWindow(int capacity)
+        {
+            CommandLog log = new(capacity, new[] { TerminalLogType.Input });
+            LogItem[] window = new LogItem[16];
+            for (int iteration = 0; iteration < 3; ++iteration)
+            {
+                foreach (TerminalLogType type in AllLogTypes)
+                {
+                    log.HandleLog("entry", string.Empty, type);
+                    AssertSeverityCounts(log, window);
+                }
+            }
+            log.Resize(2);
+            AssertSeverityCounts(log, window);
+            log.Resize(1);
+            AssertSeverityCounts(log, window);
+            Assert.Throws<ArgumentException>(() => log.Resize(-1));
+            AssertSeverityCounts(log, window);
+            log.Resize(0);
+            AssertSeverityCounts(log, window);
+            log.Resize(8);
+            log.HandleLog("warning", string.Empty, TerminalLogType.Warning);
+            AssertSeverityCounts(log, window);
+            log.Clear();
+            AssertSeverityCounts(log, window);
+        }
+
         [SetUp]
         public void SetUp()
         {

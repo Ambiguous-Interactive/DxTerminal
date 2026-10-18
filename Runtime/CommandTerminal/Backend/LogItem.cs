@@ -11,10 +11,20 @@
         public readonly string message;
         public readonly string stackTrace;
         internal readonly long Sequence;
+        internal readonly DateTime TimestampUtc;
 
         public LogItem(TerminalLogType type, string message, string stackTrace)
+            : this(type, message, stackTrace, DateTime.UtcNow) { }
+
+        internal LogItem(TerminalLogType type, string message, string stackTrace, DateTime timestampUtc)
         {
+            if (timestampUtc.Kind != DateTimeKind.Utc)
+            {
+                throw new ArgumentException("Log timestamps must use UTC.", nameof(timestampUtc));
+            }
+
             Sequence = Interlocked.Increment(ref _sequenceCounter);
+            TimestampUtc = timestampUtc;
             this.type = type;
             this.message = message ?? string.Empty;
             this.stackTrace = stackTrace ?? string.Empty;
@@ -30,6 +40,7 @@
             return !left.Equals(right);
         }
 
+        // Equality compares content; sequence and capture time identify individual entries.
         public bool Equals(LogItem other)
         {
             return type == other.type && string.Equals(message, other.message, StringComparison.Ordinal) && string.Equals(stackTrace, other.stackTrace, StringComparison.Ordinal);

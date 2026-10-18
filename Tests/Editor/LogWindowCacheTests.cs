@@ -49,6 +49,47 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Editor
         }
 
         [Test]
+        public void SeverityOnlyFilterKeepsCommandEchoesAndSearchReplies()
+        {
+            _buffer.HandleLog("find hit", string.Empty, TerminalLogType.Input);
+            _buffer.HandleLog("search reply", string.Empty, TerminalLogType.ShellMessage);
+            _filter.IgnoreOwnReply("search reply");
+            _filter.ToggleSeverity(TerminalLogType.Error);
+            Assert.That(_cache.Read(_buffer, out _), Is.EqualTo(2));
+            _filter.SetQuery("hit");
+            Assert.That(_cache.Read(_buffer, out _), Is.Zero);
+            _filter.Clear(false);
+            Assert.That(_filter.IsActive, Is.True);
+            Assert.That(_filter.HasQuery, Is.False);
+            Assert.That(_cache.Read(_buffer, out _), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void SeverityChangesInvalidateTheCacheAndComposeWithSearch()
+        {
+            _buffer.HandleLog("hit message", string.Empty, TerminalLogType.Message);
+            _buffer.HandleLog("hit warning", string.Empty, TerminalLogType.Warning);
+            _buffer.HandleLog("hit error", string.Empty, TerminalLogType.Assert);
+            _buffer.HandleLog("miss error", string.Empty, TerminalLogType.Exception);
+            Assert.That(_cache.Read(_buffer, out _), Is.EqualTo(4));
+            _filter.ToggleSeverity(TerminalLogType.Error);
+            Assert.That(_cache.Read(_buffer, out LogItem[] rendered), Is.EqualTo(2));
+            Assert.That(_cache.LastReadReused, Is.False);
+            Assert.That(Names(rendered, 2), Is.EqualTo("hit message, hit warning"));
+            Assert.That(_cache.Read(_buffer, out _), Is.EqualTo(2));
+            Assert.That(_cache.LastReadReused, Is.True);
+            _filter.SetQuery("hit");
+            Assert.That(_cache.Read(_buffer, out _), Is.EqualTo(2));
+            Assert.That(_filter.TotalCount, Is.EqualTo(2));
+            _filter.ToggleSeverity(TerminalLogType.Warning);
+            _filter.ToggleSeverity(TerminalLogType.Message);
+            Assert.That(_cache.Read(_buffer, out _), Is.Zero);
+            Assert.That(_filter.CurrentMatch, Is.Null);
+            _filter.Clear();
+            Assert.That(_cache.Read(_buffer, out _), Is.EqualTo(4));
+        }
+
+        [Test]
         public void ReadCopiesWindowOldestFirst()
         {
             Write("one", "two", "three");
