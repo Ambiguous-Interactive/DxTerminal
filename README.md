@@ -615,7 +615,8 @@ following. A log that has not been laid out - a headless editor, or a view with 
 ## Searching the log
 
 Use **Search** in the terminal header to filter output. **Prev**, **Next**, Enter, and Shift+Enter step matches. **Clear**, or an empty field, restores all lines. The count updates
-with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`.
+with output. Header searches add no log entries. The field shares its query with `find` and `clear-filter`. Searches persist when the terminal closes. Header and log focus preserve
+the command draft; return to the command line for history, completion, and submission.
 
 The header also has **Small** / **Full** and **Close** controls. Below 480 panel points, controls grow to at least 44 points. The optional legacy state buttons remain available as
 closed-terminal launchers.
@@ -657,16 +658,17 @@ Each surface answers its own toggle key: the terminal's key toggles the terminal
 press would then reach both polls in the same frame, and which surface ends up open depends on script execution order. (Opening one surface always closes the other, so the surfaces
 never stack; only the winner is unordered.)
 
-All other bindings that press no character keep working while you type: navigation and editing keys (arrows, Home, End, PageUp/PageDown, Enter, Tab, Escape, Backspace, Insert,
-Delete), function keys, modifiers, lock and media keys, and mouse or joystick buttons - plus any `ctrl+` chord. `TerminalKeyboardController` only reads `shift+` and `ctrl+`; a
-`cmd+`/`super+`/`alt+` prefix is not parsed, so such a binding never fires.
+From the command line or palette, bindings that press no character keep working while you type: navigation and editing keys (arrows, Home, End, PageUp/PageDown, Enter, Tab, Escape,
+Backspace, Insert, Delete), function keys, modifiers, lock and media keys, and mouse or joystick buttons - plus any `ctrl+` chord. `TerminalKeyboardController` only reads `shift+`
+and `ctrl+`; a `cmd+`/`super+`/`alt+` prefix is not parsed, so such a binding never fires.
 
 Keep `closeHotkey` on a key that presses no character (Escape by default): a character bound to it cannot close the terminal while the field has focus. Escape, or any `ctrl+`
 chord, closes from inside.
 
 `PlayerInput` messages follow the same rule. The console asks the action which control performed it, so a `HandlePrevious` action bound to a character key leaves that character to
 the field instead of running. `ToggleSmall` and `ToggleFull` sit outside the rule: they run whatever holds focus, matching the polled console key. The control that fired decides
-for everything else, not the action's binding list: a gamepad button, a mouse button, a `ctrl+` chord, and a composite driven by any of those all keep working while you type.
+for everything else, not the action's binding list: a gamepad button, a mouse button, a `ctrl+` chord, and a composite driven by any of those all keep working while you type in the
+command line.
 
 Bind a message to a `Button` action. A `Value` action also sends a message when the key is released: the rule covers both halves of a character binding, and a toggle on either kind
 of key runs both halves, so a Value-bound toggle opens the console and immediately closes it again. A message sent by hand, or one whose action the asset cannot resolve, runs as it
