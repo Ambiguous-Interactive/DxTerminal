@@ -28,7 +28,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             dispatched element, so there is always one, and a null-check here
             keeps a teardown race from throwing inside a key handler.
          */
-        public static void Consume(VisualElement element, KeyDownEvent evt)
+        public static void Consume(VisualElement element, EventBase evt)
         {
             evt.StopPropagation();
 

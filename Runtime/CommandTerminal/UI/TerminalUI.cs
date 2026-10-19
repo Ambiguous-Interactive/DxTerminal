@@ -331,6 +331,9 @@
         private Button _logSearchNext;
         private Button _logSearchClear;
         private Button _sizeButton;
+        private readonly Dictionary<EventBase, bool> _queuedNavigationEvents = new();
+        private EventBase _explicitNavigationEvent;
+        private VisualElement _highlightedLogRow;
         private Button _collapseButton;
         private bool _collapseLogs;
         private bool _lastSeenCollapse;
@@ -670,6 +673,7 @@
 
         private void LateUpdate()
         {
+            ReleaseNavigationEvents();
             /*
                 The idle check runs before the animation step: the frame where
                 HandleHeightAnimation snaps to the closed target is the frame
@@ -1692,6 +1696,58 @@
             }
         }
 
+        /// <summary>Moves focus through the open terminal's controls.</summary>
+        public void Navigate(Vector2 direction)
+        {
+            if (!TryGetNavigationTarget(out VisualElement target) || !float.IsFinite(direction.x) || !float.IsFinite(direction.y) || direction == Vector2.zero)
+            {
+                return;
+            }
+            if (InputOwnsFocus || target == _terminalContainer)
+            {
+                _sizeButton.Focus();
+                return;
+            }
+            DispatchNavigationEvent(target, NavigationMoveEvent.GetPooled(direction));
+        }
+
+        /// <summary>Activates the focused control or runs the command line.</summary>
+        public void SubmitNavigation()
+        {
+            if (!TryGetNavigationTarget(out VisualElement target))
+            {
+                return;
+            }
+            if (InputOwnsFocus)
+            {
+                EnterCommand();
+                return;
+            }
+            if (SearchOwnsFocus)
+            {
+                StepLogSearch(true);
+                return;
+            }
+            DispatchNavigationEvent(target, NavigationSubmitEvent.GetPooled());
+        }
+
+        /// <summary>Returns to command input, then closes on the next cancel.</summary>
+        public void CancelNavigation()
+        {
+            if (!TryGetNavigationTarget(out _))
+            {
+                return;
+            }
+            if (InputOwnsFocus)
+            {
+                Close();
+            }
+            else
+            {
+                FocusInput(allowLogFocus: true);
+            }
+        }
+
         public void CompleteCommand(bool searchForward = true)
         {
             if (!IsOpenState(_state))
@@ -1903,6 +1959,11 @@
             }
         }
 
+        internal bool IsExplicitNavigationEvent(EventBase evt)
+        {
+            return ReferenceEquals(_explicitNavigationEvent, evt);
+        }
+
         internal void HandleLogCopyResult(TextField field, KeyDownEvent evt, bool verified)
         {
             if (field == null || evt == null)
@@ -1952,6 +2013,8 @@
             _logSearchNext = null;
             _logSearchClear = null;
             _sizeButton = null;
+            ReleaseNavigationEvents();
+            _highlightedLogRow = null;
             _collapseButton = null;
             Array.Clear(_severityButtons, 0, _severityButtons.Length);
             Array.Clear(_lastSeverityCounts, 0, _lastSeverityCounts.Length);
@@ -2726,6 +2789,8 @@
             uiRoot.Add(root);
             root.name = TerminalRootName;
             root.AddToClassList("terminal-root");
+            root.RegisterCallback<NavigationMoveEvent, TerminalUI>(static (evt, terminal) => terminal.ObserveNavigationEvent(evt), this, TrickleDown.TrickleDown);
+            root.RegisterCallback<NavigationSubmitEvent, TerminalUI>(static (evt, terminal) => terminal.ObserveNavigationEvent(evt), this, TrickleDown.TrickleDown);
             root.RegisterCallback<GeometryChangedEvent, TerminalUI>(static (_, context) => context.ResetWindowIdempotent(), this);
 
             InitializeTheme(root);
@@ -3324,6 +3389,76 @@
             }
         }
 
+        private void DispatchNavigationEvent(VisualElement target, EventBase evt)
+        {
+            // Retain the pooled reference until queued dispatch has crossed our root.
+            _queuedNavigationEvents.Add(evt, true);
+            try
+            {
+                evt.target = target;
+                target.SendEvent(evt);
+            }
+            finally
+            {
+                if (_queuedNavigationEvents.ContainsKey(evt))
+                {
+                    _queuedNavigationEvents[evt] = false;
+                }
+                else
+                {
+                    evt.Dispose();
+                }
+            }
+        }
+
+        private void ObserveNavigationEvent(EventBase evt)
+        {
+            if (_queuedNavigationEvents.TryGetValue(evt, out bool sending))
+            {
+                _queuedNavigationEvents.Remove(evt);
+                _explicitNavigationEvent = evt;
+                if (!sending)
+                {
+                    evt.Dispose();
+                }
+            }
+            else
+            {
+                _explicitNavigationEvent = null;
+            }
+        }
+
+        private void ReleaseNavigationEvents()
+        {
+            // Ancestor callbacks can stop an event before our root observes it.
+            foreach (KeyValuePair<EventBase, bool> pending in _queuedNavigationEvents)
+            {
+                if (!pending.Value)
+                {
+                    pending.Key.Dispose();
+                }
+            }
+            _queuedNavigationEvents.Clear();
+            _explicitNavigationEvent = null;
+        }
+
+        private bool TryGetNavigationTarget(out VisualElement target)
+        {
+            if (!isActiveAndEnabled || !IsOpenState(_state) || IsPaletteSurfaceOpen() || _terminalContainer?.panel == null)
+            {
+                target = null;
+                return false;
+            }
+            VisualElement focused = _terminalContainer.panel.focusController.focusedElement as VisualElement;
+            if (focused != null && !_terminalContainer.Contains(focused))
+            {
+                target = null;
+                return false;
+            }
+            target = focused ?? _terminalContainer;
+            return true;
+        }
+
         private bool CanFocusInput(bool allowLogFocus = false)
         {
             if (!IsOpenState(_state) || IsPaletteSurfaceOpen() || _textInput == null || _textInput.focusController == null)
@@ -3488,6 +3623,17 @@
                     _lastSeenFilterGeneration = _logFilter.Generation;
                     _lastSeenCollapse = _collapseLogs;
                 }
+            }
+
+            int? currentMatch = _logFilter.HasQuery ? _logFilter.CurrentMatch : null;
+            int sourceIndex = currentMatch.GetValueOrDefault() - 1;
+            int activeIndex = 0 <= sourceIndex && sourceIndex < _logWindowCache.SourceCount ? _logWindowCache.GetRenderedIndex(sourceIndex) : -1;
+            VisualElement highlighted = 0 <= activeIndex && activeIndex < logCount ? content[activeIndex] : null;
+            if (!ReferenceEquals(_highlightedLogRow, highlighted))
+            {
+                _highlightedLogRow?.RemoveFromClassList("terminal-output-label--current-match");
+                highlighted?.AddToClassList("terminal-output-label--current-match");
+                _highlightedLogRow = highlighted;
             }
 
             _needsScrollToEnd |= ObserveLogTail(newLogs);

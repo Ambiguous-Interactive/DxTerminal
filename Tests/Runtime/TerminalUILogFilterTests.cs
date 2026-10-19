@@ -151,6 +151,101 @@
         }
 
         [UnityTest]
+        public IEnumerator SearchMarkerTracksNavigationWithoutChangingSelection()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("alpha one");
+            Terminal.Log("alpha two");
+            yield return WaitForDrawnCount(2, "Both search candidates are drawn");
+            _terminal.SetLogFilter("alpha", false);
+            _terminal.RefreshUI();
+            TextField first = (TextField)LogContent()[0];
+            TextField second = (TextField)LogContent()[1];
+            Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.True);
+            Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.False);
+            first.Focus();
+            first.SelectRange(1, 4);
+            _terminal.StepLogFilter(true, false);
+            _terminal.RefreshUI();
+            Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.False);
+            Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.True);
+            Assert.That(first.value, Is.EqualTo("alpha one"));
+            Assert.That(first.cursorIndex, Is.EqualTo(1));
+            Assert.That(first.selectIndex, Is.EqualTo(4));
+            _terminal.ClearLogFilter(false);
+            _terminal.RefreshUI();
+            Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.False);
+            _terminal.SetLogFilter("missing", false);
+            _terminal.RefreshUI();
+            Assert.That(LogContent().childCount, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator SearchMarkerMapsCollapsedMatchesAndSurvivesRolloverAndRebuild()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Buffer.HandleLog("alpha repeat", "trace", TerminalLogType.Message);
+            Terminal.Buffer.HandleLog("alpha repeat", "trace", TerminalLogType.Message);
+            Terminal.Buffer.HandleLog("alpha last", "trace", TerminalLogType.Message);
+            yield return WaitForDrawnCount(3, "Three source matches are drawn");
+            _terminal.SetLogFilter("alpha", false);
+            Submit(_terminal._uiDocument.rootVisualElement.Q<Button>("LogCollapse"));
+            _terminal.RefreshUI();
+            Assert.That(LogContent().childCount, Is.EqualTo(2));
+            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.True);
+            _terminal.StepLogFilter(true, false);
+            _terminal.RefreshUI();
+            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.True, "The second match belongs to the same repeat group");
+            _terminal.StepLogFilter(true, false);
+            _terminal.RefreshUI();
+            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.False);
+            Assert.That(LogContent()[1].ClassListContains("terminal-output-label--current-match"), Is.True);
+            _terminal.TeardownUI();
+            _terminal.EnsureUI();
+            _terminal.RefreshUI();
+            Assert.That(LogContent()[1].ClassListContains("terminal-output-label--current-match"), Is.True, "A fresh tree restores the active marker");
+            int capacity = Terminal.Buffer.Capacity;
+            for (int i = 0; i < capacity - 1; ++i)
+            {
+                Terminal.Buffer.HandleLog("alpha first replacement", "trace", TerminalLogType.Message);
+            }
+            Terminal.Buffer.HandleLog("alpha final replacement", "trace", TerminalLogType.Message);
+            _terminal.RefreshUI();
+            Assert.That(LogContent().childCount, Is.EqualTo(2));
+            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.True, "The current ordinal maps into the replacement repeat group");
+            Assert.That(LogContent()[1].ClassListContains("terminal-output-label--current-match"), Is.False);
+            Assert.That(((TextField)LogContent()[1]).value, Is.EqualTo("alpha final replacement"));
+        }
+
+        [UnityTest]
+        public IEnumerator NavigationMovesSubmitsAndCancelsThroughHeaderControls()
+        {
+            yield return SpawnOpenTerminal();
+            _terminal.Navigate(Vector2.right);
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Button size = root.Q<Button>("TerminalSizeButton");
+            Button close = root.Q<Button>("TerminalCloseButton");
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(size));
+            _terminal.Navigate(Vector2.right);
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(close));
+            _terminal.Navigate(Vector2.left);
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(size));
+            TerminalState previous = _terminal.State;
+            _terminal.SubmitNavigation();
+            Assert.That(_terminal.State, Is.Not.EqualTo(previous));
+            size.Focus();
+            _terminal.CancelNavigation();
+            Assert.That(_terminal.InputOwnsFocus, Is.True);
+            _terminal.CancelNavigation();
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.Closed));
+            _terminal.Navigate(Vector2.right);
+            _terminal.SubmitNavigation();
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.Closed));
+        }
+
+        [UnityTest]
         public IEnumerator HeaderSearchRepaintsEqualCountsWithoutWritingToTheLog()
         {
             yield return SpawnOpenTerminal();

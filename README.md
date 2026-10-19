@@ -707,6 +707,13 @@ You can also use `PlayerInput` or similar to bind InputActions to all available 
 - `CompleteCommand`: Uses auto-complete to attempt to complete the current command using what is typed in the command buffer, cycling forwards through results.
 - `ReverseCompleteCommand`: Uses auto-complete to attempt to complete the current command using what is typed in the command buffer, but cycling backwards through results.
 - `EnterCommand`: Takes the current buffer and attempts to execute it as a command + parameters.
+- `Navigate`: Moves focus through terminal controls. Bind a Vector2 Value action to a stick or D-pad.
+- `Submit`: Activates the focused control or runs the command line. Bind a Button action.
+- `Cancel`: Returns to command input, then closes on the next press. Bind a Button action.
+
+Navigation starts at the header. Hold a direction to repeat. Focused controls show the theme's selected colors. Enabled, bound navigation actions own their corresponding UI Toolkit
+events inside this terminal. Disable those actions to restore Unity's default navigation. Other UI documents keep their input. Search marks the current matching row. Prev and Next
+move this marker without changing text selection.
 
 ## Note
 
