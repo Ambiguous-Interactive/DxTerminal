@@ -752,6 +752,37 @@
         }
 
         [UnityTest]
+        public IEnumerator BothInputModesUseEveryVirtualActionHookExactlyOnce()
+        {
+            yield return SpawnTerminal(open: true);
+            yield return WaitForFocusedInput("The command field takes focus.");
+            ControlledNavigationController controller = _terminalObject.GetComponent<ControlledNavigationController>();
+            controller.CaptureRoutes = true;
+            List<string> routes = RoutedMessages();
+            foreach (string route in routes)
+            {
+                if (string.Equals(route, "Navigate", StringComparison.Ordinal))
+                {
+                    InputAction navigate = FindAction(route);
+                    navigate.expectedControlType = "Vector2";
+                    navigate.AddCompositeBinding("2DVector").With("Right", "<Keyboard>/f1");
+                    navigate.Enable();
+                }
+                else
+                {
+                    Bind(route, "<Keyboard>/f1");
+                }
+            }
+
+            PressKey(Key.F1);
+            yield return Settle();
+            Assert.That(controller.CapturedRoutes, Is.EquivalentTo(routes), "Every route reaches its subclass override once, regardless of notification mode.");
+            ReleaseKeys();
+            yield return Settle();
+            Assert.That(controller.CapturedRoutes.Count, Is.EqualTo(routes.Count), "Button releases do not invoke the hooks again.");
+        }
+
+        [UnityTest]
         public IEnumerator ConfiguredNavigationOwnsNativeEventsUntilDisabled()
         {
             yield return SpawnTerminal(open: true);
@@ -964,14 +995,50 @@
         {
             protected override float NavigationTime => Clock;
 
+            public readonly List<string> CapturedRoutes = new();
+
             public float Clock;
+
+            public bool CaptureRoutes;
 
             public void Tick()
             {
                 base.Update();
             }
 
+            protected override void HandlePrevious() => CaptureRoute(nameof(HandlePrevious), base.HandlePrevious);
+
+            protected override void HandleNext() => CaptureRoute(nameof(HandleNext), base.HandleNext);
+
+            protected override void Close() => CaptureRoute(nameof(Close), base.Close);
+
+            protected override void ToggleSmall() => CaptureRoute(nameof(ToggleSmall), base.ToggleSmall);
+
+            protected override void ToggleFull() => CaptureRoute(nameof(ToggleFull), base.ToggleFull);
+
+            protected override void CompleteCommand() => CaptureRoute(nameof(CompleteCommand), base.CompleteCommand);
+
+            protected override void ReverseCompleteCommand() => CaptureRoute(nameof(ReverseCompleteCommand), base.ReverseCompleteCommand);
+
+            protected override void EnterCommand() => CaptureRoute(nameof(EnterCommand), base.EnterCommand);
+
+            protected override void Navigate(Vector2 value) => CaptureRoute(nameof(Navigate), () => base.Navigate(value));
+
+            protected override void Submit(bool pressed) => CaptureRoute(nameof(Submit), () => base.Submit(pressed));
+
+            protected override void Cancel(bool pressed) => CaptureRoute(nameof(Cancel), () => base.Cancel(pressed));
+
             protected override void Update() { }
+
+            private void CaptureRoute(string route, Action fallback)
+            {
+                if (CaptureRoutes)
+                {
+                    CapturedRoutes.Add(route);
+                    return;
+                }
+                fallback();
+            }
         }
     }
 #endif

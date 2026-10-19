@@ -715,6 +715,9 @@ The `TerminalPlayerInputController` inspector serializes an action name for each
 `PlayerInput` Behavior to `Invoke C Sharp Events` and assign those names on the controller. Use `MapName/ActionName` to select a specific map, for example `Console/MoveFocus`. The
 controller subscribes automatically. Keep each route on a distinct action. Unqualified names resolve in the current action map first, then the player's asset.
 
+Subclasses can override the protected action methods in either mode: `HandlePrevious()`, `HandleNext()`, `Close()`, `ToggleSmall()`, `ToggleFull()`, `CompleteCommand()`,
+`ReverseCompleteCommand()`, `EnterCommand()`, `Navigate(Vector2)`, `Submit(bool)`, and `Cancel(bool)`. The public `On*(InputValue)` methods remain message-specific adapters.
+
 Navigation starts at the header. Hold a direction to repeat. Cancel ignores held directions until they return to neutral. Focused controls show the theme's selected colors.
 Enabled, bound navigation actions own their corresponding UI Toolkit events inside this terminal. Disable those actions to restore Unity's default navigation. Other UI documents
 keep their input. Search marks the current matching row. Prev and Next move this marker without changing text selection.

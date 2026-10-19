@@ -41,6 +41,11 @@ names; replacing lookup literals alone does not route renamed actions. Callback 
 actions. Submit/Cancel also require pressed values. Do not mutate the player's notification behavior. Pair event subscriptions across enable/disable; test re-enabling for
 duplicates. The controller fixture runs the same queued-device suite with defaults and serialized custom map paths. Keep both modes passing.
 
+Both adapters call protected virtual typed action hooks: no arguments for command/history/toggle routes, `Vector2` for Navigate, and pressed `bool` for Submit/Cancel. Subclasses
+use those hooks to customize both modes. Public `On*(InputValue)` overrides remain message-specific. Never fabricate InputValue or call its adapters with null from a
+CallbackContext route: subclasses may read that argument. Preserve the typing gate before reading navigation's Vector2; a suppressed scalar character binding must not be cast. Test
+every subclass hook once under both modes.
+
 When using PlayerInput, UNCHECK `Use Hotkeys` on the Terminal - otherwise both paths fire.
 
 ## Precedence (hotkey path, when InputActions are not bound)
