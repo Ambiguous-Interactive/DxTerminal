@@ -1072,11 +1072,17 @@
             _terminal._fontPack = LoadPack<TerminalFontPack>(fontPackPath);
             _tracker = _surfaceObject.AddComponent<StartTracker>();
             _surfaceObject.SetActive(true);
-            yield return new WaitUntil(() => _tracker.Started);
+            yield return new WaitUntil(() =>
+            {
+                return _tracker.Started;
+            });
             TerminalSession.Current.Buffer = new CommandLog(
                 _terminal._logBufferSize,
                 _terminal._ignoredLogTypes,
-                static () => new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc)
+                static () =>
+                {
+                    return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+                }
             )
             {
                 StackTraceMode = Terminal.Buffer.StackTraceMode,

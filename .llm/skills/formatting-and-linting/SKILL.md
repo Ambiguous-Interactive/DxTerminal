@@ -20,14 +20,19 @@ Restore tools first (`dotnet tool restore`) - the `dotnet-tool-restore` pre-comm
 ## Formatting
 
 1. Format only the files you touched: `dotnet tool run csharpier format -- <file1> <file2>`
-2. Whole repo check: `dotnet tool run csharpier format --check .` (or run pre-commit).
-3. NEVER hand-adjust CSharpier output (spacing, braces, wrapping). If output looks wrong, the fix is upstream CSharpier config, not manual edits.
+2. Whole repo check: `dotnet tool run csharpier check .` (or run pre-commit).
+3. For Markdown C# samples, use stdin with `--write-stdout --stdin-path /absolute/Example.cs`. Ignored temporary files can be skipped by the formatter.
+4. NEVER hand-adjust CSharpier output (spacing, braces, wrapping). If output looks wrong, the fix is upstream CSharpier config, not manual edits.
 
 ## Style contract (from `.editorconfig` + README)
 
 - `using` directives inside the namespace block; `#if` blocks inside namespace.
 - Explicit types over `var`; explicit access modifiers everywhere.
-- Braces always (`csharp_prefer_braces`).
+- Braces always: methods, constructors, operators, local functions, property/indexer accessors, and lambdas use block bodies. Small forwarding methods follow the same rule.
+  `csharp_prefer_braces` covers control flow; `csharp_style_expression_bodied_* = false` covers function/member bodies. CSharpier preserves the chosen body form, so formatting
+  alone cannot enforce this rule. Sweep touched C# files for expression bodies after formatting. Keep the required `=>` syntax in switch-expression arms.
+- Preserve callback return semantics when adding braces: `Action` callbacks execute statements; `Func` callbacks return values. Preserve `async`, `ref` returns, and exception flow.
+  Use syntax-aware review to distinguish methods/properties, expression lambdas, block lambdas, and switch arms; a raw `=>` match does not classify them.
 - Modifier order: `public private protected internal file new static abstract virtual sealed readonly override extern unsafe volatile async required`.
 - Files: UTF-8 BOM + CRLF for C# assets (repo default). Do not "fix" line endings on untouched files - that pollutes diffs. Exceptions: `.llm/**` and `tooling~/scripts/**` are
   UTF-8 no BOM + LF (enforced by `.editorconfig` overrides and the LLM linters).

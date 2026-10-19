@@ -241,19 +241,36 @@ void OnEnable()
     Terminal.Shell.AddCommand(
         CommandBuilder
             .Create("heal", "Heals a target")
-            .Arg<int>("amount", spec => spec.Required().Range(1, 100))
-            .Arg<string>("target", spec => spec.Default("self").Choices("self", "ally"))
-            .Handler((context, arguments) =>
-            {
-                int amount = arguments.Get<int>(0);
-                string target = arguments.Get<string>("target");
-                // ...
-            }),
+            .Arg<int>(
+                "amount",
+                spec =>
+                {
+                    return spec.Required().Range(1, 100);
+                }
+            )
+            .Arg<string>(
+                "target",
+                spec =>
+                {
+                    return spec.Default("self").Choices("self", "ally");
+                }
+            )
+            .Handler(
+                (context, arguments) =>
+                {
+                    int amount = arguments.Get<int>(0);
+                    string target = arguments.Get<string>("target");
+                    // ...
+                }
+            ),
         out handle
     );
 }
 
-void OnDisable() => handle?.Dispose();
+void OnDisable()
+{
+    handle?.Dispose();
+}
 ```
 
 Arguments parse through the same `CommandArg` parsers as `[RegisterCommand]` methods (including your registered custom parsers). Bad user input - unknown values, out-of-range
@@ -267,19 +284,42 @@ Subcommands route one registered command through its first argument, each with i
 Terminal.Shell.AddCommand(
     CommandBuilder
         .Create("inventory", "Manage the inventory")
-        .Handler((context, arguments) => { /* runs for a bare `inventory` */ })
+        .Handler((context, arguments) => { })
         .Subcommand(
             "add",
-            add => add
-                .Arg<string>("item", spec => spec.Required())
-                .Arg<int>("count", spec => spec.Default(1).Range(1, 99))
-                .Handler((context, arguments) => { /* ... */ })
+            add =>
+            {
+                add.Arg<string>(
+                        "item",
+                        spec =>
+                        {
+                            return spec.Required();
+                        }
+                    )
+                    .Arg<int>(
+                        "count",
+                        spec =>
+                        {
+                            return spec.Default(1).Range(1, 99);
+                        }
+                    )
+                    .Handler((context, arguments) => { });
+            }
         )
         .Subcommand(
             "remove",
-            remove => remove
-                .Arg<string>("item", spec => spec.Required())
-                .Handler((context, arguments) => { /* ... */ })
+            remove =>
+            {
+                remove
+                    .Arg<string>(
+                        "item",
+                        spec =>
+                        {
+                            return spec.Required();
+                        }
+                    )
+                    .Handler((context, arguments) => { });
+            }
         ),
     out handle
 );
@@ -463,11 +503,17 @@ CommandBuilder command = CommandBuilder
     .Create("inspect-object")
     .Arg<GameObject>(
         "target",
-        spec => spec.Required()
-            .RawParser(adapter.TryParse)
-            .Choices(adapter.GetChoices, adapter.FormatChoice)
+        spec =>
+        {
+            return spec.Required().RawParser(adapter.TryParse).Choices(adapter.GetChoices, adapter.FormatChoice);
+        }
     )
-    .Handler((context, arguments) => Terminal.Log("{0}", arguments.Get<GameObject>("target").name));
+    .Handler(
+        (context, arguments) =>
+        {
+            Terminal.Log("{0}", arguments.Get<GameObject>("target").name);
+        }
+    );
 ```
 
 The same setup works for component types. `FormatChoice` preserves the original name; it does not normalize line endings. Raw parsing does not bypass command tokenization or

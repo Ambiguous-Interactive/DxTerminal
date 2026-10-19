@@ -363,7 +363,14 @@
         public IEnumerator LogRowsExposeUtcTimeAndSeverityWithoutChangingMessageText()
         {
             yield return SpawnOpenTerminal();
-            TerminalSession.Current.Buffer = new CommandLog(16, null, static () => new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc));
+            TerminalSession.Current.Buffer = new CommandLog(
+                16,
+                null,
+                static () =>
+                {
+                    return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+                }
+            );
             TerminalLogType[] types =
             {
                 TerminalLogType.Error,
@@ -1165,7 +1172,10 @@
             _terminal._fontPack = LoadAsset<TerminalFontPack>("Packs/Fonts/Medium.asset");
             StartTracker tracker = _terminalObject.AddComponent<StartTracker>();
             _terminalObject.SetActive(true);
-            yield return new WaitUntil(() => tracker.Started);
+            yield return new WaitUntil(() =>
+            {
+                return tracker.Started;
+            });
 #else
             Assert.Ignore("The log filter needs the editor Play Mode suite.");
             yield break;
@@ -1221,7 +1231,13 @@
         private IEnumerator RequireReachableKeys()
         {
             bool reached = false;
-            _terminal._commandInput.RegisterCallback<KeyDownEvent>(_ => reached = true, TrickleDown.TrickleDown);
+            _terminal._commandInput.RegisterCallback<KeyDownEvent>(
+                _ =>
+                {
+                    reached = true;
+                },
+                TrickleDown.TrickleDown
+            );
 
             using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.F3, EventModifiers.None))
             {

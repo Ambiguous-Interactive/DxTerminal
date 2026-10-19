@@ -19,9 +19,15 @@ namespace WallstopStudios.DxCommandTerminal.Input
         ///     The two toggle messages do not consult this
         ///     property - their key is reserved (#218).
         /// </summary>
-        protected virtual bool TextInputOwnsFocus => TerminalUI.AnyConsoleFieldOwnsFocus();
+        protected virtual bool TextInputOwnsFocus
+        {
+            get { return TerminalUI.AnyConsoleFieldOwnsFocus(); }
+        }
 
-        protected virtual float NavigationTime => Time.unscaledTime;
+        protected virtual float NavigationTime
+        {
+            get { return Time.unscaledTime; }
+        }
 
         [Header("System")]
         public bool enableWarnings = true;
@@ -64,21 +70,45 @@ namespace WallstopStudios.DxCommandTerminal.Input
         private long _navigationCancellationVersion;
         private bool _navigationNeedsNeutral;
 
-        public virtual void OnHandlePrevious(InputValue inputValue) => HandlePrevious();
+        public virtual void OnHandlePrevious(InputValue inputValue)
+        {
+            HandlePrevious();
+        }
 
-        public virtual void OnHandleNext(InputValue inputValue) => HandleNext();
+        public virtual void OnHandleNext(InputValue inputValue)
+        {
+            HandleNext();
+        }
 
-        public virtual void OnClose(InputValue inputValue) => Close();
+        public virtual void OnClose(InputValue inputValue)
+        {
+            Close();
+        }
 
-        public virtual void OnToggleSmall(InputValue inputValue) => ToggleSmall();
+        public virtual void OnToggleSmall(InputValue inputValue)
+        {
+            ToggleSmall();
+        }
 
-        public virtual void OnToggleFull(InputValue inputValue) => ToggleFull();
+        public virtual void OnToggleFull(InputValue inputValue)
+        {
+            ToggleFull();
+        }
 
-        public virtual void OnCompleteCommand(InputValue input) => CompleteCommand();
+        public virtual void OnCompleteCommand(InputValue input)
+        {
+            CompleteCommand();
+        }
 
-        public virtual void OnReverseCompleteCommand(InputValue input) => ReverseCompleteCommand();
+        public virtual void OnReverseCompleteCommand(InputValue input)
+        {
+            ReverseCompleteCommand();
+        }
 
-        public virtual void OnEnterCommand(InputValue inputValue) => EnterCommand();
+        public virtual void OnEnterCommand(InputValue inputValue)
+        {
+            EnterCommand();
+        }
 
         public virtual void OnNavigate(InputValue inputValue)
         {
@@ -94,9 +124,15 @@ namespace WallstopStudios.DxCommandTerminal.Input
             }
         }
 
-        public virtual void OnSubmit(InputValue inputValue) => Submit(inputValue != null && inputValue.isPressed);
+        public virtual void OnSubmit(InputValue inputValue)
+        {
+            Submit(inputValue != null && inputValue.isPressed);
+        }
 
-        public virtual void OnCancel(InputValue inputValue) => Cancel(inputValue != null && inputValue.isPressed);
+        public virtual void OnCancel(InputValue inputValue)
+        {
+            Cancel(inputValue != null && inputValue.isPressed);
+        }
 
         protected virtual void HandlePrevious()
         {

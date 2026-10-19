@@ -292,7 +292,16 @@
 
             int runs = 0;
             Assert.IsTrue(
-                Terminal.Shell.AddCommand(ProbeCommand, _ => ++runs, minArgs: 0, maxArgs: 0, help: "test"),
+                Terminal.Shell.AddCommand(
+                    ProbeCommand,
+                    _ =>
+                    {
+                        ++runs;
+                    },
+                    minArgs: 0,
+                    maxArgs: 0,
+                    help: "test"
+                ),
                 "Sanity: the probe command registers, so completion and Enter have work to do"
             );
 
@@ -801,7 +810,10 @@
             Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenFull), "Explicit API calls still dispatch while the controller owns submit.");
 
             int clicks = 0;
-            size.clicked += () => ++clicks;
+            size.clicked += () =>
+            {
+                ++clicks;
+            };
             Button trigger = new(() =>
             {
                 size.Focus();
@@ -815,7 +827,10 @@
             trigger.RemoveFromHierarchy();
 
             VisualElement documentRoot = _terminal._uiDocument.rootVisualElement;
-            EventCallback<NavigationSubmitEvent> stop = evt => evt.StopImmediatePropagation();
+            EventCallback<NavigationSubmitEvent> stop = evt =>
+            {
+                evt.StopImmediatePropagation();
+            };
             documentRoot.RegisterCallback(stop, TrickleDown.TrickleDown);
             try
             {
@@ -943,7 +958,10 @@
 
             StartTracker tracker = _terminalObject.AddComponent<StartTracker>();
             _terminalObject.SetActive(true);
-            yield return new WaitUntil(() => tracker.Started);
+            yield return new WaitUntil(() =>
+            {
+                return tracker.Started;
+            });
 #else
             Assert.Ignore("PlayerInput coverage runs in the editor Play Mode suite.");
             yield break;
@@ -993,7 +1011,10 @@
 
         private sealed class ControlledNavigationController : TerminalPlayerInputController
         {
-            protected override float NavigationTime => Clock;
+            protected override float NavigationTime
+            {
+                get { return Clock; }
+            }
 
             public readonly List<string> CapturedRoutes = new();
 
@@ -1006,27 +1027,78 @@
                 base.Update();
             }
 
-            protected override void HandlePrevious() => CaptureRoute(nameof(HandlePrevious), base.HandlePrevious);
+            protected override void HandlePrevious()
+            {
+                CaptureRoute(nameof(HandlePrevious), base.HandlePrevious);
+            }
 
-            protected override void HandleNext() => CaptureRoute(nameof(HandleNext), base.HandleNext);
+            protected override void HandleNext()
+            {
+                CaptureRoute(nameof(HandleNext), base.HandleNext);
+            }
 
-            protected override void Close() => CaptureRoute(nameof(Close), base.Close);
+            protected override void Close()
+            {
+                CaptureRoute(nameof(Close), base.Close);
+            }
 
-            protected override void ToggleSmall() => CaptureRoute(nameof(ToggleSmall), base.ToggleSmall);
+            protected override void ToggleSmall()
+            {
+                CaptureRoute(nameof(ToggleSmall), base.ToggleSmall);
+            }
 
-            protected override void ToggleFull() => CaptureRoute(nameof(ToggleFull), base.ToggleFull);
+            protected override void ToggleFull()
+            {
+                CaptureRoute(nameof(ToggleFull), base.ToggleFull);
+            }
 
-            protected override void CompleteCommand() => CaptureRoute(nameof(CompleteCommand), base.CompleteCommand);
+            protected override void CompleteCommand()
+            {
+                CaptureRoute(nameof(CompleteCommand), base.CompleteCommand);
+            }
 
-            protected override void ReverseCompleteCommand() => CaptureRoute(nameof(ReverseCompleteCommand), base.ReverseCompleteCommand);
+            protected override void ReverseCompleteCommand()
+            {
+                CaptureRoute(nameof(ReverseCompleteCommand), base.ReverseCompleteCommand);
+            }
 
-            protected override void EnterCommand() => CaptureRoute(nameof(EnterCommand), base.EnterCommand);
+            protected override void EnterCommand()
+            {
+                CaptureRoute(nameof(EnterCommand), base.EnterCommand);
+            }
 
-            protected override void Navigate(Vector2 value) => CaptureRoute(nameof(Navigate), () => base.Navigate(value));
+            protected override void Navigate(Vector2 value)
+            {
+                CaptureRoute(
+                    nameof(Navigate),
+                    () =>
+                    {
+                        base.Navigate(value);
+                    }
+                );
+            }
 
-            protected override void Submit(bool pressed) => CaptureRoute(nameof(Submit), () => base.Submit(pressed));
+            protected override void Submit(bool pressed)
+            {
+                CaptureRoute(
+                    nameof(Submit),
+                    () =>
+                    {
+                        base.Submit(pressed);
+                    }
+                );
+            }
 
-            protected override void Cancel(bool pressed) => CaptureRoute(nameof(Cancel), () => base.Cancel(pressed));
+            protected override void Cancel(bool pressed)
+            {
+                CaptureRoute(
+                    nameof(Cancel),
+                    () =>
+                    {
+                        base.Cancel(pressed);
+                    }
+                );
+            }
 
             protected override void Update() { }
 
