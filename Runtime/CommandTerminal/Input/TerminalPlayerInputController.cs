@@ -1,6 +1,7 @@
 namespace WallstopStudios.DxCommandTerminal.Input
 {
 #if ENABLE_INPUT_SYSTEM
+    using System;
     using UI;
     using UnityEngine;
     using UnityEngine.InputSystem;
@@ -27,6 +28,29 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public TerminalUI terminal;
 
+        [Header("Action Names")]
+        public string handlePreviousActionName = "HandlePrevious";
+
+        public string handleNextActionName = "HandleNext";
+
+        public string closeActionName = "Close";
+
+        public string toggleSmallActionName = "ToggleSmall";
+
+        public string toggleFullActionName = "ToggleFull";
+
+        public string completeCommandActionName = "CompleteCommand";
+
+        public string reverseCompleteCommandActionName = "ReverseCompleteCommand";
+
+        public string enterCommandActionName = "EnterCommand";
+
+        public string navigateActionName = "Navigate";
+
+        public string submitActionName = "Submit";
+
+        public string cancelActionName = "Cancel";
+
         protected bool _enabled;
 
         [SerializeField]
@@ -42,7 +66,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnHandlePrevious(InputValue inputValue)
         {
-            if (!ShouldHandleMessage("HandlePrevious"))
+            if (!ShouldHandleMessage(handlePreviousActionName))
             {
                 return;
             }
@@ -51,7 +75,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnHandleNext(InputValue inputValue)
         {
-            if (!ShouldHandleMessage("HandleNext"))
+            if (!ShouldHandleMessage(handleNextActionName))
             {
                 return;
             }
@@ -60,7 +84,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnClose(InputValue inputValue)
         {
-            if (!ShouldHandleMessage("Close", allowLogFocus: true))
+            if (!ShouldHandleMessage(closeActionName, allowLogFocus: true))
             {
                 return;
             }
@@ -93,7 +117,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnCompleteCommand(InputValue input)
         {
-            if (!ShouldHandleMessage("CompleteCommand"))
+            if (!ShouldHandleMessage(completeCommandActionName))
             {
                 return;
             }
@@ -102,7 +126,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnReverseCompleteCommand(InputValue input)
         {
-            if (!ShouldHandleMessage("ReverseCompleteCommand"))
+            if (!ShouldHandleMessage(reverseCompleteCommandActionName))
             {
                 return;
             }
@@ -111,7 +135,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnEnterCommand(InputValue inputValue)
         {
-            if (!ShouldHandleMessage("EnterCommand"))
+            if (!ShouldHandleMessage(enterCommandActionName))
             {
                 return;
             }
@@ -120,27 +144,125 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnNavigate(InputValue inputValue)
         {
-            if (!IsLive() || inputValue == null)
+            if (inputValue == null)
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                return;
+            }
+            if (PrepareNavigationInput())
+            {
+                Navigate(inputValue.Get<Vector2>());
+            }
+        }
+
+        public virtual void OnSubmit(InputValue inputValue)
+        {
+            Submit(inputValue != null && inputValue.isPressed);
+        }
+
+        public virtual void OnCancel(InputValue inputValue)
+        {
+            Cancel(inputValue != null && inputValue.isPressed);
+        }
+
+        protected virtual void Awake()
+        {
+            _playerInput = _serializedPlayerInput;
+            if (_playerInput == null)
+            {
+                if (!TryGetComponent(out _playerInput) && enableWarnings)
+                {
+                    Debug.LogWarning("No PlayerInput attached, events may not work (which is the point of this component).", this);
+                }
+            }
+
+            if (terminal != null)
+            {
+                return;
+            }
+
+            if (!TryGetComponent(out terminal))
+            {
+                Debug.LogError("Failed to find TerminalUI, Input will not work.", this);
+            }
+        }
+
+        protected virtual void OnEnable()
+        {
+            _enabled = true;
+            if (_playerInput != null)
+            {
+                _playerInput.onActionTriggered += HandleActionTriggered;
+            }
+            PrepareNavigation();
+        }
+
+        protected virtual void OnDisable()
+        {
+            _enabled = false;
+            if (_playerInput != null)
+            {
+                _playerInput.onActionTriggered -= HandleActionTriggered;
+            }
+            ReleaseNavigation();
+        }
+
+        protected virtual void Update()
+        {
+            if (IsLive())
+            {
+                ObserveNavigationCancellation();
+            }
+            bool ownsNavigation = OwnsNavigation(navigateActionName);
+            if (!ownsNavigation)
+            {
+                _navigationNeedsNeutral = false;
+            }
+            if (!ShouldHandleMessage(navigateActionName, allowLogFocus: true) || !ownsNavigation || terminal.State is not (TerminalState.OpenSmall or TerminalState.OpenFull))
             {
                 _navigationDirection = Vector2.zero;
                 _nextNavigationRepeat = null;
                 return;
             }
 
+            if (_nextNavigationRepeat is float nextRepeat && nextRepeat <= NavigationTime)
+            {
+                terminal.Navigate(_navigationDirection);
+                _nextNavigationRepeat = NavigationTime + 0.1f;
+            }
+        }
+
+        protected virtual void LateUpdate()
+        {
             PrepareNavigation();
-            ObserveNavigationCancellation();
-            if (!ShouldHandleMessage("Navigate", allowLogFocus: true))
+        }
+
+        private bool PrepareNavigationInput()
+        {
+            if (!IsLive())
             {
                 _navigationDirection = Vector2.zero;
                 _nextNavigationRepeat = null;
-                if (FindAction("Navigate")?.phase == InputActionPhase.Canceled)
+                return false;
+            }
+            PrepareNavigation();
+            ObserveNavigationCancellation();
+            if (!ShouldHandleMessage(navigateActionName, allowLogFocus: true))
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                if (FindAction(navigateActionName)?.phase == InputActionPhase.Canceled)
                 {
                     _navigationNeedsNeutral = false;
                 }
-                return;
+                return false;
             }
+            return true;
+        }
 
-            Vector2 value = inputValue.Get<Vector2>();
+        private void Navigate(Vector2 value)
+        {
             if (!float.IsFinite(value.x) || !float.IsFinite(value.y))
             {
                 _navigationDirection = Vector2.zero;
@@ -171,86 +293,78 @@ namespace WallstopStudios.DxCommandTerminal.Input
             _nextNavigationRepeat = NavigationTime + 0.5f;
         }
 
-        public virtual void OnSubmit(InputValue inputValue)
+        private void Submit(bool pressed)
         {
-            if (ShouldHandleMessage("Submit", allowLogFocus: true) && inputValue != null && inputValue.isPressed)
+            if (pressed && ShouldHandleMessage(submitActionName, allowLogFocus: true))
             {
                 PrepareNavigation();
                 terminal.SubmitNavigation();
             }
         }
 
-        public virtual void OnCancel(InputValue inputValue)
+        private void Cancel(bool pressed)
         {
-            if (ShouldHandleMessage("Cancel", allowLogFocus: true) && inputValue != null && inputValue.isPressed)
+            if (pressed && ShouldHandleMessage(cancelActionName, allowLogFocus: true))
             {
                 PrepareNavigation();
                 terminal.CancelNavigation();
             }
         }
 
-        protected virtual void Awake()
+        private void HandleActionTriggered(InputAction.CallbackContext context)
         {
-            _playerInput = _serializedPlayerInput;
-            if (_playerInput == null)
+            if (!IsLive() || !(context.performed || (context.canceled && context.action.type == InputActionType.Value)))
             {
-                if (!TryGetComponent(out _playerInput) && enableWarnings)
+                return;
+            }
+            InputAction action = context.action;
+            if (action == FindAction(handlePreviousActionName))
+            {
+                OnHandlePrevious(null);
+            }
+            else if (action == FindAction(handleNextActionName))
+            {
+                OnHandleNext(null);
+            }
+            else if (action == FindAction(closeActionName))
+            {
+                OnClose(null);
+            }
+            else if (action == FindAction(toggleSmallActionName))
+            {
+                OnToggleSmall(null);
+            }
+            else if (action == FindAction(toggleFullActionName))
+            {
+                OnToggleFull(null);
+            }
+            else if (action == FindAction(completeCommandActionName))
+            {
+                OnCompleteCommand(null);
+            }
+            else if (action == FindAction(reverseCompleteCommandActionName))
+            {
+                OnReverseCompleteCommand(null);
+            }
+            else if (action == FindAction(enterCommandActionName))
+            {
+                OnEnterCommand(null);
+            }
+            else if (action == FindAction(navigateActionName))
+            {
+                if (PrepareNavigationInput())
                 {
-                    Debug.LogWarning("No PlayerInput attached, events may not work (which is the point of this component).", this);
+                    Navigate(context.ReadValue<Vector2>());
                 }
             }
-
-            if (terminal != null)
+            else if (action == FindAction(submitActionName))
             {
-                return;
+                Submit(InputSystem.settings.defaultButtonPressPoint <= context.ReadValue<float>());
             }
-
-            if (!TryGetComponent(out terminal))
+            else if (action == FindAction(cancelActionName))
             {
-                Debug.LogError("Failed to find TerminalUI, Input will not work.", this);
+                Cancel(InputSystem.settings.defaultButtonPressPoint <= context.ReadValue<float>());
             }
-        }
-
-        protected virtual void OnEnable()
-        {
-            _enabled = true;
-            PrepareNavigation();
-        }
-
-        protected virtual void OnDisable()
-        {
-            _enabled = false;
-            ReleaseNavigation();
-        }
-
-        protected virtual void Update()
-        {
-            if (IsLive())
-            {
-                ObserveNavigationCancellation();
-            }
-            bool ownsNavigation = OwnsNavigation("Navigate");
-            if (!ownsNavigation)
-            {
-                _navigationNeedsNeutral = false;
-            }
-            if (!ShouldHandleMessage("Navigate", allowLogFocus: true) || !ownsNavigation || terminal.State is not (TerminalState.OpenSmall or TerminalState.OpenFull))
-            {
-                _navigationDirection = Vector2.zero;
-                _nextNavigationRepeat = null;
-                return;
-            }
-
-            if (_nextNavigationRepeat is float nextRepeat && nextRepeat <= NavigationTime)
-            {
-                terminal.Navigate(_navigationDirection);
-                _nextNavigationRepeat = NavigationTime + 0.1f;
-            }
-        }
-
-        protected virtual void LateUpdate()
-        {
-            PrepareNavigation();
         }
 
         private void PrepareNavigation()
@@ -302,17 +416,17 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         private void HandleNativeMove(NavigationMoveEvent evt)
         {
-            SuppressOwnedNavigation(evt, "Navigate");
+            SuppressOwnedNavigation(evt, navigateActionName);
         }
 
         private void HandleNativeSubmit(NavigationSubmitEvent evt)
         {
-            SuppressOwnedNavigation(evt, "Submit");
+            SuppressOwnedNavigation(evt, submitActionName);
         }
 
         private void HandleNativeCancel(NavigationCancelEvent evt)
         {
-            SuppressOwnedNavigation(evt, "Cancel");
+            SuppressOwnedNavigation(evt, cancelActionName);
         }
 
         // The configured controller owns this route, including native default bindings.
@@ -333,13 +447,9 @@ namespace WallstopStudios.DxCommandTerminal.Input
             consumed, so the field keeps it, and the action runs the next time
             it fires with no field focused.
 
-            The action name is the string each handler passes: PlayerInput
-            turns the action "ToggleSmall" into the message "OnToggleSmall",
-            so the name is the only link from a message back to the control
-            that performed it. A message that PlayerInput does not send a
-            control with - a hand-sent message, a release that has already
-            cleared the control, a name that resolves to no action - runs as
-            it always has, as does every control that is not a typing key.
+            The serialized action identifier resolves the same action used
+            by callback routing and native navigation ownership. Unresolved
+            hand-sent messages retain their existing behavior.
 
             The two toggle messages do not pass through here: their handlers
             answer only <see cref="IsLive"/>, because the stroke that opens a
@@ -388,7 +498,13 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         private InputAction FindAction(string actionName)
         {
-            if (_playerInput == null)
+            if (_playerInput == null || string.IsNullOrWhiteSpace(actionName))
+            {
+                return null;
+            }
+
+            int separator = actionName.IndexOf("/", StringComparison.Ordinal);
+            if (separator == 0 || separator == actionName.Length - 1)
             {
                 return null;
             }

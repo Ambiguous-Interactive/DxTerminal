@@ -16,7 +16,7 @@ metadata:
 
 ## PlayerInput binding
 
-Bind InputActions to these messages (UnityEvents/`SendMessage` style on the Terminal):
+Default `Send Messages` actions use these message names on the Terminal:
 
 | Message                  | Action                 |
 | ------------------------ | ---------------------- |
@@ -28,6 +28,18 @@ Bind InputActions to these messages (UnityEvents/`SendMessage` style on the Term
 | `CompleteCommand`        | Auto-complete forward  |
 | `ReverseCompleteCommand` | Auto-complete backward |
 | `EnterCommand`           | Execute current buffer |
+| `Navigate`               | Move control focus     |
+| `Submit`                 | Activate focused UI    |
+| `Cancel`                 | Return to input/close  |
+
+`TerminalPlayerInputController` serializes all eleven `*ActionName` fields. Default names retain `Send Messages` routing. Custom names use `PlayerInput` Behavior
+`Invoke C Sharp Events`; the controller subscribes to `onActionTriggered` while enabled. Identifiers accept names or `MapName/ActionName` paths from that player's action asset.
+Keep each route on a distinct action. Resolve unqualified names in the current map before the asset. Missing, blank, or malformed identifiers do not claim native navigation.
+
+When changing identifiers, sweep dispatch, typing-control lookup, repeat/cancel state, and native UI Toolkit ownership together. `Send Messages` derives handler names from action
+names; replacing lookup literals alone does not route renamed actions. Callback routing must ignore `started` and mirror message phases: `performed`, plus `canceled` for Value
+actions. Submit/Cancel also require pressed values. Do not mutate the player's notification behavior. Pair event subscriptions across enable/disable; test re-enabling for
+duplicates. The controller fixture runs the same queued-device suite with defaults and serialized custom map paths. Keep both modes passing.
 
 When using PlayerInput, UNCHECK `Use Hotkeys` on the Terminal - otherwise both paths fire.
 
@@ -45,15 +57,24 @@ mouse, joystick) and counts anything else as typing, so an unrecognized name fai
 `AnyKeyControl` always types, a `KeyControl` defers to `ProducesTypedText(name)` unless `Keyboard.current.ctrlKey.isPressed`, and any other control types nothing. It fails OPEN (no
 control -> the message runs), because a console that silently ignores `Close` is worse than a toggle that fires once.
 
-Focus is read through `TerminalUI.AnyConsoleFieldOwnsFocus()`; a closed terminal does not count. `TerminalPlayerInputController` applies the rule to all eight messages through
-`ShouldHandleMessage(actionName)`: the action name is the message name minus `On`, it resolves the action from `PlayerInput.currentActionMap` first (an action in another map has no
-active control) then the asset, and a name that resolves to nothing leaves the message to run. The string rule's rows live in `Tests/Editor/InputHelpersTests.cs`; the control
+Focus is read through `TerminalUI.AnyConsoleFieldOwnsFocus()`; a closed terminal does not count. `TerminalPlayerInputController` applies the rule to non-toggle messages through
+`ShouldHandleMessage(actionName)`: each route passes its serialized identifier. It resolves the action from `PlayerInput.currentActionMap` first, then the asset; an action in
+another map has no active control. A name that resolves to nothing leaves hand-sent messages to run. The string rule's rows live in `Tests/Editor/InputHelpersTests.cs`; the control
 rule's rows and the Play Mode rig live in `Tests/Runtime/TerminalPlayerInputControllerTests.cs`, which needs a live device. Add rows in both directions to whichever owns the rule
 you change.
 
 Three limits to keep in step with the docs: a `ctrl+` chord is recognized only from live keyboard state (the control names the key, not the modifier), a `Value` action's release
 message still names the key so a character binding is deferred on both halves but a non-typing one runs twice, and a hand-sent message or an unresolvable action name runs as it
 always has. Only `shift+` and `ctrl+` are parsed in a binding string; `cmd+`/`super+`/`alt+` never resolve to a key.
+
+## Navigation ownership and cancellation
+
+A configured enabled/bound navigation action owns its native UI Toolkit route inside the terminal; explicit terminal API events still pass. Disabling the action/controller returns
+ownership to native navigation. Test real queued stick/button input: direct API calls cannot expose duplicate native Submit dispatch. UI fixtures must load the shipped TSS so the
+focus ring uses product geometry.
+
+Cancel must stop pending repeats AND block held directions until neutral. A typing gate alone misses gamepad input. Test cancel while held, jitter/direction changes, mixed keyboard
+and pad bindings, direct API cancel, and action-map handoff. Preserve the neutral latch when a typing control takes over; reset it only on a real release or ownership loss.
 
 ## History navigation semantics
 

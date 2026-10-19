@@ -40,6 +40,8 @@
         would show up in the terminal state, the run count, or the staged
         text.
      */
+    [TestFixture(false)]
+    [TestFixture(true)]
     public sealed class TerminalPlayerInputControllerTests
     {
         private const string PackageRoot = "Packages/com.wallstop-studios.dxcommandterminal";
@@ -68,6 +70,8 @@
          */
         private static InputActionType ActionType = InputActionType.Button;
 
+        private readonly bool _customActionNames;
+
         private readonly List<InputAction> _actions = new();
 
         private readonly List<string> _performedControls = new();
@@ -83,6 +87,11 @@
         private GameObject _terminalObject;
 
         private PanelSettings _panelSettings;
+
+        public TerminalPlayerInputControllerTests(bool customActionNames)
+        {
+            _customActionNames = customActionNames;
+        }
 
         private static void SendNativeSubmit(Button target)
         {
@@ -350,7 +359,7 @@
             yield return SpawnTerminal(open: true);
             yield return WaitForFocusedInput("Sanity: the command field holds panel focus");
 
-            InputAction close = _asset.FindAction("Close");
+            InputAction close = FindAction("Close");
             close.AddCompositeBinding("1DAxis").With("Negative", "<Keyboard>/backquote").With("Positive", "<Keyboard>/escape");
             close.performed += OnActionPerformed;
             close.Enable();
@@ -387,7 +396,7 @@
 
             TerminalPlayerInputController controller = _terminalObject.GetComponent<TerminalPlayerInputController>();
             Assert.That(controller != null, "Sanity: the rig has the controller under test");
-            Assert.IsTrue(_asset.FindAction("ToggleSmall").activeControl == null, "Sanity: no key has been pressed, so the action has no active control to classify");
+            Assert.IsTrue(FindAction("ToggleSmall").activeControl == null, "Sanity: no key has been pressed, so the action has no active control to classify");
 
             controller.OnToggleSmall(null);
             yield return null;
@@ -511,7 +520,7 @@
                 yield return SpawnTerminal(open: true);
                 yield return WaitForFocusedInput("The command field takes focus.");
 
-                InputAction navigate = _asset.FindAction("Navigate");
+                InputAction navigate = FindAction("Navigate");
                 navigate.expectedControlType = "Vector2";
                 Bind("Navigate", "<Gamepad>/leftStick");
                 Bind("Submit", "<Gamepad>/buttonSouth");
@@ -571,7 +580,7 @@
                 ActionType = InputActionType.Value;
                 yield return SpawnTerminal(open: true);
                 yield return WaitForFocusedInput("The command field takes focus.");
-                _asset.FindAction("Navigate").expectedControlType = "Vector2";
+                FindAction("Navigate").expectedControlType = "Vector2";
                 Bind("Navigate", "<Gamepad>/leftStick");
                 Bind("Submit", "<Gamepad>/buttonSouth");
                 Bind("Cancel", "<Gamepad>/buttonEast");
@@ -620,12 +629,12 @@
                 ActionType = InputActionType.Value;
                 yield return SpawnTerminal(open: true);
                 yield return WaitForFocusedInput("The command field takes focus.");
-                InputAction navigate = _asset.FindAction("Navigate");
+                InputAction navigate = FindAction("Navigate");
                 navigate.expectedControlType = "Vector2";
                 navigate.AddCompositeBinding("2DVector").With("Right", "<Keyboard>/d");
                 Bind("Navigate", "<Gamepad>/leftStick");
                 Bind("Cancel", "<Gamepad>/buttonEast");
-                _playerInput.SwitchCurrentActionMap("Console");
+                _playerInput.SwitchCurrentActionMap(_customActionNames ? "GameConsole" : "Console");
                 ControlledNavigationController controller = _terminalObject.GetComponent<ControlledNavigationController>();
                 Button size = _terminal._uiDocument.rootVisualElement.Q<Button>("TerminalSizeButton");
                 size.Focus();
@@ -693,7 +702,7 @@
             ActionType = InputActionType.Value;
             yield return SpawnTerminal(open: true);
             yield return WaitForFocusedInput("The command field takes focus.");
-            InputAction navigate = _asset.FindAction("Navigate");
+            InputAction navigate = FindAction("Navigate");
             navigate.expectedControlType = "Vector2";
             navigate.AddCompositeBinding("2DVector").With("Right", "<Keyboard>/d");
             navigate.performed += OnActionPerformed;
@@ -791,14 +800,32 @@
             SendNativeSubmit(size);
             Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "A stopped explicit event cannot mark a reused native event as explicit.");
 
-            _asset.FindAction("Submit").Disable();
+            FindAction("Submit").Disable();
             SendNativeSubmit(size);
             Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenFull), "Disabling the action restores native navigation.");
 
-            _asset.FindAction("Submit").Enable();
+            FindAction("Submit").Enable();
             _terminalObject.GetComponent<TerminalPlayerInputController>().enabled = false;
             SendNativeSubmit(size);
             Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "Disabling the controller restores native navigation.");
+
+            TerminalPlayerInputController controller = _terminalObject.GetComponent<TerminalPlayerInputController>();
+            controller.enabled = true;
+            controller.enabled = false;
+            controller.enabled = true;
+            clicks = 0;
+            PressKey(Key.F1);
+            yield return Settle();
+            Assert.That(clicks, Is.EqualTo(1), "Re-enabling subscribes to configured actions exactly once.");
+            ReleaseKeys();
+            yield return Settle();
+            foreach (string unresolved in new[] { null, string.Empty, " ", "UnknownAction", "/Submit", "GameConsole/" })
+            {
+                controller.submitActionName = unresolved;
+                TerminalState before = _terminal.State;
+                SendNativeSubmit(size);
+                Assert.That(_terminal.State, Is.Not.EqualTo(before), $"Unresolved identifier '{unresolved}' leaves native navigation available.");
+            }
         }
 
         private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
@@ -811,9 +838,14 @@
             yield return Settle();
         }
 
+        private InputAction FindAction(string message)
+        {
+            return _asset.FindAction(_customActionNames ? $"GameConsole/Custom{message}" : message);
+        }
+
         private void Bind(string actionName, string keyPath)
         {
-            InputAction action = _asset.FindAction(actionName);
+            InputAction action = FindAction(actionName);
             Assert.That(action != null, $"Sanity: the rig created the {actionName} action");
             action.performed += OnActionPerformed;
             action.AddBinding(keyPath);
@@ -854,16 +886,29 @@
                 it enables and a name added later is never sent.
              */
             _asset = ScriptableObject.CreateInstance<InputActionAsset>();
-            InputActionMap map = new("Console");
+            InputActionMap map = new(_customActionNames ? "GameConsole" : "Console");
             foreach (string message in RoutedMessages())
             {
-                map.AddAction(message, ActionType);
+                map.AddAction(_customActionNames ? $"Custom{message}" : message, ActionType);
             }
 
             _asset.AddActionMap(map);
             _playerInput = _terminalObject.AddComponent<PlayerInput>();
             _playerInput.actions = _asset;
-            _terminalObject.AddComponent<ControlledNavigationController>();
+            ControlledNavigationController controller = _terminalObject.AddComponent<ControlledNavigationController>();
+            if (_customActionNames)
+            {
+                _playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
+                SerializedObject serialized = new(controller);
+                foreach (string message in RoutedMessages())
+                {
+                    string fieldName = $"{char.ToLowerInvariant(message[0])}{message[1..]}ActionName";
+                    SerializedProperty property = serialized.FindProperty(fieldName);
+                    Assert.That(property, Is.Not.Null, $"{fieldName} must serialize the configured action identifier.");
+                    property.stringValue = $"GameConsole/Custom{message}";
+                }
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
 
             StartTracker tracker = _terminalObject.AddComponent<StartTracker>();
             _terminalObject.SetActive(true);
