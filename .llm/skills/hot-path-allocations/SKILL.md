@@ -1,6 +1,6 @@
 ---
 name: hot-path-allocations
-description: Keep DxCommandTerminal hot paths (per-keystroke sweeps, per-frame updates, per-log writes) allocation-free on Unity's Mono - measured allocation facts, version-gated collection snapshots, long version counters, and warmed AllocatingGCMemory probe methodology. Use when optimizing a hot path, adding a sweep over a live collection, adding a version/generation counter, or writing or debugging allocation tests.
+description: Keep DxCommandTerminal hot paths (per-keystroke sweeps, per-frame updates, per-log writes) allocation-free on Unity's Mono - measured allocation facts, version-gated collection snapshots, long version counters, and warmed AllocatingGCMemory probe methodology. Use when optimizing a hot path, adding a sweep over a live collection, adding a version/generation counter, writing or debugging allocation tests, or choosing Array.Resize versus replacement allocation for array growth.
 metadata:
   category: Performance
 ---
@@ -62,6 +62,16 @@ through `ValueType.Equals`. Preserve default/null values, quote metadata, and ra
 comparer for equality and hashing, including `StringComparer.OrdinalIgnoreCase.GetHashCode` rather than lowercasing first. Test equal copies, distinct fields, defaults, boxed
 equality, and hash collection lookup. Do not add content equality to borrowed argument views, leases, enumerators, or mutable state. Their lifetime and ownership contracts need
 separate reasoning.
+
+## Array growth: preserve only live data
+
+- `Array.Resize(ref buffer, capacity)` allocates a replacement when the size changes and copies the retained prefix. It does not grow an array in place or avoid allocation.
+- Replace a scratch array directly when the next rebuild writes every live slot before reading it. Examples: `LogWindowCache` windows, repeat counts, and source-row mappings;
+  `CommandPaletteUI` output snapshots; scene-object sort keys. Copying the old prefix adds work without preserving useful state. Consumers must stay within the rebuilt count.
+- Preserve contents when entries remain live across growth. Use `Array.Resize` for ordinary owned storage, or `Array.Copy` when constructing and publishing a separate replacement.
+  `CachedSlotStorage` and `CachedLeases` copy before `Volatile.Write`; do not replace that publication with `Array.Resize(ref sharedField, ...)`.
+- Sweep both directions: a scratch buffer must be fully rebuilt, and retained storage must copy every live entry. Check invalidation, growth, shrink, and reused reads; use existing
+  growth tests rather than adding tests that only assert a particular allocation syntax.
 
 ## Version-gated snapshots
 

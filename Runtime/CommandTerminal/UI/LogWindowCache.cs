@@ -171,6 +171,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 int capacity = _window.Length;
                 if (_collapsedWindow.Length < capacity)
                 {
+                    // The rebuild replaces every live slot; preserving old contents would add unused copies.
                     _collapsedWindow = new LogItem[capacity];
                     _repeatCounts = new int[capacity];
                     _sourceRows = new int[capacity];
