@@ -12,6 +12,12 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 ### Added
 
+- Add serialized PlayerInput action names and custom-map routing through C# events ([#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
+
+- Add gamepad control navigation, submit, cancel, and visible header focus ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241),
+  [#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
+- Add a current search-match row marker that preserves log text selection ([#242](https://github.com/Ambiguous-Interactive/DxTerminal/issues/242)).
+
 - Add repeat collapse with entry-based search counts ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
 - Add Top, Bottom, and Auto terminal anchoring with safe-area placement ([#241](https://github.com/wallstop/DxCommandTerminal/issues/241),
   [#245](https://github.com/wallstop/DxCommandTerminal/issues/245)).

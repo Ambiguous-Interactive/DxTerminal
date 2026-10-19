@@ -40,6 +40,8 @@
         would show up in the terminal state, the run count, or the staged
         text.
      */
+    [TestFixture(false)]
+    [TestFixture(true)]
     public sealed class TerminalPlayerInputControllerTests
     {
         private const string PackageRoot = "Packages/com.wallstop-studios.dxcommandterminal";
@@ -68,6 +70,8 @@
          */
         private static InputActionType ActionType = InputActionType.Button;
 
+        private readonly bool _customActionNames;
+
         private readonly List<InputAction> _actions = new();
 
         private readonly List<string> _performedControls = new();
@@ -83,6 +87,21 @@
         private GameObject _terminalObject;
 
         private PanelSettings _panelSettings;
+
+        public TerminalPlayerInputControllerTests(bool customActionNames)
+        {
+            _customActionNames = customActionNames;
+        }
+
+        private static void SendNativeSubmit(Button target)
+        {
+            target.Focus();
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = target;
+                target.SendEvent(evt);
+            }
+        }
 
         /*
             The names PlayerInput turns into the controller's messages. Read
@@ -273,7 +292,16 @@
 
             int runs = 0;
             Assert.IsTrue(
-                Terminal.Shell.AddCommand(ProbeCommand, _ => ++runs, minArgs: 0, maxArgs: 0, help: "test"),
+                Terminal.Shell.AddCommand(
+                    ProbeCommand,
+                    _ =>
+                    {
+                        ++runs;
+                    },
+                    minArgs: 0,
+                    maxArgs: 0,
+                    help: "test"
+                ),
                 "Sanity: the probe command registers, so completion and Enter have work to do"
             );
 
@@ -340,7 +368,7 @@
             yield return SpawnTerminal(open: true);
             yield return WaitForFocusedInput("Sanity: the command field holds panel focus");
 
-            InputAction close = _asset.FindAction("Close");
+            InputAction close = FindAction("Close");
             close.AddCompositeBinding("1DAxis").With("Negative", "<Keyboard>/backquote").With("Positive", "<Keyboard>/escape");
             close.performed += OnActionPerformed;
             close.Enable();
@@ -377,7 +405,7 @@
 
             TerminalPlayerInputController controller = _terminalObject.GetComponent<TerminalPlayerInputController>();
             Assert.That(controller != null, "Sanity: the rig has the controller under test");
-            Assert.IsTrue(_asset.FindAction("ToggleSmall").activeControl == null, "Sanity: no key has been pressed, so the action has no active control to classify");
+            Assert.IsTrue(FindAction("ToggleSmall").activeControl == null, "Sanity: no key has been pressed, so the action has no active control to classify");
 
             controller.OnToggleSmall(null);
             yield return null;
@@ -491,9 +519,379 @@
             }
         }
 
+        [UnityTest]
+        public IEnumerator GamepadNavigationIgnoresReleasedControls()
+        {
+            Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+            try
+            {
+                ActionType = InputActionType.Value;
+                yield return SpawnTerminal(open: true);
+                yield return WaitForFocusedInput("The command field takes focus.");
+
+                InputAction navigate = FindAction("Navigate");
+                navigate.expectedControlType = "Vector2";
+                Bind("Navigate", "<Gamepad>/leftStick");
+                Bind("Submit", "<Gamepad>/buttonSouth");
+                Bind("Cancel", "<Gamepad>/buttonEast");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = Vector2.right });
+                yield return Settle();
+
+                Button size = _terminal._uiDocument.rootVisualElement.Q<Button>("TerminalSizeButton");
+                Assert.That(size, Is.Not.Null);
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size), "The stick enters the header controls.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = new Vector2(0.8f, 0.1f) });
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size), "Stick jitter in the same direction does not move again.");
+
+                InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size), "Releasing the stick keeps the current control.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.South));
+                yield return Settle();
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "Submit activates the focused size control.");
+                size.Focus();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size));
+
+                InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+                yield return Settle();
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "Submit release does not activate it again.");
+
+                size.Focus();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size));
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.East));
+                yield return Settle();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Cancel returns to the command field.");
+
+                InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+                yield return Settle();
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "Cancel release does not close the terminal.");
+                Assert.That(_terminal.InputOwnsFocus, Is.True);
+                Assert.That(_performedControls, Does.Contain("leftStick"));
+                Assert.That(_performedControls, Does.Contain("buttonSouth"));
+                Assert.That(_performedControls, Does.Contain("buttonEast"));
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(gamepad);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GamepadLeavesSearchAndActivatesSearchControls()
+        {
+            Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+            try
+            {
+                ActionType = InputActionType.Value;
+                yield return SpawnTerminal(open: true);
+                yield return WaitForFocusedInput("The command field takes focus.");
+                FindAction("Navigate").expectedControlType = "Vector2";
+                Bind("Navigate", "<Gamepad>/leftStick");
+                Bind("Submit", "<Gamepad>/buttonSouth");
+                Bind("Cancel", "<Gamepad>/buttonEast");
+                Terminal.Buffer.Clear();
+                Terminal.Log("pad alpha");
+                Terminal.Log("pad beta");
+                VisualElement root = _terminal._uiDocument.rootVisualElement;
+                root.Q<TextField>("LogSearchInput").value = "pad";
+                yield return Settle();
+
+                yield return MoveGamepad(gamepad, Vector2.right);
+                Assert.That(root.panel.focusController.focusedElement, Is.SameAs(root.Q<Button>("TerminalSizeButton")));
+                yield return MoveGamepad(gamepad, Vector2.down);
+                for (int move = 0; move < 8 && !_terminal.SearchOwnsFocus; ++move)
+                {
+                    yield return MoveGamepad(gamepad, Vector2.left);
+                }
+                Assert.That(_terminal.SearchOwnsFocus, Is.True, "The pad can enter the search field from the header.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.South));
+                yield return Settle();
+                Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (2/2)"), "Submit in search advances the current match.");
+                yield return MoveGamepad(gamepad, Vector2.right);
+                Assert.That(_terminal.SearchOwnsFocus, Is.False, "The pad can leave the editable search field.");
+                Assert.That(root.panel.focusController.focusedElement, Is.SameAs(root.Q<Button>("LogSearchPrevious")));
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.South));
+                yield return Settle();
+                Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"), "Submit activates the focused previous-match button.");
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.East));
+                yield return Settle();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Cancel returns from search controls to the command field.");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(gamepad);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator GamepadCancelStopsHeldNavigationUntilNeutral()
+        {
+            Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+            try
+            {
+                ActionType = InputActionType.Value;
+                yield return SpawnTerminal(open: true);
+                yield return WaitForFocusedInput("The command field takes focus.");
+                InputAction navigate = FindAction("Navigate");
+                navigate.expectedControlType = "Vector2";
+                navigate.AddCompositeBinding("2DVector").With("Right", "<Keyboard>/d");
+                Bind("Navigate", "<Gamepad>/leftStick");
+                Bind("Cancel", "<Gamepad>/buttonEast");
+                _playerInput.SwitchCurrentActionMap(_customActionNames ? "GameConsole" : "Console");
+                ControlledNavigationController controller = _terminalObject.GetComponent<ControlledNavigationController>();
+                Button size = _terminal._uiDocument.rootVisualElement.Q<Button>("TerminalSizeButton");
+                size.Focus();
+                _terminal.CancelNavigation();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Cancel with a neutral stick returns to the command field.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size));
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.East) { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "The cancel action returns to the command field while the stick remains held.");
+                controller.Clock = 1f;
+                controller.Tick();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Cancel stops repeats from the held stick.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = new Vector2(0.7f, 0f) });
+                yield return Settle();
+                PressKey(Key.D);
+                yield return Settle();
+                Assert.That(navigate.activeControl, Is.SameAs(Keyboard.current.dKey), "The typing key drives the mixed navigation action.");
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "A typing binding leaves the canceled stick latched.");
+                ReleaseKeys();
+                yield return Settle();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Returning to the held stick cannot undo cancel.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = new Vector2(0.1f, 0.8f) });
+                yield return Settle();
+                controller.Clock = 1.5f;
+                controller.Tick();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Changing a held direction cannot undo cancel.");
+
+                InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+                yield return Settle();
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size), "A new direction after neutral reenters navigation.");
+                _terminal.CancelNavigation();
+                controller.Clock = 2.5f;
+                controller.Tick();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Direct API cancel also stops held navigation.");
+                _playerInput.DeactivateInput();
+                controller.Tick();
+                InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+                yield return Settle();
+                _playerInput.ActivateInput();
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size), "Releasing inactive input ownership lets a fresh direction navigate.");
+                _terminal.CancelNavigation();
+                _terminal.CancelNavigation();
+                controller.Clock = 3f;
+                controller.Tick();
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.Closed), "The next cancel closes while the stick remains held.");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(gamepad);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator KeyboardNavigationRepeatsAndStopsWhenTypingOrReleased()
+        {
+            ActionType = InputActionType.Value;
+            yield return SpawnTerminal(open: true);
+            yield return WaitForFocusedInput("The command field takes focus.");
+            InputAction navigate = FindAction("Navigate");
+            navigate.expectedControlType = "Vector2";
+            navigate.AddCompositeBinding("2DVector").With("Right", "<Keyboard>/d");
+            navigate.performed += OnActionPerformed;
+            navigate.Enable();
+            _actions.Add(navigate);
+            ControlledNavigationController controller = _terminalObject.GetComponent<ControlledNavigationController>();
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Button size = root.Q<Button>("TerminalSizeButton");
+            Button close = root.Q<Button>("TerminalCloseButton");
+
+            size.Focus();
+            PressKey(Key.D);
+            yield return Settle();
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(close), "The right key moves from size to close.");
+            size.Focus();
+            controller.Clock = 0.49f;
+            controller.Tick();
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(size), "Holding waits for the initial repeat delay.");
+            controller.Clock = 0.5f;
+            controller.Tick();
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(close), "Holding repeats after the delay.");
+            size.Focus();
+            controller.Clock = 0.59f;
+            controller.Tick();
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(size), "Holding waits for the repeat interval.");
+            controller.Clock = 0.61f;
+            controller.Tick();
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(close), "Holding repeats at the repeat interval.");
+
+            _terminal.CancelNavigation();
+            controller.Clock = 1f;
+            controller.Tick();
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "A held typing key cannot repeat into the header.");
+            ReleaseKeys();
+            yield return Settle();
+            size.Focus();
+            PressKey(Key.D);
+            yield return Settle();
+            Assert.That(root.panel.focusController.focusedElement, Is.SameAs(close), "A new press navigates after typing cancels the previous repeat.");
+            _terminal.CancelNavigation();
+            ReleaseKeys();
+            yield return Settle();
+            controller.Clock = 2f;
+            controller.Tick();
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "Releasing a typing key clears its pending repeat.");
+            Assert.That(_performedControls, Does.Contain("d"));
+        }
+
+        [UnityTest]
+        public IEnumerator BothInputModesUseEveryVirtualActionHookExactlyOnce()
+        {
+            yield return SpawnTerminal(open: true);
+            yield return WaitForFocusedInput("The command field takes focus.");
+            ControlledNavigationController controller = _terminalObject.GetComponent<ControlledNavigationController>();
+            controller.CaptureRoutes = true;
+            List<string> routes = RoutedMessages();
+            foreach (string route in routes)
+            {
+                if (string.Equals(route, "Navigate", StringComparison.Ordinal))
+                {
+                    InputAction navigate = FindAction(route);
+                    navigate.expectedControlType = "Vector2";
+                    navigate.AddCompositeBinding("2DVector").With("Right", "<Keyboard>/f1");
+                    navigate.Enable();
+                }
+                else
+                {
+                    Bind(route, "<Keyboard>/f1");
+                }
+            }
+
+            PressKey(Key.F1);
+            yield return Settle();
+            Assert.That(controller.CapturedRoutes, Is.EquivalentTo(routes), "Every route reaches its subclass override once, regardless of notification mode.");
+            ReleaseKeys();
+            yield return Settle();
+            Assert.That(controller.CapturedRoutes.Count, Is.EqualTo(routes.Count), "Button releases do not invoke the hooks again.");
+        }
+
+        [UnityTest]
+        public IEnumerator ConfiguredNavigationOwnsNativeEventsUntilDisabled()
+        {
+            yield return SpawnTerminal(open: true);
+            yield return WaitForFocusedInput("The command field takes focus.");
+            Button size = _terminal._uiDocument.rootVisualElement.Q<Button>("TerminalSizeButton");
+
+            SendNativeSubmit(size);
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "Unbound actions leave native navigation available.");
+
+            Bind("Submit", "<Keyboard>/f1");
+            SendNativeSubmit(size);
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "A configured controller owns submit.");
+
+            size.Focus();
+            _terminal.SubmitNavigation();
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenFull), "Explicit API calls still dispatch while the controller owns submit.");
+
+            int clicks = 0;
+            size.clicked += () =>
+            {
+                ++clicks;
+            };
+            Button trigger = new(() =>
+            {
+                size.Focus();
+                _terminal.SubmitNavigation();
+            });
+            size.parent.Add(trigger);
+            trigger.Focus();
+            _terminal.SubmitNavigation();
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "An API call inside another navigation event still dispatches.");
+            Assert.That(clicks, Is.EqualTo(1), "The queued nested event activates the size control once.");
+            trigger.RemoveFromHierarchy();
+
+            VisualElement documentRoot = _terminal._uiDocument.rootVisualElement;
+            EventCallback<NavigationSubmitEvent> stop = evt =>
+            {
+                evt.StopImmediatePropagation();
+            };
+            documentRoot.RegisterCallback(stop, TrickleDown.TrickleDown);
+            try
+            {
+                size.Focus();
+                _terminal.SubmitNavigation();
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "An ancestor can stop an explicit event before it reaches the terminal.");
+            }
+            finally
+            {
+                documentRoot.UnregisterCallback(stop, TrickleDown.TrickleDown);
+            }
+
+            SendNativeSubmit(size);
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "A stopped explicit event cannot mark a reused native event as explicit.");
+
+            FindAction("Submit").Disable();
+            SendNativeSubmit(size);
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenFull), "Disabling the action restores native navigation.");
+
+            FindAction("Submit").Enable();
+            _terminalObject.GetComponent<TerminalPlayerInputController>().enabled = false;
+            SendNativeSubmit(size);
+            Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "Disabling the controller restores native navigation.");
+
+            TerminalPlayerInputController controller = _terminalObject.GetComponent<TerminalPlayerInputController>();
+            controller.enabled = true;
+            controller.enabled = false;
+            controller.enabled = true;
+            clicks = 0;
+            PressKey(Key.F1);
+            yield return Settle();
+            Assert.That(clicks, Is.EqualTo(1), "Re-enabling subscribes to configured actions exactly once.");
+            ReleaseKeys();
+            yield return Settle();
+            foreach (string unresolved in new[] { null, string.Empty, " ", "UnknownAction", "/Submit", "GameConsole/" })
+            {
+                controller.submitActionName = unresolved;
+                TerminalState before = _terminal.State;
+                SendNativeSubmit(size);
+                Assert.That(_terminal.State, Is.Not.EqualTo(before), $"Unresolved identifier '{unresolved}' leaves native navigation available.");
+            }
+        }
+
+        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
+        {
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+        }
+
+        private InputAction FindAction(string message)
+        {
+            return _asset.FindAction(_customActionNames ? $"GameConsole/Custom{message}" : message);
+        }
+
         private void Bind(string actionName, string keyPath)
         {
-            InputAction action = _asset.FindAction(actionName);
+            InputAction action = FindAction(actionName);
             Assert.That(action != null, $"Sanity: the rig created the {actionName} action");
             action.performed += OnActionPerformed;
             action.AddBinding(keyPath);
@@ -510,6 +908,7 @@
         {
 #if UNITY_EDITOR
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            _panelSettings.themeStyleSheet = LoadAsset<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
             _terminalObject = new GameObject("PlayerInputTerminal");
             _terminalObject.SetActive(false);
             UIDocument document = _terminalObject.AddComponent<UIDocument>();
@@ -533,20 +932,36 @@
                 it enables and a name added later is never sent.
              */
             _asset = ScriptableObject.CreateInstance<InputActionAsset>();
-            InputActionMap map = new("Console");
+            InputActionMap map = new(_customActionNames ? "GameConsole" : "Console");
             foreach (string message in RoutedMessages())
             {
-                map.AddAction(message, ActionType);
+                map.AddAction(_customActionNames ? $"Custom{message}" : message, ActionType);
             }
 
             _asset.AddActionMap(map);
             _playerInput = _terminalObject.AddComponent<PlayerInput>();
             _playerInput.actions = _asset;
-            _terminalObject.AddComponent<TerminalPlayerInputController>();
+            ControlledNavigationController controller = _terminalObject.AddComponent<ControlledNavigationController>();
+            if (_customActionNames)
+            {
+                _playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
+                SerializedObject serialized = new(controller);
+                foreach (string message in RoutedMessages())
+                {
+                    string fieldName = $"{char.ToLowerInvariant(message[0])}{message[1..]}ActionName";
+                    SerializedProperty property = serialized.FindProperty(fieldName);
+                    Assert.That(property, Is.Not.Null, $"{fieldName} must serialize the configured action identifier.");
+                    property.stringValue = $"GameConsole/Custom{message}";
+                }
+                serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
 
             StartTracker tracker = _terminalObject.AddComponent<StartTracker>();
             _terminalObject.SetActive(true);
-            yield return new WaitUntil(() => tracker.Started);
+            yield return new WaitUntil(() =>
+            {
+                return tracker.Started;
+            });
 #else
             Assert.Ignore("PlayerInput coverage runs in the editor Play Mode suite.");
             yield break;
@@ -593,6 +1008,110 @@
             return asset;
         }
 #endif
+
+        private sealed class ControlledNavigationController : TerminalPlayerInputController
+        {
+            protected override float NavigationTime
+            {
+                get { return Clock; }
+            }
+
+            public readonly List<string> CapturedRoutes = new();
+
+            public float Clock;
+
+            public bool CaptureRoutes;
+
+            public void Tick()
+            {
+                base.Update();
+            }
+
+            protected override void HandlePrevious()
+            {
+                CaptureRoute(nameof(HandlePrevious), base.HandlePrevious);
+            }
+
+            protected override void HandleNext()
+            {
+                CaptureRoute(nameof(HandleNext), base.HandleNext);
+            }
+
+            protected override void Close()
+            {
+                CaptureRoute(nameof(Close), base.Close);
+            }
+
+            protected override void ToggleSmall()
+            {
+                CaptureRoute(nameof(ToggleSmall), base.ToggleSmall);
+            }
+
+            protected override void ToggleFull()
+            {
+                CaptureRoute(nameof(ToggleFull), base.ToggleFull);
+            }
+
+            protected override void CompleteCommand()
+            {
+                CaptureRoute(nameof(CompleteCommand), base.CompleteCommand);
+            }
+
+            protected override void ReverseCompleteCommand()
+            {
+                CaptureRoute(nameof(ReverseCompleteCommand), base.ReverseCompleteCommand);
+            }
+
+            protected override void EnterCommand()
+            {
+                CaptureRoute(nameof(EnterCommand), base.EnterCommand);
+            }
+
+            protected override void Navigate(Vector2 value)
+            {
+                CaptureRoute(
+                    nameof(Navigate),
+                    () =>
+                    {
+                        base.Navigate(value);
+                    }
+                );
+            }
+
+            protected override void Submit(bool pressed)
+            {
+                CaptureRoute(
+                    nameof(Submit),
+                    () =>
+                    {
+                        base.Submit(pressed);
+                    }
+                );
+            }
+
+            protected override void Cancel(bool pressed)
+            {
+                CaptureRoute(
+                    nameof(Cancel),
+                    () =>
+                    {
+                        base.Cancel(pressed);
+                    }
+                );
+            }
+
+            protected override void Update() { }
+
+            private void CaptureRoute(string route, Action fallback)
+            {
+                if (CaptureRoutes)
+                {
+                    CapturedRoutes.Add(route);
+                    return;
+                }
+                fallback();
+            }
+        }
     }
 #endif
 }

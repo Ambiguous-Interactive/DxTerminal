@@ -250,6 +250,12 @@
     white-space: normal;
     margin: 0;
     padding: 0;
+    border-left-width: 3px;
+    border-left-color: transparent;
+}
+
+.terminal-output-label--current-match {
+    border-left-color: var(--caret-color);
 }
 
 .terminal-output-label > .unity-base-field__label {
@@ -600,3 +606,12 @@
     margin-top: 6px;
     font-size: 10px;
     color: var(--text-shell, rgba(158, 158, 158, 1));
+}
+
+.terminal-header .terminal-button:focus,
+.terminal-search .terminal-button:focus,
+.terminal-severities .terminal-button:focus,
+.input-container .terminal-button:focus {
+    background-color: var(--button-selected-bg);
+    color: var(--button-selected-text);
+}

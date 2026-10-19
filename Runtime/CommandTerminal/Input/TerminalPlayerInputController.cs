@@ -1,9 +1,11 @@
 namespace WallstopStudios.DxCommandTerminal.Input
 {
 #if ENABLE_INPUT_SYSTEM
+    using System;
     using UI;
     using UnityEngine;
     using UnityEngine.InputSystem;
+    using UnityEngine.UIElements;
 
     [DisallowMultipleComponent]
     public class TerminalPlayerInputController : MonoBehaviour
@@ -13,16 +15,47 @@ namespace WallstopStudios.DxCommandTerminal.Input
         ///     panel focus. The live read is the shipped behavior; a game
         ///     that wants a non-toggle character binding to keep running
         ///     while the field has focus overrides this to <c>false</c>,
-        ///     which restores the pre-rule behavior for the six messages the
-        ///     rule covers. The two toggle messages do not consult this
+        ///     which restores the pre-rule behavior for non-toggle messages.
+        ///     The two toggle messages do not consult this
         ///     property - their key is reserved (#218).
         /// </summary>
-        protected virtual bool TextInputOwnsFocus => TerminalUI.AnyConsoleFieldOwnsFocus();
+        protected virtual bool TextInputOwnsFocus
+        {
+            get { return TerminalUI.AnyConsoleFieldOwnsFocus(); }
+        }
+
+        protected virtual float NavigationTime
+        {
+            get { return Time.unscaledTime; }
+        }
 
         [Header("System")]
         public bool enableWarnings = true;
 
         public TerminalUI terminal;
+
+        [Header("Action Names")]
+        public string handlePreviousActionName = "HandlePrevious";
+
+        public string handleNextActionName = "HandleNext";
+
+        public string closeActionName = "Close";
+
+        public string toggleSmallActionName = "ToggleSmall";
+
+        public string toggleFullActionName = "ToggleFull";
+
+        public string completeCommandActionName = "CompleteCommand";
+
+        public string reverseCompleteCommandActionName = "ReverseCompleteCommand";
+
+        public string enterCommandActionName = "EnterCommand";
+
+        public string navigateActionName = "Navigate";
+
+        public string submitActionName = "Submit";
+
+        public string cancelActionName = "Cancel";
 
         protected bool _enabled;
 
@@ -31,34 +64,104 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         protected PlayerInput _playerInput;
 
+        private VisualElement _navigationRoot;
+        private Vector2 _navigationDirection;
+        private float? _nextNavigationRepeat;
+        private long _navigationCancellationVersion;
+        private bool _navigationNeedsNeutral;
+
         public virtual void OnHandlePrevious(InputValue inputValue)
         {
-            if (!ShouldHandleMessage("HandlePrevious"))
+            HandlePrevious();
+        }
+
+        public virtual void OnHandleNext(InputValue inputValue)
+        {
+            HandleNext();
+        }
+
+        public virtual void OnClose(InputValue inputValue)
+        {
+            Close();
+        }
+
+        public virtual void OnToggleSmall(InputValue inputValue)
+        {
+            ToggleSmall();
+        }
+
+        public virtual void OnToggleFull(InputValue inputValue)
+        {
+            ToggleFull();
+        }
+
+        public virtual void OnCompleteCommand(InputValue input)
+        {
+            CompleteCommand();
+        }
+
+        public virtual void OnReverseCompleteCommand(InputValue input)
+        {
+            ReverseCompleteCommand();
+        }
+
+        public virtual void OnEnterCommand(InputValue inputValue)
+        {
+            EnterCommand();
+        }
+
+        public virtual void OnNavigate(InputValue inputValue)
+        {
+            if (inputValue == null)
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                return;
+            }
+            if (PrepareNavigationInput())
+            {
+                Navigate(inputValue.Get<Vector2>());
+            }
+        }
+
+        public virtual void OnSubmit(InputValue inputValue)
+        {
+            Submit(inputValue != null && inputValue.isPressed);
+        }
+
+        public virtual void OnCancel(InputValue inputValue)
+        {
+            Cancel(inputValue != null && inputValue.isPressed);
+        }
+
+        protected virtual void HandlePrevious()
+        {
+            if (!ShouldHandleMessage(handlePreviousActionName))
             {
                 return;
             }
             terminal.HandlePrevious();
         }
 
-        public virtual void OnHandleNext(InputValue inputValue)
+        protected virtual void HandleNext()
         {
-            if (!ShouldHandleMessage("HandleNext"))
+            if (!ShouldHandleMessage(handleNextActionName))
             {
                 return;
             }
             terminal.HandleNext();
         }
 
-        public virtual void OnClose(InputValue inputValue)
+        protected virtual void Close()
         {
-            if (!ShouldHandleMessage("Close", allowLogFocus: true))
+            if (!ShouldHandleMessage(closeActionName, allowLogFocus: true))
             {
                 return;
             }
             terminal.Close();
         }
 
-        public virtual void OnToggleSmall(InputValue inputValue)
+        protected virtual void ToggleSmall()
         {
             /*
                 The toggle key is reserved: it opens and closes the surface
@@ -73,7 +176,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
             terminal.ToggleSmall();
         }
 
-        public virtual void OnToggleFull(InputValue inputValue)
+        protected virtual void ToggleFull()
         {
             if (!IsLive())
             {
@@ -82,27 +185,27 @@ namespace WallstopStudios.DxCommandTerminal.Input
             terminal.ToggleFull();
         }
 
-        public virtual void OnCompleteCommand(InputValue input)
+        protected virtual void CompleteCommand()
         {
-            if (!ShouldHandleMessage("CompleteCommand"))
+            if (!ShouldHandleMessage(completeCommandActionName))
             {
                 return;
             }
             terminal.CompleteCommand(searchForward: true);
         }
 
-        public virtual void OnReverseCompleteCommand(InputValue input)
+        protected virtual void ReverseCompleteCommand()
         {
-            if (!ShouldHandleMessage("ReverseCompleteCommand"))
+            if (!ShouldHandleMessage(reverseCompleteCommandActionName))
             {
                 return;
             }
             terminal.CompleteCommand(searchForward: false);
         }
 
-        public virtual void OnEnterCommand(InputValue inputValue)
+        protected virtual void EnterCommand()
         {
-            if (!ShouldHandleMessage("EnterCommand"))
+            if (!ShouldHandleMessage(enterCommandActionName))
             {
                 return;
             }
@@ -134,11 +237,252 @@ namespace WallstopStudios.DxCommandTerminal.Input
         protected virtual void OnEnable()
         {
             _enabled = true;
+            if (_playerInput != null)
+            {
+                _playerInput.onActionTriggered += HandleActionTriggered;
+            }
+            PrepareNavigation();
         }
 
         protected virtual void OnDisable()
         {
             _enabled = false;
+            if (_playerInput != null)
+            {
+                _playerInput.onActionTriggered -= HandleActionTriggered;
+            }
+            ReleaseNavigation();
+        }
+
+        protected virtual void Update()
+        {
+            if (IsLive())
+            {
+                ObserveNavigationCancellation();
+            }
+            bool ownsNavigation = OwnsNavigation(navigateActionName);
+            if (!ownsNavigation)
+            {
+                _navigationNeedsNeutral = false;
+            }
+            if (!ShouldHandleMessage(navigateActionName, allowLogFocus: true) || !ownsNavigation || terminal.State is not (TerminalState.OpenSmall or TerminalState.OpenFull))
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                return;
+            }
+
+            if (_nextNavigationRepeat is float nextRepeat && nextRepeat <= NavigationTime)
+            {
+                terminal.Navigate(_navigationDirection);
+                _nextNavigationRepeat = NavigationTime + 0.1f;
+            }
+        }
+
+        protected virtual void LateUpdate()
+        {
+            PrepareNavigation();
+        }
+
+        protected virtual void Navigate(Vector2 value)
+        {
+            if (!float.IsFinite(value.x) || !float.IsFinite(value.y))
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                return;
+            }
+
+            float horizontal = Mathf.Abs(value.x);
+            float vertical = Mathf.Abs(value.y);
+            Vector2 direction =
+                Mathf.Max(horizontal, vertical) < 0.5f ? Vector2.zero
+                : vertical < horizontal ? new Vector2(Mathf.Sign(value.x), 0f)
+                : new Vector2(0f, Mathf.Sign(value.y));
+            if (direction == Vector2.zero)
+            {
+                _navigationNeedsNeutral = false;
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                return;
+            }
+            if (_navigationNeedsNeutral || direction == _navigationDirection)
+            {
+                return;
+            }
+
+            _navigationDirection = direction;
+            terminal.Navigate(direction);
+            _nextNavigationRepeat = NavigationTime + 0.5f;
+        }
+
+        protected virtual void Submit(bool pressed)
+        {
+            if (pressed && ShouldHandleMessage(submitActionName, allowLogFocus: true))
+            {
+                PrepareNavigation();
+                terminal.SubmitNavigation();
+            }
+        }
+
+        protected virtual void Cancel(bool pressed)
+        {
+            if (pressed && ShouldHandleMessage(cancelActionName, allowLogFocus: true))
+            {
+                PrepareNavigation();
+                terminal.CancelNavigation();
+            }
+        }
+
+        private bool PrepareNavigationInput()
+        {
+            if (!IsLive())
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                return false;
+            }
+            PrepareNavigation();
+            ObserveNavigationCancellation();
+            if (!ShouldHandleMessage(navigateActionName, allowLogFocus: true))
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                if (FindAction(navigateActionName)?.phase == InputActionPhase.Canceled)
+                {
+                    _navigationNeedsNeutral = false;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        private void HandleActionTriggered(InputAction.CallbackContext context)
+        {
+            if (!IsLive() || !(context.performed || (context.canceled && context.action.type == InputActionType.Value)))
+            {
+                return;
+            }
+            InputAction action = context.action;
+            if (action == FindAction(handlePreviousActionName))
+            {
+                HandlePrevious();
+            }
+            else if (action == FindAction(handleNextActionName))
+            {
+                HandleNext();
+            }
+            else if (action == FindAction(closeActionName))
+            {
+                Close();
+            }
+            else if (action == FindAction(toggleSmallActionName))
+            {
+                ToggleSmall();
+            }
+            else if (action == FindAction(toggleFullActionName))
+            {
+                ToggleFull();
+            }
+            else if (action == FindAction(completeCommandActionName))
+            {
+                CompleteCommand();
+            }
+            else if (action == FindAction(reverseCompleteCommandActionName))
+            {
+                ReverseCompleteCommand();
+            }
+            else if (action == FindAction(enterCommandActionName))
+            {
+                EnterCommand();
+            }
+            else if (action == FindAction(navigateActionName))
+            {
+                if (PrepareNavigationInput())
+                {
+                    Navigate(context.ReadValue<Vector2>());
+                }
+            }
+            else if (action == FindAction(submitActionName))
+            {
+                Submit(InputSystem.settings.defaultButtonPressPoint <= context.ReadValue<float>());
+            }
+            else if (action == FindAction(cancelActionName))
+            {
+                Cancel(InputSystem.settings.defaultButtonPressPoint <= context.ReadValue<float>());
+            }
+        }
+
+        private void PrepareNavigation()
+        {
+            VisualElement documentRoot = terminal == null || terminal._uiDocument == null ? null : terminal._uiDocument.rootVisualElement;
+            if (documentRoot != null && _navigationRoot != null && _navigationRoot.parent == documentRoot)
+            {
+                return;
+            }
+
+            ReleaseNavigation();
+            _navigationRoot = documentRoot?.Q<VisualElement>("TerminalRoot");
+            _navigationRoot?.RegisterCallback<NavigationMoveEvent>(HandleNativeMove, TrickleDown.TrickleDown);
+            _navigationRoot?.RegisterCallback<NavigationSubmitEvent>(HandleNativeSubmit, TrickleDown.TrickleDown);
+            _navigationRoot?.RegisterCallback<NavigationCancelEvent>(HandleNativeCancel, TrickleDown.TrickleDown);
+        }
+
+        private void ReleaseNavigation()
+        {
+            _navigationRoot?.UnregisterCallback<NavigationMoveEvent>(HandleNativeMove, TrickleDown.TrickleDown);
+            _navigationRoot?.UnregisterCallback<NavigationSubmitEvent>(HandleNativeSubmit, TrickleDown.TrickleDown);
+            _navigationRoot?.UnregisterCallback<NavigationCancelEvent>(HandleNativeCancel, TrickleDown.TrickleDown);
+            _navigationRoot = null;
+            _navigationDirection = Vector2.zero;
+            _nextNavigationRepeat = null;
+            _navigationCancellationVersion = terminal == null ? 0 : terminal.NavigationCancellationVersion;
+            _navigationNeedsNeutral = false;
+        }
+
+        private void ObserveNavigationCancellation()
+        {
+            long version = terminal.NavigationCancellationVersion;
+            if (_navigationCancellationVersion == version)
+            {
+                return;
+            }
+
+            _navigationCancellationVersion = version;
+            _navigationNeedsNeutral |= _navigationDirection != Vector2.zero;
+            _navigationDirection = Vector2.zero;
+            _nextNavigationRepeat = null;
+        }
+
+        private bool OwnsNavigation(string actionName)
+        {
+            InputAction action = FindAction(actionName);
+            return action != null && action.enabled && 0 < action.bindings.Count;
+        }
+
+        private void HandleNativeMove(NavigationMoveEvent evt)
+        {
+            SuppressOwnedNavigation(evt, navigateActionName);
+        }
+
+        private void HandleNativeSubmit(NavigationSubmitEvent evt)
+        {
+            SuppressOwnedNavigation(evt, submitActionName);
+        }
+
+        private void HandleNativeCancel(NavigationCancelEvent evt)
+        {
+            SuppressOwnedNavigation(evt, cancelActionName);
+        }
+
+        // The configured controller owns this route, including native default bindings.
+        private void SuppressOwnedNavigation(EventBase evt, string actionName)
+        {
+            if (IsLive() && !terminal.IsExplicitNavigationEvent(evt) && OwnsNavigation(actionName))
+            {
+                evt.StopImmediatePropagation();
+                KeyEvents.Consume(_navigationRoot, evt);
+            }
         }
 
         /*
@@ -149,13 +493,9 @@ namespace WallstopStudios.DxCommandTerminal.Input
             consumed, so the field keeps it, and the action runs the next time
             it fires with no field focused.
 
-            The action name is the string each handler passes: PlayerInput
-            turns the action "ToggleSmall" into the message "OnToggleSmall",
-            so the name is the only link from a message back to the control
-            that performed it. A message that PlayerInput does not send a
-            control with - a hand-sent message, a release that has already
-            cleared the control, a name that resolves to no action - runs as
-            it always has, as does every control that is not a typing key.
+            The serialized action identifier resolves the same action used
+            by callback routing and native navigation ownership. Unresolved
+            hand-sent messages retain their existing behavior.
 
             The two toggle messages do not pass through here: their handlers
             answer only <see cref="IsLive"/>, because the stroke that opens a
@@ -204,7 +544,13 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         private InputAction FindAction(string actionName)
         {
-            if (_playerInput == null)
+            if (_playerInput == null || string.IsNullOrWhiteSpace(actionName))
+            {
+                return null;
+            }
+
+            int separator = actionName.IndexOf("/", StringComparison.Ordinal);
+            if (separator == 0 || separator == actionName.Length - 1)
             {
                 return null;
             }

@@ -81,7 +81,8 @@ Install the SDK selected by root `global.json` before running .NET tooling. CI a
 1. `using` directives go INSIDE the namespace block (see any file in `Runtime/`); `#if` blocks INSIDE namespace; `#define` at file top.
 2. All code is formatted via [CSharpier](https://csharpier.com/): `dotnet tool run csharpier format` (tools pinned in `.config/dotnet-tools.json`, enforced by pre-commit). Do not
    hand-format.
-3. Explicit types over `var`; explicit access modifiers on every member.
+3. Explicit types over `var`; explicit access modifiers on every member. Use braces for all function bodies and property accessors, including small forwarding methods and lambdas.
+   Expression-bodied members and expression lambdas are forbidden. Switch-expression arms keep their required `=>` syntax.
 4. Classes/structs are `sealed`/`readonly` where possible; collections exposed immutably by default - mutable access only when necessary.
 5. Zero warnings. No dead code, no commented-out code. A Debug.Log-family call logs the exception itself, never `.Message` (the in-game funnel renders the message by design;
    enforced by `npm --prefix tooling~ run lint:exception-tostring`).

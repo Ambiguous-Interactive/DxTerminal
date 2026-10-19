@@ -59,20 +59,37 @@
         private static TerminalUI _configOwner;
 
         // ReSharper disable once MemberCanBePrivate.Global
-        public bool IsClosed => !IsOpenState(_state) && Mathf.Approximately(_currentWindowHeight, _targetWindowHeight);
+        public bool IsClosed
+        {
+            get { return !IsOpenState(_state) && Mathf.Approximately(_currentWindowHeight, _targetWindowHeight); }
+        }
 
-        public string CurrentTheme => !string.IsNullOrWhiteSpace(_runtimeTheme) ? _runtimeTheme : _persistedTheme;
+        public string CurrentTheme
+        {
+            get { return !string.IsNullOrWhiteSpace(_runtimeTheme) ? _runtimeTheme : _persistedTheme; }
+        }
 
-        public string CurrentFriendlyTheme => ThemeNameHelper.GetFriendlyThemeName(CurrentTheme);
+        public string CurrentFriendlyTheme
+        {
+            get { return ThemeNameHelper.GetFriendlyThemeName(CurrentTheme); }
+        }
 
-        public Font CurrentFont => _runtimeFont != null ? _runtimeFont : _persistedFont;
+        public Font CurrentFont
+        {
+            get { return _runtimeFont != null ? _runtimeFont : _persistedFont; }
+        }
 
         /*
             Internal for test coverage: a transition assertion needs the state
             a frame left behind, and IsClosed cannot answer that while the
             window height is still settling toward its target.
          */
-        internal TerminalState State => _state;
+        internal TerminalState State
+        {
+            get { return _state; }
+        }
+
+        internal long NavigationCancellationVersion { get; private set; }
 
         /*
             Internal for test coverage of the search's scroll state (see
@@ -90,11 +107,20 @@
             only flips when a scroll is actually placed, so on a host with no
             layout it reads the same whether or not anything is wrong.
          */
-        internal bool FindScrollQueued => _pendingFindScroll.HasValue;
+        internal bool FindScrollQueued
+        {
+            get { return _pendingFindScroll.HasValue; }
+        }
 
-        internal bool WantsScrollToEnd => _needsScrollToEnd;
+        internal bool WantsScrollToEnd
+        {
+            get { return _needsScrollToEnd; }
+        }
 
-        private ConsoleKeyBindings KeyBindings => keyBindings ??= new ConsoleKeyBindings();
+        private ConsoleKeyBindings KeyBindings
+        {
+            get { return keyBindings ??= new ConsoleKeyBindings(); }
+        }
 
         [Header("Window")]
         [Range(0, 1)]
@@ -331,6 +357,9 @@
         private Button _logSearchNext;
         private Button _logSearchClear;
         private Button _sizeButton;
+        private readonly Dictionary<EventBase, bool> _queuedNavigationEvents = new();
+        private EventBase _explicitNavigationEvent;
+        private VisualElement _highlightedLogRow;
         private Button _collapseButton;
         private bool _collapseLogs;
         private bool _lastSeenCollapse;
@@ -670,6 +699,7 @@
 
         private void LateUpdate()
         {
+            ReleaseNavigationEvents();
             /*
                 The idle check runs before the animation step: the frame where
                 HandleHeightAnimation snaps to the closed target is the frame
@@ -1692,6 +1722,59 @@
             }
         }
 
+        /// <summary>Moves focus through the open terminal's controls.</summary>
+        public void Navigate(Vector2 direction)
+        {
+            if (!TryGetNavigationTarget(out VisualElement target) || !float.IsFinite(direction.x) || !float.IsFinite(direction.y) || direction == Vector2.zero)
+            {
+                return;
+            }
+            if (InputOwnsFocus || target == _terminalContainer)
+            {
+                _sizeButton.Focus();
+                return;
+            }
+            DispatchNavigationEvent(target, NavigationMoveEvent.GetPooled(direction));
+        }
+
+        /// <summary>Activates the focused control or runs the command line.</summary>
+        public void SubmitNavigation()
+        {
+            if (!TryGetNavigationTarget(out VisualElement target))
+            {
+                return;
+            }
+            if (InputOwnsFocus)
+            {
+                EnterCommand();
+                return;
+            }
+            if (SearchOwnsFocus)
+            {
+                StepLogSearch(true);
+                return;
+            }
+            DispatchNavigationEvent(target, NavigationSubmitEvent.GetPooled());
+        }
+
+        /// <summary>Returns to command input, then closes on the next cancel.</summary>
+        public void CancelNavigation()
+        {
+            if (!TryGetNavigationTarget(out _))
+            {
+                return;
+            }
+            ++NavigationCancellationVersion;
+            if (InputOwnsFocus)
+            {
+                Close();
+            }
+            else
+            {
+                FocusInput(allowLogFocus: true);
+            }
+        }
+
         public void CompleteCommand(bool searchForward = true)
         {
             if (!IsOpenState(_state))
@@ -1903,6 +1986,11 @@
             }
         }
 
+        internal bool IsExplicitNavigationEvent(EventBase evt)
+        {
+            return ReferenceEquals(_explicitNavigationEvent, evt);
+        }
+
         internal void HandleLogCopyResult(TextField field, KeyDownEvent evt, bool verified)
         {
             if (field == null || evt == null)
@@ -1952,6 +2040,8 @@
             _logSearchNext = null;
             _logSearchClear = null;
             _sizeButton = null;
+            ReleaseNavigationEvents();
+            _highlightedLogRow = null;
             _collapseButton = null;
             Array.Clear(_severityButtons, 0, _severityButtons.Length);
             Array.Clear(_lastSeverityCounts, 0, _lastSeverityCounts.Length);
@@ -2726,7 +2816,29 @@
             uiRoot.Add(root);
             root.name = TerminalRootName;
             root.AddToClassList("terminal-root");
-            root.RegisterCallback<GeometryChangedEvent, TerminalUI>(static (_, context) => context.ResetWindowIdempotent(), this);
+            root.RegisterCallback<NavigationMoveEvent, TerminalUI>(
+                static (evt, terminal) =>
+                {
+                    terminal.ObserveNavigationEvent(evt);
+                },
+                this,
+                TrickleDown.TrickleDown
+            );
+            root.RegisterCallback<NavigationSubmitEvent, TerminalUI>(
+                static (evt, terminal) =>
+                {
+                    terminal.ObserveNavigationEvent(evt);
+                },
+                this,
+                TrickleDown.TrickleDown
+            );
+            root.RegisterCallback<GeometryChangedEvent, TerminalUI>(
+                static (_, context) =>
+                {
+                    context.ResetWindowIdempotent();
+                },
+                this
+            );
 
             InitializeTheme(root);
             InitializeFont();
@@ -2828,7 +2940,16 @@
                         return;
                     }
 
-                    if (context._commandIssuedThisFrame || Array.Exists(context._inputHandlers, handler => handler.ShouldHandleInputThisFrame))
+                    if (
+                        context._commandIssuedThisFrame
+                        || Array.Exists(
+                            context._inputHandlers,
+                            handler =>
+                            {
+                                return handler.ShouldHandleInputThisFrame;
+                            }
+                        )
+                    )
                     {
                         if (!string.Equals(context._commandInput.value, context._input.CommandText))
                         {
@@ -3007,17 +3128,35 @@
                 header,
                 "TerminalSizeButton",
                 "Full",
-                () => SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull)
+                () =>
+                {
+                    SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull);
+                }
             );
             _sizeButton.AddToClassList("terminal-header-size");
-            AddToolbarButton(header, "TerminalCloseButton", "Close", () => SetState(TerminalState.Closed)).AddToClassList("terminal-header-close");
+            AddToolbarButton(
+                    header,
+                    "TerminalCloseButton",
+                    "Close",
+                    () =>
+                    {
+                        SetState(TerminalState.Closed);
+                    }
+                )
+                .AddToClassList("terminal-header-close");
             VisualElement search = new() { name = "LogSearch" };
             search.AddToClassList("terminal-search");
             _logToolbar.Add(search);
             _logSearchInput = new TextField("Search") { name = "LogSearchInput", tooltip = "Search log output. Enter selects the next match." };
             _logSearchInput.AddToClassList("terminal-search-field");
             _logSearchInput.SetValueWithoutNotify(_logFilter.Query ?? string.Empty);
-            _logSearchInput.RegisterCallback<ChangeEvent<string>, TerminalUI>(static (evt, terminal) => terminal.OnLogSearchChanged(evt), this);
+            _logSearchInput.RegisterCallback<ChangeEvent<string>, TerminalUI>(
+                static (evt, terminal) =>
+                {
+                    terminal.OnLogSearchChanged(evt);
+                },
+                this
+            );
             _logSearchInput.RegisterCallback<KeyDownEvent, TerminalUI>(
                 static (evt, terminal) =>
                 {
@@ -3046,9 +3185,33 @@
             _logSearchCount = new Label { name = "LogSearchCount", tooltip = "Matching lines of searchable lines (current match / matching lines)." };
             _logSearchCount.AddToClassList("terminal-search-count");
             search.Add(_logSearchCount);
-            _logSearchPrevious = AddToolbarButton(search, "LogSearchPrevious", "Prev", () => StepLogSearch(false));
-            _logSearchNext = AddToolbarButton(search, "LogSearchNext", "Next", () => StepLogSearch(true));
-            _logSearchClear = AddToolbarButton(search, "LogSearchClear", "Clear", () => ClearLogFilter(false));
+            _logSearchPrevious = AddToolbarButton(
+                search,
+                "LogSearchPrevious",
+                "Prev",
+                () =>
+                {
+                    StepLogSearch(false);
+                }
+            );
+            _logSearchNext = AddToolbarButton(
+                search,
+                "LogSearchNext",
+                "Next",
+                () =>
+                {
+                    StepLogSearch(true);
+                }
+            );
+            _logSearchClear = AddToolbarButton(
+                search,
+                "LogSearchClear",
+                "Clear",
+                () =>
+                {
+                    ClearLogFilter(false);
+                }
+            );
             VisualElement types = new() { name = "LogSeverities" };
             types.AddToClassList("terminal-severities");
             _logToolbar.Add(types);
@@ -3324,6 +3487,76 @@
             }
         }
 
+        private void DispatchNavigationEvent(VisualElement target, EventBase evt)
+        {
+            // Retain the pooled reference until queued dispatch has crossed our root.
+            _queuedNavigationEvents.Add(evt, true);
+            try
+            {
+                evt.target = target;
+                target.SendEvent(evt);
+            }
+            finally
+            {
+                if (_queuedNavigationEvents.ContainsKey(evt))
+                {
+                    _queuedNavigationEvents[evt] = false;
+                }
+                else
+                {
+                    evt.Dispose();
+                }
+            }
+        }
+
+        private void ObserveNavigationEvent(EventBase evt)
+        {
+            if (_queuedNavigationEvents.TryGetValue(evt, out bool sending))
+            {
+                _queuedNavigationEvents.Remove(evt);
+                _explicitNavigationEvent = evt;
+                if (!sending)
+                {
+                    evt.Dispose();
+                }
+            }
+            else
+            {
+                _explicitNavigationEvent = null;
+            }
+        }
+
+        private void ReleaseNavigationEvents()
+        {
+            // Ancestor callbacks can stop an event before our root observes it.
+            foreach (KeyValuePair<EventBase, bool> pending in _queuedNavigationEvents)
+            {
+                if (!pending.Value)
+                {
+                    pending.Key.Dispose();
+                }
+            }
+            _queuedNavigationEvents.Clear();
+            _explicitNavigationEvent = null;
+        }
+
+        private bool TryGetNavigationTarget(out VisualElement target)
+        {
+            if (!isActiveAndEnabled || !IsOpenState(_state) || IsPaletteSurfaceOpen() || _terminalContainer?.panel == null)
+            {
+                target = null;
+                return false;
+            }
+            VisualElement focused = _terminalContainer.panel.focusController.focusedElement as VisualElement;
+            if (focused != null && !_terminalContainer.Contains(focused))
+            {
+                target = null;
+                return false;
+            }
+            target = focused ?? _terminalContainer;
+            return true;
+        }
+
         private bool CanFocusInput(bool allowLogFocus = false)
         {
             if (!IsOpenState(_state) || IsPaletteSurfaceOpen() || _textInput == null || _textInput.focusController == null)
@@ -3488,6 +3721,17 @@
                     _lastSeenFilterGeneration = _logFilter.Generation;
                     _lastSeenCollapse = _collapseLogs;
                 }
+            }
+
+            int? currentMatch = _logFilter.HasQuery ? _logFilter.CurrentMatch : null;
+            int sourceIndex = currentMatch.GetValueOrDefault() - 1;
+            int activeIndex = 0 <= sourceIndex && sourceIndex < _logWindowCache.SourceCount ? _logWindowCache.GetRenderedIndex(sourceIndex) : -1;
+            VisualElement highlighted = 0 <= activeIndex && activeIndex < logCount ? content[activeIndex] : null;
+            if (!ReferenceEquals(_highlightedLogRow, highlighted))
+            {
+                _highlightedLogRow?.RemoveFromClassList("terminal-output-label--current-match");
+                highlighted?.AddToClassList("terminal-output-label--current-match");
+                _highlightedLogRow = highlighted;
             }
 
             _needsScrollToEnd |= ObserveLogTail(newLogs);
@@ -3817,7 +4061,10 @@
                         if (makeHintsClickable)
                         {
                             Button hintButton = new();
-                            hintButton.clicked += () => ApplyHint(_autoCompleteContainer.IndexOf(hintButton));
+                            hintButton.clicked += () =>
+                            {
+                                ApplyHint(_autoCompleteContainer.IndexOf(hintButton));
+                            };
                             hintButton.text = LogTextSanitizer.Sanitize(hint);
                             hintElement = hintButton;
                         }

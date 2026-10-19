@@ -27,14 +27,20 @@ One line per artifact. Keep it when editing LLM-generated content; remove it onl
 
 ## Reading review feedback
 
+Fetch all review surfaces before triage: paginated PR reviews, inline review comments (including replies), issue comments, and GraphQL review threads. Check pagination on nested
+comments too. Read human directives and bot leads, including resolved threads; do not infer the feedback set from check conclusions alone.
+
 A review comment names a line at the commit the reviewer saw, not the head. Cursor Bugbot's review lags the branch by a push or two and marks its superseded run
 `BUGBOT_REVIEW_STALE`, so a comment can describe code that is already fixed. Check the commit each comment names against the branch before acting:
 
 ```sh
-gh api "repos/wallstop/DxCommandTerminal/pulls/<n>/comments" \
-  -q '.[] | "\(.user.login) \(.commit_id[0:7]) \(.path):\(.line)"'
-gh log --oneline master..HEAD
+gh api --paginate "repos/Ambiguous-Interactive/DxTerminal/pulls/<n>/comments" \
+  -q '.[] | "\(.user.login) \(.original_commit_id[0:7]) \(.path):\(.line)"'
+git log --oneline master..HEAD
 ```
+
+GitHub can remap `commit_id` to a later head while retaining the original review. Check `original_commit_id`, the review's `commit_id`, and the bot's named commit before calling a
+finding current or stale. A resolved thread still needs a verified fix; a new green bot run does not erase human feedback.
 
 `wallstop` is the human reviewer; a comment of theirs is a directive, so read it as one and apply it or answer it with evidence. A bot comment is a lead: verify the mechanism
 before changing code, and when it is wrong, say so in a reply with the code and the measurement, rather than silently skipping it. Record a disagreement in `progress/` either way -

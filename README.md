@@ -241,19 +241,36 @@ void OnEnable()
     Terminal.Shell.AddCommand(
         CommandBuilder
             .Create("heal", "Heals a target")
-            .Arg<int>("amount", spec => spec.Required().Range(1, 100))
-            .Arg<string>("target", spec => spec.Default("self").Choices("self", "ally"))
-            .Handler((context, arguments) =>
-            {
-                int amount = arguments.Get<int>(0);
-                string target = arguments.Get<string>("target");
-                // ...
-            }),
+            .Arg<int>(
+                "amount",
+                spec =>
+                {
+                    return spec.Required().Range(1, 100);
+                }
+            )
+            .Arg<string>(
+                "target",
+                spec =>
+                {
+                    return spec.Default("self").Choices("self", "ally");
+                }
+            )
+            .Handler(
+                (context, arguments) =>
+                {
+                    int amount = arguments.Get<int>(0);
+                    string target = arguments.Get<string>("target");
+                    // ...
+                }
+            ),
         out handle
     );
 }
 
-void OnDisable() => handle?.Dispose();
+void OnDisable()
+{
+    handle?.Dispose();
+}
 ```
 
 Arguments parse through the same `CommandArg` parsers as `[RegisterCommand]` methods (including your registered custom parsers). Bad user input - unknown values, out-of-range
@@ -267,19 +284,42 @@ Subcommands route one registered command through its first argument, each with i
 Terminal.Shell.AddCommand(
     CommandBuilder
         .Create("inventory", "Manage the inventory")
-        .Handler((context, arguments) => { /* runs for a bare `inventory` */ })
+        .Handler((context, arguments) => { })
         .Subcommand(
             "add",
-            add => add
-                .Arg<string>("item", spec => spec.Required())
-                .Arg<int>("count", spec => spec.Default(1).Range(1, 99))
-                .Handler((context, arguments) => { /* ... */ })
+            add =>
+            {
+                add.Arg<string>(
+                        "item",
+                        spec =>
+                        {
+                            return spec.Required();
+                        }
+                    )
+                    .Arg<int>(
+                        "count",
+                        spec =>
+                        {
+                            return spec.Default(1).Range(1, 99);
+                        }
+                    )
+                    .Handler((context, arguments) => { });
+            }
         )
         .Subcommand(
             "remove",
-            remove => remove
-                .Arg<string>("item", spec => spec.Required())
-                .Handler((context, arguments) => { /* ... */ })
+            remove =>
+            {
+                remove
+                    .Arg<string>(
+                        "item",
+                        spec =>
+                        {
+                            return spec.Required();
+                        }
+                    )
+                    .Handler((context, arguments) => { });
+            }
         ),
     out handle
 );
@@ -463,11 +503,17 @@ CommandBuilder command = CommandBuilder
     .Create("inspect-object")
     .Arg<GameObject>(
         "target",
-        spec => spec.Required()
-            .RawParser(adapter.TryParse)
-            .Choices(adapter.GetChoices, adapter.FormatChoice)
+        spec =>
+        {
+            return spec.Required().RawParser(adapter.TryParse).Choices(adapter.GetChoices, adapter.FormatChoice);
+        }
     )
-    .Handler((context, arguments) => Terminal.Log("{0}", arguments.Get<GameObject>("target").name));
+    .Handler(
+        (context, arguments) =>
+        {
+            Terminal.Log("{0}", arguments.Get<GameObject>("target").name);
+        }
+    );
 ```
 
 The same setup works for component types. `FormatChoice` preserves the original name; it does not normalize line endings. Raw parsing does not bypass command tokenization or
@@ -707,6 +753,20 @@ You can also use `PlayerInput` or similar to bind InputActions to all available 
 - `CompleteCommand`: Uses auto-complete to attempt to complete the current command using what is typed in the command buffer, cycling forwards through results.
 - `ReverseCompleteCommand`: Uses auto-complete to attempt to complete the current command using what is typed in the command buffer, but cycling backwards through results.
 - `EnterCommand`: Takes the current buffer and attempts to execute it as a command + parameters.
+- `Navigate`: Moves focus through terminal controls. Bind a Vector2 Value action to a stick or D-pad.
+- `Submit`: Activates the focused control or runs the command line. Bind a Button action.
+- `Cancel`: Returns to command input, then closes on the next press. Bind a Button action.
+
+The `TerminalPlayerInputController` inspector serializes an action name for each route. Existing `Send Messages` setups keep the default names above. To use different names, set
+`PlayerInput` Behavior to `Invoke C Sharp Events` and assign those names on the controller. Use `MapName/ActionName` to select a specific map, for example `Console/MoveFocus`. The
+controller subscribes automatically. Keep each route on a distinct action. Unqualified names resolve in the current action map first, then the player's asset.
+
+Subclasses can override the protected action methods in either mode: `HandlePrevious()`, `HandleNext()`, `Close()`, `ToggleSmall()`, `ToggleFull()`, `CompleteCommand()`,
+`ReverseCompleteCommand()`, `EnterCommand()`, `Navigate(Vector2)`, `Submit(bool)`, and `Cancel(bool)`. The public `On*(InputValue)` methods remain message-specific adapters.
+
+Navigation starts at the header. Hold a direction to repeat. Cancel ignores held directions until they return to neutral. Focused controls show the theme's selected colors.
+Enabled, bound navigation actions own their corresponding UI Toolkit events inside this terminal. Disable those actions to restore Unity's default navigation. Other UI documents
+keep their input. Search marks the current matching row. Prev and Next move this marker without changing text selection.
 
 ## Note
 
