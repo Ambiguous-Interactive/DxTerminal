@@ -361,6 +361,13 @@
                 height while it owns the surface; restore automatic sizing so
                 the panel's percent position measures the full viewport.
              */
+            IStyle documentStyle = _uiDocument.rootVisualElement.style;
+            documentStyle.position = StyleKeyword.Null;
+            documentStyle.left = StyleKeyword.Null;
+            documentStyle.right = StyleKeyword.Null;
+            documentStyle.top = StyleKeyword.Null;
+            documentStyle.bottom = StyleKeyword.Null;
+            documentStyle.width = StyleKeyword.Null;
             _uiDocument.rootVisualElement.style.height = new StyleLength(StyleKeyword.Auto);
             _input.SetValueWithoutNotify(string.Empty);
             /*

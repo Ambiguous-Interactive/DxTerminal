@@ -109,12 +109,13 @@
 .terminal-root--narrow .autocomplete-popup .terminal-button {
     min-width: 44px;
     min-height: 44px;
+    margin: 0 2px;
 }
 
 .terminal-root--narrow .terminal-header,
 .terminal-root--narrow .terminal-search,
 .terminal-root--narrow .terminal-severities {
-    padding: 2px;
+    padding: 0 2px;
 }
 
 .terminal-root--narrow .terminal-search-field {
@@ -252,7 +253,7 @@
 }
 
 .terminal-output-label > .unity-base-field__label {
-    width: 90px;
+    width: auto;
     min-width: 90px;
     flex-shrink: 0;
     align-self: flex-start;

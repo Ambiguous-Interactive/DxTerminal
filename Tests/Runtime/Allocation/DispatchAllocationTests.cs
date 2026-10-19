@@ -4,6 +4,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     using System.Collections.Generic;
     using Backend;
     using NUnit.Framework;
+    using UI;
 
     /// <summary>
     ///     Allocation pins for the designated warmed hot paths from the T03
@@ -94,6 +95,28 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             Action push = () => _history.Push(wrappedEntry, true, true);
             AllocationAssertions.AssertZeroAllocations("fixed-capacity wrap push", push);
             Assert.AreEqual(HistoryCapacity, _history.Count, "Sanity: wrap pushes must land in the wrapped buffer, not grow it");
+        }
+
+        [Test]
+        public void CollapsedLogReadsAreAllocationFreeWhenIdleAndAfterWrites()
+        {
+            CommandLog buffer = new(64);
+            LogWindowCache cache = new(new LogFilter());
+            buffer.HandleLog("repeat", string.Empty, TerminalLogType.Message);
+            buffer.HandleLog("repeat", string.Empty, TerminalLogType.Message);
+            Assert.That(cache.Read(buffer, true, out _), Is.EqualTo(1));
+            Action read = () => cache.Read(buffer, true, out _);
+            AllocationAssertions.AssertZeroAllocations("idle collapsed log", read);
+            Assert.That(cache.LastReadReused, Is.True);
+
+            Action writeAndRead = () =>
+            {
+                buffer.HandleLog("repeat", string.Empty, TerminalLogType.Message);
+                cache.Read(buffer, true, out _);
+            };
+            AllocationAssertions.AssertZeroAllocations("changed collapsed log", writeAndRead);
+            Assert.That(cache.LastReadReused, Is.False);
+            Assert.That(cache.GetRepeatCount(0), Is.EqualTo(buffer.Count));
         }
 
         private void FillHistory(List<string> entries)

@@ -201,6 +201,124 @@
         }
 
         [UnityTest]
+        public IEnumerator WindowAnchorFollowsWidthAndRuntimeChanges()
+        {
+            yield return SpawnTerminal(open: true);
+            VisualElement documentRoot = _terminal._uiDocument.rootVisualElement;
+            VisualElement root = documentRoot.Q("TerminalRoot");
+            _terminal.respectSafeArea = false;
+            root.style.width = 320;
+            yield return null;
+            yield return null;
+            Assert.That(_terminal.windowAnchor, Is.EqualTo(TerminalAnchor.Auto));
+            Assert.That(root.ClassListContains("terminal-root--bottom"), Is.True);
+            Assert.That(documentRoot.style.bottom.value.value, Is.Zero);
+            Assert.That(documentRoot.style.top.keyword, Is.EqualTo(StyleKeyword.Auto));
+
+            _terminal.windowAnchor = TerminalAnchor.Top;
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--bottom"), Is.False);
+            Assert.That(documentRoot.style.top.value.value, Is.Zero);
+            Assert.That(documentRoot.style.bottom.keyword, Is.EqualTo(StyleKeyword.Auto));
+
+            _terminal.windowAnchor = TerminalAnchor.Bottom;
+            root.style.width = 600;
+            yield return null;
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--bottom"), Is.True);
+
+            _terminal.windowAnchor = TerminalAnchor.Auto;
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--bottom"), Is.False);
+            _terminal.windowAnchor = (TerminalAnchor)int.MaxValue;
+            root.style.width = 320;
+            yield return null;
+            yield return null;
+            Assert.That(root.ClassListContains("terminal-root--bottom"), Is.False, "Invalid anchors use the top edge.");
+
+            _terminal.windowAnchor = TerminalAnchor.Bottom;
+            _terminal.showGUIButtons = true;
+            _terminal.Close();
+            yield return WaitForClosed("The bottom sheet must close before checking its launcher.");
+            VisualElement launcher = null;
+            int frameBudget = FrameBudget;
+            while (0 < frameBudget--)
+            {
+                yield return null;
+                documentRoot = _terminal._uiDocument.rootVisualElement;
+                root = documentRoot.Q("TerminalRoot");
+                launcher = root?.Q(className: "state-button-container");
+                if (
+                    launcher != null
+                    && launcher.style.top.keyword == StyleKeyword.Auto
+                    && launcher.style.bottom.value.value == 0f
+                    && 0 < launcher.childCount
+                    && launcher[0].style.display.value == DisplayStyle.Flex
+                    && documentRoot.style.height.value.value == 0f
+                )
+                {
+                    break;
+                }
+            }
+            Assert.That(documentRoot.style.height.value.value, Is.Zero);
+            Assert.That(launcher, Is.Not.Null);
+            Assert.That(launcher.style.top.keyword, Is.EqualTo(StyleKeyword.Auto));
+            Assert.That(launcher.style.bottom.value.value, Is.Zero);
+            Assert.That(launcher[0].style.display.value, Is.EqualTo(DisplayStyle.Flex));
+        }
+
+        [UnityTest]
+        public IEnumerator WindowAnchorScalesSafeAreaInsetsAndHeight()
+        {
+            yield return SpawnTerminal(open: true);
+            VisualElement documentRoot = _terminal._uiDocument.rootVisualElement;
+            _terminal.maxHeight = 1f;
+            _terminal.SetState(TerminalState.OpenFull);
+            Rect viewport = new(0f, 0f, 1000f, 500f);
+            Rect safeArea = new(40f, 80f, 1880f, 860f);
+            Vector2 screenSize = new(2000f, 1000f);
+            _terminal.windowAnchor = TerminalAnchor.Top;
+            float targetHeight = _terminal.ResetWindowIdempotent(viewport, safeArea, screenSize);
+            Assert.That(targetHeight, Is.EqualTo(430f));
+            Assert.That(documentRoot.style.left.value.value, Is.EqualTo(20f));
+            Assert.That(documentRoot.style.right.value.value, Is.EqualTo(40f));
+            Assert.That(documentRoot.style.top.value.value, Is.EqualTo(30f));
+            Assert.That(documentRoot.style.bottom.keyword, Is.EqualTo(StyleKeyword.Auto));
+
+            _terminal.windowAnchor = TerminalAnchor.Bottom;
+            Assert.That(_terminal.ResetWindowIdempotent(viewport, safeArea, screenSize), Is.EqualTo(430f));
+            Assert.That(documentRoot.style.bottom.value.value, Is.EqualTo(40f));
+            Assert.That(documentRoot.style.top.keyword, Is.EqualTo(StyleKeyword.Auto));
+
+            _terminal.respectSafeArea = false;
+            Assert.That(_terminal.ResetWindowIdempotent(viewport, safeArea, screenSize), Is.EqualTo(500f));
+            Assert.That(documentRoot.style.bottom.value.value, Is.Zero);
+            Assert.That(documentRoot.style.left.value.value, Is.Zero);
+            Assert.That(documentRoot.style.right.value.value, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator BottomAnchorHandsSharedDocumentToPalette()
+        {
+            yield return SpawnTerminal(open: true, withPalette: true);
+            _terminal.windowAnchor = TerminalAnchor.Bottom;
+            _terminal.respectSafeArea = false;
+            yield return null;
+            VisualElement documentRoot = _terminal._uiDocument.rootVisualElement;
+            Assert.That(documentRoot.style.top.keyword, Is.EqualTo(StyleKeyword.Auto));
+            _palette.Open();
+            yield return null;
+            Assert.That(documentRoot.style.top.keyword, Is.EqualTo(StyleKeyword.Null));
+            Assert.That(documentRoot.style.bottom.keyword, Is.EqualTo(StyleKeyword.Null));
+            Assert.That(documentRoot.style.height.keyword, Is.EqualTo(StyleKeyword.Auto));
+            _palette.Close();
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return null;
+            Assert.That(documentRoot.style.top.keyword, Is.EqualTo(StyleKeyword.Auto));
+            Assert.That(documentRoot.style.bottom.value.value, Is.Zero);
+        }
+
+        [UnityTest]
         public IEnumerator ToggleCyclesClosedSmallFullClosed()
         {
             yield return SpawnTerminal(open: false);

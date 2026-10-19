@@ -119,7 +119,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
             for (int i = 0; i < LogCapacity; ++i)
             {
-                Terminal.Buffer.HandleLog($"bench log {i}", string.Empty, TerminalLogType.Message);
+                Terminal.Buffer.HandleLog($"bench log {i / 2}", string.Empty, TerminalLogType.Message);
             }
 
             _terminal._commandInput.value = SelectiveToken;
@@ -137,6 +137,16 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             yield return null;
             yield return null;
             AllocationAssertions.AssertZeroAllocations("steady-state refresh with search and severity filters", () => _terminal.RefreshUI());
+            Button collapse = _terminal._uiDocument.rootVisualElement.Q<Button>("LogCollapse");
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = collapse;
+                collapse.SendEvent(evt);
+            }
+            _terminal.RefreshUI();
+            ScrollView logs = _terminal._uiDocument.rootVisualElement.Q<ScrollView>("LogScrollView");
+            Assert.That(logs.contentContainer.childCount, Is.EqualTo(LogCapacity / 2), "The allocation pin must exercise collapsed rows");
+            AllocationAssertions.AssertZeroAllocations("steady-state refresh with collapse, search, and severity filters", () => _terminal.RefreshUI());
         }
 
         [UnityTest]

@@ -12,6 +12,10 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 ### Added
 
+- Add repeat collapse with entry-based search counts ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
+- Add Top, Bottom, and Auto terminal anchoring with safe-area placement ([#241](https://github.com/wallstop/DxCommandTerminal/issues/241),
+  [#245](https://github.com/wallstop/DxCommandTerminal/issues/245)).
+
 - Add UTC capture times and severity markers beside selectable log messages ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
 
 - Add severity filters with retained-entry counts and narrow-screen controls ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
