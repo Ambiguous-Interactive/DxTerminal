@@ -563,6 +563,55 @@
         }
 
         [UnityTest]
+        public IEnumerator GamepadLeavesSearchAndActivatesSearchControls()
+        {
+            Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+            try
+            {
+                ActionType = InputActionType.Value;
+                yield return SpawnTerminal(open: true);
+                yield return WaitForFocusedInput("The command field takes focus.");
+                _asset.FindAction("Navigate").expectedControlType = "Vector2";
+                Bind("Navigate", "<Gamepad>/leftStick");
+                Bind("Submit", "<Gamepad>/buttonSouth");
+                Bind("Cancel", "<Gamepad>/buttonEast");
+                Terminal.Buffer.Clear();
+                Terminal.Log("pad alpha");
+                Terminal.Log("pad beta");
+                VisualElement root = _terminal._uiDocument.rootVisualElement;
+                root.Q<TextField>("LogSearchInput").value = "pad";
+                yield return Settle();
+
+                yield return MoveGamepad(gamepad, Vector2.right);
+                Assert.That(root.panel.focusController.focusedElement, Is.SameAs(root.Q<Button>("TerminalSizeButton")));
+                yield return MoveGamepad(gamepad, Vector2.down);
+                for (int move = 0; move < 8 && !_terminal.SearchOwnsFocus; ++move)
+                {
+                    yield return MoveGamepad(gamepad, Vector2.left);
+                }
+                Assert.That(_terminal.SearchOwnsFocus, Is.True, "The pad can enter the search field from the header.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.South));
+                yield return Settle();
+                Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (2/2)"), "Submit in search advances the current match.");
+                yield return MoveGamepad(gamepad, Vector2.right);
+                Assert.That(_terminal.SearchOwnsFocus, Is.False, "The pad can leave the editable search field.");
+                Assert.That(root.panel.focusController.focusedElement, Is.SameAs(root.Q<Button>("LogSearchPrevious")));
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.South));
+                yield return Settle();
+                Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"), "Submit activates the focused previous-match button.");
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.East));
+                yield return Settle();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Cancel returns from search controls to the command field.");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(gamepad);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator GamepadCancelStopsHeldNavigationUntilNeutral()
         {
             Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
@@ -750,6 +799,16 @@
             _terminalObject.GetComponent<TerminalPlayerInputController>().enabled = false;
             SendNativeSubmit(size);
             Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall), "Disabling the controller restores native navigation.");
+        }
+
+        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
+        {
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
         }
 
         private void Bind(string actionName, string keyPath)
