@@ -711,9 +711,9 @@ You can also use `PlayerInput` or similar to bind InputActions to all available 
 - `Submit`: Activates the focused control or runs the command line. Bind a Button action.
 - `Cancel`: Returns to command input, then closes on the next press. Bind a Button action.
 
-Navigation starts at the header. Hold a direction to repeat. Focused controls show the theme's selected colors. Enabled, bound navigation actions own their corresponding UI Toolkit
-events inside this terminal. Disable those actions to restore Unity's default navigation. Other UI documents keep their input. Search marks the current matching row. Prev and Next
-move this marker without changing text selection.
+Navigation starts at the header. Hold a direction to repeat. Cancel ignores held directions until they return to neutral. Focused controls show the theme's selected colors.
+Enabled, bound navigation actions own their corresponding UI Toolkit events inside this terminal. Disable those actions to restore Unity's default navigation. Other UI documents
+keep their input. Search marks the current matching row. Prev and Next move this marker without changing text selection.
 
 ## Note
 

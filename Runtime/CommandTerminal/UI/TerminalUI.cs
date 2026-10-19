@@ -74,6 +74,8 @@
          */
         internal TerminalState State => _state;
 
+        internal long NavigationCancellationVersion { get; private set; }
+
         /*
             Internal for test coverage of the search's scroll state (see
             WallstopStudios.DxCommandTerminal.Tests.Runtime).
@@ -1738,6 +1740,7 @@
             {
                 return;
             }
+            ++NavigationCancellationVersion;
             if (InputOwnsFocus)
             {
                 Close();

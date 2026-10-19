@@ -563,6 +563,82 @@
         }
 
         [UnityTest]
+        public IEnumerator GamepadCancelStopsHeldNavigationUntilNeutral()
+        {
+            Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+            try
+            {
+                ActionType = InputActionType.Value;
+                yield return SpawnTerminal(open: true);
+                yield return WaitForFocusedInput("The command field takes focus.");
+                InputAction navigate = _asset.FindAction("Navigate");
+                navigate.expectedControlType = "Vector2";
+                navigate.AddCompositeBinding("2DVector").With("Right", "<Keyboard>/d");
+                Bind("Navigate", "<Gamepad>/leftStick");
+                Bind("Cancel", "<Gamepad>/buttonEast");
+                _playerInput.SwitchCurrentActionMap("Console");
+                ControlledNavigationController controller = _terminalObject.GetComponent<ControlledNavigationController>();
+                Button size = _terminal._uiDocument.rootVisualElement.Q<Button>("TerminalSizeButton");
+                size.Focus();
+                _terminal.CancelNavigation();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Cancel with a neutral stick returns to the command field.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size));
+                InputSystem.QueueStateEvent(gamepad, new GamepadState(GamepadButton.East) { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "The cancel action returns to the command field while the stick remains held.");
+                controller.Clock = 1f;
+                controller.Tick();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Cancel stops repeats from the held stick.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = new Vector2(0.7f, 0f) });
+                yield return Settle();
+                PressKey(Key.D);
+                yield return Settle();
+                Assert.That(navigate.activeControl, Is.SameAs(Keyboard.current.dKey), "The typing key drives the mixed navigation action.");
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "A typing binding leaves the canceled stick latched.");
+                ReleaseKeys();
+                yield return Settle();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Returning to the held stick cannot undo cancel.");
+
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = new Vector2(0.1f, 0.8f) });
+                yield return Settle();
+                controller.Clock = 1.5f;
+                controller.Tick();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Changing a held direction cannot undo cancel.");
+
+                InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+                yield return Settle();
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size), "A new direction after neutral reenters navigation.");
+                _terminal.CancelNavigation();
+                controller.Clock = 2.5f;
+                controller.Tick();
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "Direct API cancel also stops held navigation.");
+                _playerInput.DeactivateInput();
+                controller.Tick();
+                InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+                yield return Settle();
+                _playerInput.ActivateInput();
+                InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = Vector2.right });
+                yield return Settle();
+                Assert.That(size.panel.focusController.focusedElement, Is.SameAs(size), "Releasing inactive input ownership lets a fresh direction navigate.");
+                _terminal.CancelNavigation();
+                _terminal.CancelNavigation();
+                controller.Clock = 3f;
+                controller.Tick();
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.Closed), "The next cancel closes while the stick remains held.");
+            }
+            finally
+            {
+                InputSystem.RemoveDevice(gamepad);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator KeyboardNavigationRepeatsAndStopsWhenTypingOrReleased()
         {
             ActionType = InputActionType.Value;

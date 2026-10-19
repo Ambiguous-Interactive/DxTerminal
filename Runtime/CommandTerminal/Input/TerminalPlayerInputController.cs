@@ -37,6 +37,8 @@ namespace WallstopStudios.DxCommandTerminal.Input
         private VisualElement _navigationRoot;
         private Vector2 _navigationDirection;
         private float? _nextNavigationRepeat;
+        private long _navigationCancellationVersion;
+        private bool _navigationNeedsNeutral;
 
         public virtual void OnHandlePrevious(InputValue inputValue)
         {
@@ -118,7 +120,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public virtual void OnNavigate(InputValue inputValue)
         {
-            if (!ShouldHandleMessage("Navigate", allowLogFocus: true) || inputValue == null)
+            if (!IsLive() || inputValue == null)
             {
                 _navigationDirection = Vector2.zero;
                 _nextNavigationRepeat = null;
@@ -126,6 +128,18 @@ namespace WallstopStudios.DxCommandTerminal.Input
             }
 
             PrepareNavigation();
+            ObserveNavigationCancellation();
+            if (!ShouldHandleMessage("Navigate", allowLogFocus: true))
+            {
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                if (FindAction("Navigate")?.phase == InputActionPhase.Canceled)
+                {
+                    _navigationNeedsNeutral = false;
+                }
+                return;
+            }
+
             Vector2 value = inputValue.Get<Vector2>();
             if (!float.IsFinite(value.x) || !float.IsFinite(value.y))
             {
@@ -140,18 +154,19 @@ namespace WallstopStudios.DxCommandTerminal.Input
                 Mathf.Max(horizontal, vertical) < 0.5f ? Vector2.zero
                 : vertical < horizontal ? new Vector2(Mathf.Sign(value.x), 0f)
                 : new Vector2(0f, Mathf.Sign(value.y));
-            if (direction == _navigationDirection)
+            if (direction == Vector2.zero)
+            {
+                _navigationNeedsNeutral = false;
+                _navigationDirection = Vector2.zero;
+                _nextNavigationRepeat = null;
+                return;
+            }
+            if (_navigationNeedsNeutral || direction == _navigationDirection)
             {
                 return;
             }
 
             _navigationDirection = direction;
-            if (direction == Vector2.zero)
-            {
-                _nextNavigationRepeat = null;
-                return;
-            }
-
             terminal.Navigate(direction);
             _nextNavigationRepeat = NavigationTime + 0.5f;
         }
@@ -210,7 +225,16 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         protected virtual void Update()
         {
-            if (!ShouldHandleMessage("Navigate", allowLogFocus: true) || !OwnsNavigation("Navigate") || terminal.State is not (TerminalState.OpenSmall or TerminalState.OpenFull))
+            if (IsLive())
+            {
+                ObserveNavigationCancellation();
+            }
+            bool ownsNavigation = OwnsNavigation("Navigate");
+            if (!ownsNavigation)
+            {
+                _navigationNeedsNeutral = false;
+            }
+            if (!ShouldHandleMessage("Navigate", allowLogFocus: true) || !ownsNavigation || terminal.State is not (TerminalState.OpenSmall or TerminalState.OpenFull))
             {
                 _navigationDirection = Vector2.zero;
                 _nextNavigationRepeat = null;
@@ -250,6 +274,22 @@ namespace WallstopStudios.DxCommandTerminal.Input
             _navigationRoot?.UnregisterCallback<NavigationSubmitEvent>(HandleNativeSubmit, TrickleDown.TrickleDown);
             _navigationRoot?.UnregisterCallback<NavigationCancelEvent>(HandleNativeCancel, TrickleDown.TrickleDown);
             _navigationRoot = null;
+            _navigationDirection = Vector2.zero;
+            _nextNavigationRepeat = null;
+            _navigationCancellationVersion = terminal == null ? 0 : terminal.NavigationCancellationVersion;
+            _navigationNeedsNeutral = false;
+        }
+
+        private void ObserveNavigationCancellation()
+        {
+            long version = terminal.NavigationCancellationVersion;
+            if (_navigationCancellationVersion == version)
+            {
+                return;
+            }
+
+            _navigationCancellationVersion = version;
+            _navigationNeedsNeutral |= _navigationDirection != Vector2.zero;
             _navigationDirection = Vector2.zero;
             _nextNavigationRepeat = null;
         }
