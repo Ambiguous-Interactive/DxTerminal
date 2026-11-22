@@ -1,56 +1,35 @@
 # DxCommandTerminal Dev Container
 
-A fast, reliable VS Code devcontainer for this Unity UPM package. The Unity Editor stays on the **host** (licensing + GUI); the container ships every CLI tool, drives the host
-editor through the [unity-mcp bridge](../tooling~/scripts/mcp/README.md), and needs **zero sudo** anywhere.
+## Develop from a package checkout
 
-```
-┌──────────────────────────── macOS / Windows host ────────────────────────────┐
-│  Unity Editor (host project)          npm run unity:mcp (bridge, host)      │
-│   └─ com.wallstop-studios.             └─ HTTP :27xxx (bearer auth)          │
-│      dxcommandterminal package              ▲                                │
-├─────────────────────────────────────────────│────────────────────────────────┤
-│  Dev container (this repo is the workspace) │                                │
-│   claude · codex · opencode · nanocoder     │                                │
-│   claude-zai · codex-zai (Z.AI plans)       │                                │
-│   claude-openrouter · codex-openrouter      │                                │
-│   MCP: unity-mcp · github · git · fetch ────┘                                │
-│        web-search-prime · web-reader · zread · zai-mcp-server (Z.AI)         │
-└──────────────────────────────────────────────────────────────────────────────┘
+Open this repository in VS Code and choose **Dev Containers: Reopen in Container**. The checkout is the only host directory the container needs. Run the standalone C# tests on each
+change.
+
+```bash
+npm run test:logic -- --where='class =~ CommandArg'
+npm run test:logic
+npm run preflight
 ```
 
-## Quick start
+The Windows **Unity Tests** workflow runs the package’s EditMode and PlayMode assemblies on trusted PRs. Scheduled and manual runs add older Editors and the T13 compatibility
+fixtures. Download the `unity-<editor>-<attempt>` artifact from the Actions run for test XML, logs, the tested revision and timings. Use the manual graphics option for UI captures.
+Use a built player for player performance measurements.
 
-1. Open this repository in VS Code and choose **Reopen in Container** (or `> Dev Containers: Reopen in Container`). First build installs everything; later opens attach in seconds
-   from cache.
-2. Create `.env.local` at the repository root (gitignored, mode 0600 on generated configs):
+Enable the licensed job by setting the repository Actions variable `DXT_UNITY_CI_ENABLED=true` after the organization enrollment is accepted and the runner subscription is verified
+for unattended testing. The hosted preflight reports a disabled job until then. Require `Unity CI Success` on the default branch after a failed test and a passing rerun both return
+the seat cleanly.
 
-    ```dotenv
-    # Z.AI subscription key (GLM coding plan). ZAI_API_KEY also works.
-    Z_AI_API_KEY=your_zai_key
-    # GitHub PAT for the github MCP server (or set GITHUB_TOKEN on the host).
-    GITHUB_PERSONAL_ACCESS_TOKEN=your_github_token
-    # Absolute host path to the Unity project that embeds this package.
-    UNITY_PROJECT_PATH=/absolute/host/project/path
-    ```
+## Connect a licensed workstation
 
-3. On the **host**, with the Unity project open, start the bridge (deterministic per-project port, so multiple editors never collide):
-
-    ```bash
-    npm --prefix tooling~ install   # host checkout of this repo (one time)
-    npm run unity:mcp  # bridge: host editor -> authenticated HTTP
-    ```
-
-4. Back in the container:
-
-    ```bash
-    npm run unity:mcp:probe   # readiness check (editor answered)
-    npm run unity:capture     # capture editor/game state into .artifacts/
-    claude-zai                # Claude Code on the Z.AI subscription
-    codex-zai                 # Codex on the Z.AI subscription
-    claude-openrouter         # Claude Code on any OpenRouter model
-    codex-openrouter          # Codex on any OpenRouter model
-    opencode                  # OpenCode v2 in the integrated terminal
-    ```
+1. On the workstation, check out the revision to inspect in the Unity project. Open it with Unity 6 and install Unity Pipeline through the official CLI.
+2. In that checkout’s gitignored `.env.local`, set `UNITY_MCP_ENABLED=1` and `UNITY_PROJECT_PATH` to the project’s absolute path. Run `npm ci --prefix tooling~`, then
+   `npm run unity:mcp:install-capture` for captures and `npm run unity:mcp:bridge -- --port 27444`. The bridge binds to loopback and generates a bearer token if needed.
+3. In a container terminal, open a private tunnel to the workstation. For example, `ssh -N -L 127.0.0.1:27444:127.0.0.1:27444 user@workstation`. Set `UNITY_MCP_ENABLED=1`,
+   `UNITY_MCP_BRIDGE_HOST=127.0.0.1`, and `UNITY_MCP_BRIDGE_PORT=27444` in the container checkout’s `.env.local`. Copy the workstation’s bearer token to `UNITY_MCP_BEARER_TOKEN`
+   through your secret store. Set `UNITY_PROJECT_PATH` to the same workstation path when using capture.
+4. Run `npm run unity:mcp:configure -- --offline`, reconnect the agent, then run `npm run unity:mcp:probe`. Interactive commands operate on the workstation’s checkout. Run
+   `npm run unity:capture -- --no-install` to write captures there. To disconnect, set `UNITY_MCP_ENABLED=0`, reconfigure, restart the agent and close the tunnel. Process
+   environment takes precedence over the file. A fresh terminal picks up changes to exported settings.
 
 The old `sst-dev.opencode` extension is not installed: it launches the removed v1 `--port` interface. Use the integrated terminal command `opencode`, or an ACP client that starts
 `opencode acp`.
@@ -154,14 +133,8 @@ The container uses `tooling~/.venv-container-linux` for uv, so container and hos
 `tooling~/.venv` across host platforms - delete it when switching host OS or architecture. Set `UV_PROJECT_ENVIRONMENT` to use an explicit path; container setup preserves this
 override.
 
-Deterministic named volumes survive full rebuilds: NuGet, dotnet tools, PowerShell modules, pip, npm cache, and the Linux `node_modules` tree. The enclosing Unity project is
-bind-mounted read-write and consistent at `/unity-project`, so agents can inspect host code and capture tooling can be installed into `Assets/Editor`. It is excluded from workspace
-watching; the workspace itself remains the package repository.
-
-The workspace bind is the shape that explains this container's performance profile: `/workspaces/package` is the Windows checkout (`C:\`) over 9p/drvfs, so every metadata call
-costs milliseconds and the host editor's project _is_ this working tree - an edit here is the editor's file, no sync step. Everything metadata-heavy therefore lives off the 9p path
-(`tooling~/node_modules` is an ext4 volume), and the preflight cache keys tracked files by git index blob instead of re-reading bytes. This lane (devcontainer-build) is what builds
-and verifies the image the first time, in CI.
+Deterministic named volumes survive full rebuilds: NuGet, dotnet tools, PowerShell modules, pip, npm cache, and the Linux `node_modules` tree. A project directory is needed only
+for direct access to files on the Editor machine. For an explicitly mounted project, set `UNITY_PROJECT_CONTAINER_PATH` to the mount point.
 
 ## Verify
 

@@ -62,7 +62,7 @@ A background OpenCode service outlives the shell that started it, so `post-start
 ## Host path versus container path
 
 `UNITY_PROJECT_PATH` is the identity the host Unity editor and the bridge need: the port hash and the capture output path. It usually does not exist in the container.
-`UNITY_PROJECT_CONTAINER_PATH` (default `/unity-project`) is the directory this process can read and write.
+`UNITY_PROJECT_CONTAINER_PATH` identifies an explicitly mounted project. The standalone container mounts only the checkout.
 
 - Local writes - installing the capture script, probing which artifact layout applies - use the container path.
 - Anything handed to Unity as a string to open - the capture output directory - uses the host path.

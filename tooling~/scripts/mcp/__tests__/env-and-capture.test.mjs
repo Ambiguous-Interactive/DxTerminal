@@ -6,6 +6,7 @@ import {
   captureScriptFiles,
   captureInstallTarget,
   captureArtifactRoot,
+  endpointCandidates,
   captureOutputDir,
   captureInvocationExpression,
   ensureCaptureScripts,
@@ -322,6 +323,14 @@ test("capture install target follows the DxMessaging Assets/Editor convention", 
     captureInstallTarget(project),
     path.join(project, "Assets", "Editor", "DxTerminalStateCapture.cs")
   );
+});
+
+test("workstation paths and authenticated discovery stay scoped to the selected machine", () => {
+  const options = resolveOptions({ out: "C:/Captures/run", host: "127.0.0.1", discover: true }, {}, {}, "/tmp");
+  assert.equal(options.out, "C:/Captures/run");
+  assert.deepEqual([...new Set(endpointCandidates(options).map(({ host }) => host))], ["127.0.0.1"]);
+  assert.deepEqual([...new Set(endpointCandidates({ ...options, explicitHost: undefined }).map(({ host }) => host))], ["127.0.0.1"]);
+  assert.equal(captureOutputDir("//server/share/Game", "stamp", "/absent").replaceAll("\\", "/"), "//server/share/Game/Library/DxTerminalStateCapture/stamp");
 });
 
 test("capture artifacts prefer the package tree and fall back to Library", () => {

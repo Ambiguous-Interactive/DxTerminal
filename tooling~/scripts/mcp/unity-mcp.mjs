@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Host: bridge exposes Unity CLI (or the legacy relay) over authenticated HTTP.
+// Host: bridge exposes the Unity CLI over authenticated HTTP.
 // Container: configure writes MCP clients; probe checks editor readiness; capture
 // pulls Unity editor/game state into .artifacts through the bridge.
 import { spawn } from "node:child_process";
@@ -7,7 +7,6 @@ import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
-import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -69,7 +68,7 @@ import {
 export const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 export const GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/";
 export const DEFAULTS = Object.freeze({
-  bindHost: "0.0.0.0",
+  bindHost: "127.0.0.1",
   host: "host.docker.internal",
   port: 9020,
   endpointPath: "/mcp",
@@ -86,8 +85,6 @@ export const DEFAULTS = Object.freeze({
 });
 // Bridge default and the retired supergateway port. Explicit settings replace these.
 export const FALLBACK_PORTS = Object.freeze([9020, 9003]);
-// Docker Desktop and same-host defaults; discovery also checks WSL and Linux gateways.
-export const FALLBACK_HOSTS = Object.freeze(["host.docker.internal", "127.0.0.1"]);
 // Deterministic per-project bridge port ("project-port-local"). Each Unity project
 // owns one port in this range, so hosts with several open editors never collide and
 // discovery can find this checkout's bridge without a shared registry file.
@@ -155,7 +152,6 @@ const OPTION_NAMES = new Set([
   "port",
   "path",
   "project",
-  "relay",
   "backend",
   "cli",
   "request-timeout",
@@ -166,6 +162,7 @@ const OPTION_NAMES = new Set([
   "protocol-version",
   "log-level",
   "token",
+  "discover",
   "no-discover",
   "offline",
   "no-install",
@@ -176,7 +173,7 @@ const OPTION_NAMES = new Set([
   "filter",
   "run-timeout"
 ]);
-const FLAG_NAMES = new Set(["no-discover", "offline", "no-install"]);
+const FLAG_NAMES = new Set(["discover", "no-discover", "offline", "no-install"]);
 const ENV_KEYS = Object.freeze({
   bindHost: "UNITY_MCP_BIND_HOST",
   host: "UNITY_MCP_BRIDGE_HOST",
@@ -184,7 +181,6 @@ const ENV_KEYS = Object.freeze({
   endpointPath: "UNITY_MCP_BRIDGE_PATH",
   projectPath: "UNITY_PROJECT_PATH",
   projectContainerPath: "UNITY_PROJECT_CONTAINER_PATH",
-  relayPath: "UNITY_MCP_RELAY_PATH",
   backend: "UNITY_MCP_BACKEND",
   cliPath: "UNITY_CLI_PATH",
   requestTimeout: "UNITY_MCP_REQUEST_TIMEOUT",
@@ -366,8 +362,26 @@ function zaiTokenSource(environment, local) {
   return undefined;
 }
 // Host project paths are validated only by bridge; they do not exist in the container.
-export function resolveOptions(args, environment = process.env, localValues, repoRoot = REPO_ROOT) {
+export function resolveOptions(args, environment = process.env, localValues, repoRoot = REPO_ROOT, command) {
   const local = localValues ?? readLocalEnv(repoRoot);
+  const enabled = first(environment.UNITY_MCP_ENABLED, local.UNITY_MCP_ENABLED, "0");
+  if (enabled !== "0" && enabled !== "1") fail("UNITY_MCP_ENABLED must be 0 or 1");
+  const agentOptions = {
+    repoRoot,
+    unityEnabled: enabled === "1",
+    githubToken: githubToken(environment, local),
+    githubTokenSource: githubTokenSource(environment, local),
+    zaiToken: first(
+      ...ZAI_TOKEN_KEYS.map((key) => environment[key]),
+      ...ZAI_TOKEN_KEYS.map((key) => local[key])
+    ),
+    zaiTokenSource: zaiTokenSource(environment, local)
+  };
+  if (agentOptions.zaiToken) validateText(agentOptions.zaiToken, "Z.AI key");
+  if (command && !agentOptions.unityEnabled) {
+    if (command === "configure") return agentOptions;
+    fail("Interactive Unity is disabled. Run npm run test:logic locally or set UNITY_MCP_ENABLED=1 for a licensed workstation.");
+  }
   const get = (argName, key, fallback) =>
     first(args[argName], environment[ENV_KEYS[key]], local[ENV_KEYS[key]], fallback);
 
@@ -402,7 +416,7 @@ export function resolveOptions(args, environment = process.env, localValues, rep
   const derivedPort = explicitPort === undefined ? (projectPort(projectPath) ?? DEFAULTS.port) : explicitPort;
 
   const options = {
-    repoRoot,
+    ...agentOptions,
     bindHost: validateHost(get("bind", "bindHost", DEFAULTS.bindHost), "Bind host"),
     host: validateHost(explicitHost ?? DEFAULTS.host),
     explicitHost: explicitHost === undefined ? undefined : validateHost(explicitHost),
@@ -415,7 +429,6 @@ export function resolveOptions(args, environment = process.env, localValues, rep
       projectContainerPath === undefined ? undefined : path.resolve(projectContainerPath),
     backend: get("backend", "backend", "cli"),
     cliPath: get("cli", "cliPath", "unity"),
-    relayPath: first(args.relay, environment[ENV_KEYS.relayPath], local[ENV_KEYS.relayPath]),
     requestTimeout: number("request-timeout", "requestTimeout", 86_400_000),
     sessionTimeout: number("session-timeout", "sessionTimeout", 86_400_000),
     timeout: number("timeout", "timeout", 300_000, DEFAULTS.probeTimeout),
@@ -428,22 +441,13 @@ export function resolveOptions(args, environment = process.env, localValues, rep
     logLevel: get("log-level", "logLevel", "info"),
     bearerToken: validateToken(get("token", "bearerToken", undefined)),
     bearerTokenFromArgument: args.token !== undefined,
-    githubToken: githubToken(environment, local),
-    githubTokenSource: githubTokenSource(environment, local),
-    zaiToken: first(
-      ...ZAI_TOKEN_KEYS.map((key) => environment[key]),
-      ...ZAI_TOKEN_KEYS.map((key) => local[key])
-    ),
-    zaiTokenSource: zaiTokenSource(environment, local),
     offline: args.offline === true,
-    discover: args["no-discover"] !== true,
+    discover: args.discover === true && args["no-discover"] !== true,
     noInstall: args["no-install"] === true,
-    out: args.out === undefined ? undefined : path.resolve(args.out)
+    out: resolveProjectPath(args.out)
   };
 
-  if (!["cli", "relay"].includes(options.backend)) fail("Backend must be cli or relay");
-  if (options.zaiToken) validateText(options.zaiToken, "Z.AI key");
-  if (options.relayPath) options.relayPath = path.resolve(options.repoRoot, options.relayPath);
+  if (options.backend !== "cli") fail("Use the official Unity CLI backend (UNITY_MCP_BACKEND=cli).");
   if (!/^(?:debug|info|none)$/.test(options.logLevel)) {
     fail("Log level must be debug, info, or none");
   }
@@ -484,78 +488,10 @@ export function endpointUrl({ host, port, endpointPath }) {
 
 // Endpoint discovery
 
-/** Nameserver entries in /etc/resolv.conf. Under WSL2 this is the Windows host. */
-export function resolvConfHosts(raw) {
-  if (!raw) {
-    return [];
-  }
-  return raw
-    .split(/\r?\n/)
-    .map((line) => /^\s*nameserver\s+(\S+)\s*$/.exec(line))
-    .filter(Boolean)
-    .map((match) => match[1])
-    .filter((address) => net.isIP(address) === 4);
-}
-
-/** Default-route gateways from /proc/net/route (little-endian hex IPv4). */
-export function procNetRouteGateways(raw) {
-  if (!raw) {
-    return [];
-  }
-  const gateways = [];
-  for (const line of raw.split(/\r?\n/).slice(1)) {
-    const fields = line.trim().split(/\s+/);
-    if (fields.length < 3 || fields[1] !== "00000000" || !/^[0-9A-Fa-f]{8}$/.test(fields[2])) {
-      continue;
-    }
-    const value = Number.parseInt(fields[2], 16);
-    if (value === 0) {
-      continue;
-    }
-    const octets = [
-      value & 0xff,
-      (value >>> 8) & 0xff,
-      (value >>> 16) & 0xff,
-      (value >>> 24) & 0xff
-    ];
-    gateways.push(octets.join("."));
-  }
-  return gateways;
-}
-
-function readTextOrEmpty(filePath) {
-  try {
-    return fs.readFileSync(filePath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-// Explicit host/port settings replace discovery defaults on that axis.
-export function endpointCandidates(options, runtime = {}) {
-  const readFile = runtime.readFile ?? readTextOrEmpty;
-  const hosts = options.explicitHost
-    ? [options.explicitHost]
-    : [
-        ...FALLBACK_HOSTS,
-        ...resolvConfHosts(readFile("/etc/resolv.conf")),
-        ...procNetRouteGateways(readFile("/proc/net/route"))
-      ].filter(Boolean);
+// Even optional port discovery sends the bearer only to the selected host.
+export function endpointCandidates(options) {
   const ports = options.explicitPort ? [options.explicitPort] : resolveProjectPorts(options.projectPath);
-
-  const seen = new Set();
-  const candidates = [];
-  for (const port of ports) {
-    for (const host of hosts) {
-      const key = `${host}:${port}`;
-      if (seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      candidates.push({ host, port, endpointPath: options.endpointPath });
-    }
-  }
-  return candidates;
+  return ports.map((port) => ({ host: options.host, port, endpointPath: options.endpointPath }));
 }
 
 export function tcpReachable(host, port, timeout) {
@@ -835,7 +771,9 @@ export async function probeEndpoint(candidate, options, fetchImpl = fetch, readi
 /** Probe candidates in order and return the first that meets the requested readiness level. */
 export async function discoverEndpoint(options, runtime = {}) {
   const fetchImpl = runtime.fetchImpl ?? fetch;
-  const candidates = runtime.candidates ?? endpointCandidates(options, runtime);
+  const candidates = runtime.candidates ?? (options.discover === false
+    ? [{ host: options.host, port: options.port, endpointPath: options.endpointPath }]
+    : endpointCandidates(options));
   const attempts = [];
   for (const candidate of candidates) {
     log(options, "debug", `Probing ${endpointUrl(candidate)}`);
@@ -1221,7 +1159,7 @@ function openCodeLocalEnvironment(environment, options) {
     Z.AI servers.
 */
 export function unresolvedOpenCodeVariables(options, values) {
-  const referenced = [OPEN_CODE_TOKEN_ENV["unity-mcp"]];
+  const referenced = options.unityEnabled === false ? [] : [OPEN_CODE_TOKEN_ENV["unity-mcp"]];
   if (options.githubToken) {
     referenced.push(options.githubTokenSource ?? OPEN_CODE_TOKEN_ENV.github);
   }
@@ -1258,7 +1196,7 @@ function warnOnUnresolvedOpenCodeReferences(options) {
 // One catalog, rendered in each client's documented schema.
 function clientServers(kind, options, url) {
   const catalog = {
-    "unity-mcp": { url, token: options.bearerToken },
+    ...(url && { "unity-mcp": { url, token: options.bearerToken } }),
     github: { url: GITHUB_MCP_URL, token: options.githubToken },
     context7: { command: "context7-mcp", args: [] },
     git: { command: "mcp-server-git", args: ["--repository", options.repoRoot] },
@@ -1328,11 +1266,15 @@ function clientServers(kind, options, url) {
   );
 }
 export function configure(inputOptions, endpoint, beforeCommit) {
-  const options = ensureBearerToken(inputOptions);
+  if (endpoint && !inputOptions.bearerToken) {
+    fail("Copy the workstation bridge token into UNITY_MCP_BEARER_TOKEN and re-run configure.");
+  }
+  const options = endpoint ? ensureBearerToken(inputOptions) : inputOptions;
   warnOnUnresolvedOpenCodeReferences(options);
-  const url = endpointUrl(endpoint);
+  const url = endpoint ? endpointUrl(endpoint) : null;
   const paths = clientConfigPaths(options.repoRoot);
-  const removed = options.zaiToken ? [] : ZAI_SERVERS;
+  const removed = options.zaiToken ? [] : [...ZAI_SERVERS];
+  if (!endpoint) removed.push("unity-mcp");
   const writes = Object.entries(paths).map(([kind, file]) => {
     const servers = clientServers(kind, options, url);
     if (kind === "codex") {
@@ -1359,55 +1301,6 @@ export function configure(inputOptions, endpoint, beforeCommit) {
   const written = transactionalWrite(writes, beforeCommit);
   for (const filePath of Object.values(paths)) fs.chmodSync(filePath, 0o600);
   return { url, written };
-}
-
-export function relayCandidates({
-  platform = process.platform,
-  arch = process.arch,
-  home = os.homedir()
-} = {}) {
-  const root = path.join(home, ".unity", "relay");
-  const names =
-    platform === "win32"
-      ? ["relay_win.exe", "relay_windows.exe", "relay.exe"]
-      : platform === "darwin"
-        ? [
-            `relay_mac_${arch}.app/Contents/MacOS/relay_mac_${arch}`,
-            `relay_macos_${arch}.app/Contents/MacOS/relay_macos_${arch}`,
-            `relay_mac_${arch}`,
-            "relay_mac",
-            "relay"
-          ]
-        : platform === "linux"
-          ? [`relay_linux_${arch}`, "relay_linux", "relay"]
-          : [];
-  return names.map((name) => path.join(root, ...name.split("/")));
-}
-
-export function findRelay(override, runtime = {}) {
-  const candidates = override ? [path.resolve(override)] : relayCandidates(runtime);
-  const found = candidates.find((candidate) => {
-    try {
-      if (!fs.statSync(candidate).isFile()) return false;
-      if ((runtime.platform ?? process.platform) !== "win32")
-        fs.accessSync(candidate, fs.constants.X_OK);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-  if (!found) {
-    fail(
-      `Unity MCP relay not found or not executable. ${
-        override ? `Checked: ${candidates[0]}` : `Searched: ${candidates.join(", ")}`
-      }`
-    );
-  }
-  return found;
-}
-
-export function buildRelayArgs(projectPath) {
-  return ["--mcp", "--project-path", path.resolve(projectPath)];
 }
 
 // Binding 0.0.0.0 when a specific interface (measured on Windows: 127.0.0.1)
@@ -1622,10 +1515,7 @@ function sendJson(response, statusCode, payload, closeConnection = false) {
 export async function startBridge(inputOptions, runtime = {}) {
   const options = ensureBearerToken(inputOptions);
   const projectPath = requireProjectPath(options);
-  const relayPath =
-    options.backend === "relay"
-      ? findRelay(options.relayPath, runtime.relayRuntime)
-      : (options.cliPath ?? "unity");
+  const cliPath = options.cliPath ?? "unity";
   const bind = await resolveBridgeBind(options, runtime);
   if (bind.alreadyRunning) return bind;
   options.port = bind.port;
@@ -1694,14 +1584,11 @@ export async function startBridge(inputOptions, runtime = {}) {
       { capabilities: {} }
     );
     await server.connect(transport);
-    const relayArgs =
-      options.backend === "relay"
-        ? buildRelayArgs(projectPath)
-        : ["mcp", "--project-path", projectPath];
-    log(options, "debug", `Spawning relay: ${relayPath} ${relayArgs.join(" ")}`);
+    const cliArgs = ["mcp", "--project-path", projectPath];
+    log(options, "debug", `Starting Unity CLI: ${cliPath} ${cliArgs.join(" ")}`);
     const child = runtime.spawnRelay
-      ? runtime.spawnRelay(relayPath, relayArgs)
-      : spawn(relayPath, relayArgs, {
+      ? runtime.spawnRelay(cliPath, cliArgs)
+      : spawn(cliPath, cliArgs, {
           stdio: ["pipe", "pipe", "pipe"],
           shell: false,
           cwd: projectPath,
@@ -1963,6 +1850,11 @@ export async function runProbe(options, runtime = {}) {
 }
 
 export async function runConfigure(options, runtime = {}) {
+  if (options.unityEnabled === false) {
+    const { written } = configure(options, null);
+    console.log(`Configured standalone agent MCP servers (${written.length} files updated).`);
+    return null;
+  }
   const { endpoint, attempts, found } = options.offline
     ? { endpoint: options, attempts: [] }
     : await resolveEndpoint(options, runtime);
@@ -2064,22 +1956,27 @@ export function captureScriptSourcePath(repoRoot = REPO_ROOT) {
   return captureScriptFiles(repoRoot)[0].source;
 }
 
+function joinProjectPath(root, ...parts) {
+  if (root.startsWith("//")) return path.win32.join(root, ...parts).replaceAll("\\", "/");
+  return path.join(root, ...parts);
+}
+
 export function captureInstallTarget(projectPath, target = CAPTURE_TARGET_NAME) {
-  return path.join(resolveProjectPath(projectPath), "Assets", "Editor", target);
+  return joinProjectPath(resolveProjectPath(projectPath), "Assets", "Editor", target);
 }
 
 export function captureArtifactRoot(projectPath, layoutPath = projectPath) {
   const project = resolveProjectPath(projectPath);
   // The package probe needs a locally visible root: a host path does not exist
   // in a container, which would silently select the Library fallback.
-  const packageRoot = path.join(resolveProjectPath(layoutPath), "Packages", CAPTURE_PACKAGE_NAME);
+  const packageRoot = joinProjectPath(resolveProjectPath(layoutPath), "Packages", CAPTURE_PACKAGE_NAME);
   return fs.existsSync(packageRoot)
-    ? path.join(project, "Packages", CAPTURE_PACKAGE_NAME, ".artifacts", "unity-state")
-    : path.join(project, "Library", "DxTerminalStateCapture");
+    ? joinProjectPath(project, "Packages", CAPTURE_PACKAGE_NAME, ".artifacts", "unity-state")
+    : joinProjectPath(project, "Library", "DxTerminalStateCapture");
 }
 
 export function captureOutputDir(projectPath, utcStamp, layoutPath = projectPath) {
-  return path.join(captureArtifactRoot(projectPath, layoutPath), utcStamp);
+  return joinProjectPath(captureArtifactRoot(projectPath, layoutPath), utcStamp);
 }
 
 function captureStamp(date = new Date()) {
@@ -2513,7 +2410,7 @@ export async function runCapture(options, runtime = {}) {
       return evalAnswerIsTrue(extractText(call));
     };
     if (!(await typePresent())) {
-      if (!installed && filesystemProjectPath && fs.existsSync(filesystemProjectPath)) {
+      if (!options.noInstall && !installed && filesystemProjectPath && fs.existsSync(filesystemProjectPath)) {
         install();
         // The probe above can time out on a busy editor and read as "not
         // compiled", so the install path waits for quiet like every other one.
@@ -4174,7 +4071,7 @@ function usage() {
     "",
     "  probe           Discover Unity tools and check editor readiness.",
     "  configure       Configure agent MCP servers, discovering Unity unless --offline is set.",
-    "  bridge          Serve Unity CLI or the legacy relay over authenticated HTTP on the host.",
+    "  bridge          Serve the official Unity CLI over authenticated HTTP on the host.",
     "  install-capture Install the editor dev tools (state capture, test run reporter)\n" +
       "                  into the host project (host side).",
     "  capture         Capture editor/game state into .artifacts through the bridge.",
@@ -4196,16 +4093,16 @@ function usage() {
     "  --port PORT                 Endpoint port; the only port discovery probes",
     "  --path PATH                 Streamable HTTP path (default: /mcp)",
     "  --offline                   Write configs without network access (configure only)",
-    "  --no-discover               Probe only the configured host/port, not the fallbacks",
-    "  --bind HOST                 Bridge bind interface (default: 0.0.0.0)",
+    "  --discover                  Search local bridge candidates (trusted local networks only)",
+    "  --no-discover               Use only the configured host/port (default)",
+    "  --bind HOST                 Bridge bind interface (default: 127.0.0.1)",
     "  --project PATH              Unity project directory (bridge, install-capture, capture)",
     "  --project-container PATH    Container-visible project directory for local capture files",
     "  --out DIR                   Capture output directory (capture only)",
     "  --scenarios LIST            Comma-separated scenario names (t4-capture only)",
     "  --no-install                Skip local capture-script installation (capture only)",
-    "  --backend cli|relay         Host backend (default: cli; relay supports Assistant)",
+    "  Set UNITY_MCP_ENABLED=1 to enable interactive Unity commands and client registration.",
     "  --cli PATH                  Unity CLI executable (default: unity on host PATH)",
-    "  --relay PATH                Unity relay executable override",
     "  --token TOKEN               32-256 character bearer token (stored in .env.local)",
     "  --timeout MS                Per-endpoint MCP lifecycle deadline (default: 5000)",
     "  --connect-timeout MS        Per-endpoint TCP connect timeout (default: 750)",
@@ -4243,7 +4140,7 @@ export async function main(argv = process.argv.slice(2)) {
   if (args._.length) {
     fail(`Unexpected argument: ${args._[0]}`);
   }
-  const options = resolveOptions(args);
+  const options = resolveOptions(args, process.env, undefined, REPO_ROOT, command);
   if (options.offline && command !== "configure") fail("--offline is only valid for configure");
   if (command === "t4-capture") {
     await commands[command](options, { scenarios: parseT4Scenarios(args.scenarios) });

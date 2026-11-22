@@ -257,6 +257,9 @@ def refresh_opencode_service() -> bool:
         run_silent(["opencode", "service", "stop"], 20)
         return False
 
+    if os.environ.get("UNITY_MCP_ENABLED") != "1":
+        return True
+
     # The service command returns before its project config and MCP
     # connections finish initializing; wait briefly for them.
     rejected = False
@@ -313,9 +316,6 @@ def main(argv: list[str]) -> int:
     os.environ["PATH"] = f"{home}/.local/bin:{os.environ.get('PATH', '')}"
     os.environ["NPM_CONFIG_PREFIX"] = f"{home}/.local"
     configure_mcp(devcontainer)
-    # configure may have minted UNITY_MCP_BEARER_TOKEN into .env.local. Reload
-    # before restarting OpenCode so its service inherits the value.
-    autoload(workspace)
     ensure_opencode_v2(devcontainer)
     if mode == "--prepare":
         return 0

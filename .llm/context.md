@@ -54,9 +54,10 @@ tooling~/                             # Unity-hidden tooling (tilde-suffixed; no
 
 ### Dev tooling (tooling~/scripts/, .devcontainer/)
 
-`npm run unity:mcp:probe|configure|bridge|capture` drives the host Unity editor over the authenticated MCP bridge in `tooling~/scripts/mcp/unity-mcp.mjs` (see the
-[unity-mcp](./skills/unity-mcp/SKILL.md) and [capture-unity-state](./skills/capture-unity-state/SKILL.md) skills). Credentials live in gitignored `.env.local` (see `.env.example`);
-agent MCP configs are generated, never hand-edited; `npm test` runs the Node suite; `npm run preflight` = all gates.
+`npm run unity:mcp:probe`, `npm run unity:mcp:configure`, `npm run unity:mcp:bridge`, and `npm run unity:capture` optionally drives a licensed workstation’s Unity editor over the
+authenticated MCP bridge in `tooling~/scripts/mcp/unity-mcp.mjs` (see the [unity-mcp](./skills/unity-mcp/SKILL.md) and [capture-unity-state](./skills/capture-unity-state/SKILL.md)
+skills). Credentials live in gitignored `.env.local` (see `.env.example`); agent MCP configs are generated, never hand-edited; `npm test` runs the Node suite; `npm run test:logic`
+runs engine-independent NUnit fixtures. Use `npm run preflight` for standalone gates and the Windows Unity Tests workflow for engine evidence.
 
 ## Skills Reference
 

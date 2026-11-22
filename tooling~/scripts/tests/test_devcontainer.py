@@ -45,6 +45,7 @@ LIFECYCLE_UNSET = (
     "GITHUB_PAT",
     "GITHUB_MCP_PAT",
     "UNITY_MCP_BEARER_TOKEN",
+    "UNITY_MCP_ENABLED",
     "AI_BACKENDS_REPO_ROOT",
     "DXT_WORKSPACE_ROOT",
     "DXT_ENV_AUTOLOAD_DISABLED",
@@ -149,13 +150,7 @@ BASH_ENV_LOADER = """#!/usr/bin/env bash
 printf 'sourced\\n' >> '$ROOT/bash-env-marker.txt'
 """
 
-STUB_NODE = """#!/usr/bin/env bash
-if [[ "$*" == *"configure --offline"* && ! -f .env.local ]]; then
-    printf '%s\\n' 'UNITY_MCP_BEARER_TOKEN=generated-token-123' >> .env.local
-    printf '%s\\n' 'Z_AI_API_KEY=zai-file-key' >> .env.local
-    printf '%s\\n' 'GITHUB_PERSONAL_ACCESS_TOKEN=github-file-key' >> .env.local
-fi
-"""
+STUB_NODE = "#!/usr/bin/env bash\nexit 0\n"
 
 STUB_OPENCODE = """#!/usr/bin/env bash
 printf '%s\\n' "$*" >> opencode-calls.txt
@@ -289,6 +284,7 @@ class BakedConfigurationContract(unittest.TestCase):
         ):
             with self.subTest(expected=expected):
                 self.assertIn(expected, text)
+        self.assertNotIn("source=${localWorkspaceFolder}/../..", text)
         self.assertNotIn('"BASH_ENV"', text, "devcontainer must not inject credentials into every Bash subprocess")
 
     def test_post_start_delegates_to_the_typed_flow(self) -> None:
@@ -486,7 +482,7 @@ class InstallerDelegatorContract(unittest.TestCase):
 
 @SKIP_ON_WINDOWS
 class LifecycleContract(unittest.TestCase):
-    """post-start mints, normalizes, and rotates credentials; failures stop it."""
+    """post-start loads, normalizes, and rotates credentials; failures stop it."""
 
     def setUp(self) -> None:
         self.root = Path(tempfile.mkdtemp(prefix="dxt-lifecycle-"))
@@ -552,7 +548,9 @@ class LifecycleContract(unittest.TestCase):
             timeout=120,
         )
 
-    def test_first_run_mints_credentials_and_reaches_the_service_twice(self) -> None:
+    def test_first_run_loads_bridge_credentials_and_reaches_the_service_twice(self) -> None:
+        self.seed("UNITY_MCP_ENABLED=1", "UNITY_MCP_BEARER_TOKEN=workstation-token",
+                  "Z_AI_API_KEY=zai-file-key", "GITHUB_PERSONAL_ACCESS_TOKEN=github-file-key")
         result = self.run_lifecycle()
         self.assertEqual(result.returncode, 0, result.stderr)
         # The first run also spawns the background refresh, which rewrites the
@@ -562,7 +560,7 @@ class LifecycleContract(unittest.TestCase):
             if time.monotonic() >= deadline:
                 self.fail(f"the background OpenCode refresh never finished ({len(self.calls())} call(s) seen)")
             time.sleep(0.2)
-        self.assertIn("UNITY=generated-token-123", self.service_tokens(), "post-start passes the newly generated bearer token to OpenCode")
+        self.assertIn("UNITY=workstation-token", self.service_tokens(), "post-start passes the workstation bearer token to OpenCode")
         self.assertIn("GITHUB=github-file-key", self.service_tokens(), "post-start normalizes the GitHub alias")
         self.assertIn("ZAI=zai-file-key", self.service_tokens(), "post-start normalizes the Z.AI alias")
 
@@ -607,15 +605,21 @@ class LifecycleContract(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("UNITY=rotated-token", self.service_tokens(), "post-attach refreshes the OpenCode service token")
 
+    def test_standalone_attach_restarts_service_without_polling_unity(self) -> None:
+        result = self.run_lifecycle("--attach")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("service restart", self.calls())
+        self.assertNotIn("mcp list", self.calls())
+
     def test_unauthorized_unity_service_is_rejected_and_stopped(self) -> None:
-        result = self.run_lifecycle("--attach", mcp_failure="1")
+        result = self.run_lifecycle("--attach", UNITY_MCP_ENABLED="1", mcp_failure="1")
         self.assertIn("rejected the Unity credentials", result.stderr)
         self.assertIn("service stop", self.calls(), "post-attach did not stop the unusable OpenCode service")
 
     def test_optional_server_failure_keeps_the_healthy_service(self) -> None:
         # Another server failing must never stop a healthy service (issue: a
         # global Unauthorized match in the readiness probe).
-        result = self.run_lifecycle("--attach", other_failure="1")
+        result = self.run_lifecycle("--attach", UNITY_MCP_ENABLED="1", other_failure="1")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("service stop", self.calls(), "an unauthorized optional server stopped a healthy OpenCode service")
         self.assertNotIn("rejected the Unity credentials", result.stderr, "an unauthorized optional server was reported as a Unity credential failure")
@@ -726,14 +730,14 @@ class LifecycleContract(unittest.TestCase):
     def test_a_rejection_reported_on_stderr_still_stops_the_service(self) -> None:
         # The probe reads the mcp list the way bash command substitution did:
         # stderr merged, output used whatever the exit code was.
-        result = self.run_lifecycle("--attach", mcp_stderr="1")
+        result = self.run_lifecycle("--attach", UNITY_MCP_ENABLED="1", mcp_stderr="1")
         self.assertIn("rejected the Unity credentials", result.stderr)
         self.assertIn("service stop", self.calls(), "a stderr-reported rejection did not stop the OpenCode service")
 
     def test_a_rejected_row_beside_a_healthy_one_still_stops_the_service(self) -> None:
         # Every unity-mcp row decides the probe, not just the first: a stale
         # duplicate entry running on rejected credentials must be stopped.
-        result = self.run_lifecycle("--attach", mcp_multirow="1")
+        result = self.run_lifecycle("--attach", UNITY_MCP_ENABLED="1", mcp_multirow="1")
         self.assertIn("rejected the Unity credentials", result.stderr)
         self.assertIn("service stop", self.calls(), "a rejected duplicate unity-mcp row did not stop the service")
 
