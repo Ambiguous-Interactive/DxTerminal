@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Command syntax and completion</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&amp;family=Space+Grotesk:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1960px; box-sizing: border-box; padding: 56px 64px; background: #0D1117; color: #C9D2DC; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 36px">
+
+<header style="display: flex; align-items: flex-end; justify-content: space-between; gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 860px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: #8B949E">07 · SYNTAX, ARGUMENTS, COMPLETION</span>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 40px; line-height: 1.1; letter-spacing: -0.02em; color: #E6EDF3">The line you type is colored by the parser that runs it</h1>
+<p style="margin: 0; font-size: 16px">Every token is classified by <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #E6EDF3">CommandTokenizer</span> and the command's own <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #E6EDF3">CommandArgument.TryParse</span>. Color, completion and the error you see before Enter can never disagree with what runs after it.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end">
+<div role="group" aria-label="Color check" style="display: flex; border: 1px solid #2A2F38; border-radius: 6px; overflow: hidden">
+<button type="button" onClick="{{colorOn}}" aria-pressed="{{segOn.pressed}}" style="height: 30px; padding: 0 12px; border: 0; background: {{segOn.bg}}; color: {{segOn.fg}}; font-family: inherit; font-size: 12px; cursor: pointer">Color</button>
+<button type="button" onClick="{{colorOff}}" aria-pressed="{{segOff.pressed}}" style="height: 30px; padding: 0 12px; border: 0; border-left: 1px solid #2A2F38; background: {{segOff.bg}}; color: {{segOff.fg}}; font-family: inherit; font-size: 12px; cursor: pointer">Grayscale check</button>
+</div>
+<span style="font-size: 12px; color: #8B949E">Theme: use the Tweaks panel (Dx Dark, Dx Paper, Phosphor)</span>
+</div>
+</header>
+
+<div style="display: flex; flex-direction: column; gap: 36px; filter: {{filter}}">
+
+<section aria-label="Token anatomy" style="background: {{s.surface}}; border: 1px solid {{s.line}}; border-radius: 14px; padding: 28px 32px; display: flex; flex-direction: column; gap: 22px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: {{s.muted}}">A · ANATOMY OF ONE LINE</div>
+<div style="height: 56px; display: flex; align-items: center; gap: 0; padding: 0 20px; background: {{s.input}}; border: 1px solid {{s.line}}; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 22px; white-space: pre">
+<span style="color: {{s.accent}}; font-weight: 700">› </span><span style="color: {{s.cmd}}; font-weight: 700">spawn</span><span> </span><span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}; text-decoration: {{s.choiceDeco}}">goblin</span><span> </span><span style="color: {{s.num}}">12</span><span> </span><span style="color: {{s.muted}}">"</span><span style="color: {{s.str}}; font-style: {{s.strStyle}}">Crypt B</span><span style="color: {{s.muted}}">"</span><span> </span><span style="color: {{s.muted}}">$</span><span style="color: {{s.ink}}; font-style: italic">wave</span><span> </span><span style="color: {{s.muted}}">(</span><span style="color: {{s.num}}">1.5</span><span style="color: {{s.muted}}">, </span><span style="color: {{s.num}}">0</span><span style="color: {{s.muted}}">, </span><span style="color: {{s.num}}">-4</span><span style="color: {{s.muted}}">)</span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 26px; background: {{s.accent}}; margin-left: 2px"></span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 2px solid {{s.cmd}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{s.ink}}">command</span><span style="font-size: 12px; color: {{s.body}}">Bold. Always first. Unknown names turn red.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 2px solid {{s.choice}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{s.ink}}">choice</span><span style="font-size: 12px; color: {{s.body}}">Enum, bool, named constant, scene object.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 2px solid {{s.num}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{s.ink}}">number</span><span style="font-size: 12px; color: {{s.body}}">int, float, and each part of a vector or color.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 2px solid {{s.str}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{s.ink}}">string</span><span style="font-size: 12px; color: {{s.body}}">Free text. Quotes stay visible in muted ink.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 2px solid {{s.ink}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{s.ink}}">variable</span><span style="font-size: 12px; color: {{s.body}}">Muted $, italic name. Hover shows its value.</span></div>
+<div style="display: flex; flex-direction: column; gap: 4px; padding-top: 10px; border-top: 2px solid {{s.muted}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{s.ink}}">punctuation</span><span style="font-size: 12px; color: {{s.body}}">Quotes, commas, parentheses. Muted.</span></div>
+</div>
+</section>
+
+<div style="display: flex; gap: 24px; align-items: flex-start">
+
+<section aria-label="Completion states" style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8B949E">B1 · TYPING A COMMAND: GHOST TEXT + LIST</div>
+<div style="background: {{s.surface}}; border: 1px solid {{s.line}}; border-radius: 10px; overflow: hidden; font-family: 'JetBrains Mono', monospace">
+<div role="listbox" aria-label="Command completions" style="margin: 12px 12px 0; width: 520px; background: {{s.raised}}; border: 1px solid {{s.line}}; border-radius: 8px; padding: 4px; display: flex; flex-direction: column">
+<div role="option" aria-selected="true" style="height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; background: {{s.sel}}; border: 1px solid {{s.selLine}}"><span style="flex: 0 0 170px; color: {{s.ink}}; font-weight: 700"><span style="color: {{s.soft}}; text-decoration: underline">sp</span>awn</span><span style="flex: 1 1 auto; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: {{s.body}}">Spawns enemies at a point</span><span style="font-size: 11px; color: {{s.muted}}">Combat</span></div>
+<div role="option" aria-selected="false" style="height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; border: 1px solid transparent"><span style="flex: 0 0 170px; color: {{s.body}}; font-weight: 700"><span style="color: {{s.soft}}; text-decoration: underline">sp</span>awn-wave</span><span style="flex: 1 1 auto; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: {{s.muted}}">Starts the next wave now</span><span style="font-size: 11px; color: {{s.muted}}">Combat</span></div>
+<div role="option" aria-selected="false" style="height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; border: 1px solid transparent"><span style="flex: 0 0 170px; color: {{s.body}}; font-weight: 700"><span style="color: {{s.soft}}; text-decoration: underline">sp</span>eed</span><span style="flex: 1 1 auto; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: {{s.muted}}">Sets player move speed</span><span style="font-size: 11px; color: {{s.muted}}">Player</span></div>
+<div role="option" aria-selected="false" style="height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; border: 1px solid transparent"><span style="flex: 0 0 170px; color: {{s.body}}; font-weight: 700">set-<span style="color: {{s.soft}}; text-decoration: underline">sp</span>awn-point</span><span style="flex: 1 1 auto; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: {{s.muted}}">Moves the respawn point</span><span style="font-size: 11px; color: {{s.muted}}">World</span></div>
+<div style="height: 26px; display: flex; align-items: center; gap: 14px; padding: 0 10px; border-top: 1px solid {{s.line}}; margin-top: 4px; font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; color: {{s.muted}}"><span>↑↓ select</span><span>Tab accept</span><span>→ accept word</span><span>Esc dismiss</span><span style="flex: 1 1 auto; text-align: right">4 matches</span></div>
+</div>
+<div style="height: 48px; margin-top: 10px; display: flex; align-items: center; padding: 0 16px; background: {{s.input}}; border-top: 1px solid {{s.line}}; font-size: 15px; white-space: pre"><span style="color: {{s.accent}}; font-weight: 700">› </span><span style="color: {{s.cmd}}; font-weight: 700">sp</span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: {{s.accent}}"></span><span style="color: {{s.muted}}; font-style: italic">awn</span></div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #8B949E">Ghost text shows the selected item inline, as fish and PSReadLine do. The list is vertical so descriptions fit, and names sit in a fixed column so descriptions align. A type badge appears only when a list mixes kinds, such as commands and variables. Matched characters are underlined as well as tinted, so the match reads without color.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8B949E">B2 · ARGUMENT: SIGNATURE HELP + TYPED CHOICES</div>
+<div style="background: {{s.surface}}; border: 1px solid {{s.line}}; border-radius: 10px; overflow: hidden; font-family: 'JetBrains Mono', monospace">
+<div style="margin: 12px 12px 0; display: flex; gap: 10px; align-items: flex-end">
+<div role="listbox" aria-label="Prefab choices" style="width: 360px; background: {{s.raised}}; border: 1px solid {{s.line}}; border-radius: 8px; padding: 4px; display: flex; flex-direction: column">
+<div role="option" aria-selected="true" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; background: {{s.sel}}; border: 1px solid {{s.selLine}}"><span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}; text-decoration: {{s.choiceDeco}}"><span style="text-decoration: underline">g</span>oblin</span><span style="flex: 1 1 auto"></span><span style="font-size: 11px; color: {{s.muted}}">HP 30</span></div>
+<div role="option" aria-selected="false" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; border: 1px solid transparent"><span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}; text-decoration: {{s.choiceDeco}}"><span style="text-decoration: underline">g</span>houl</span><span style="flex: 1 1 auto"></span><span style="font-size: 11px; color: {{s.muted}}">HP 55</span></div>
+<div role="option" aria-selected="false" style="height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border-radius: 6px; border: 1px solid transparent"><span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}; text-decoration: {{s.choiceDeco}}"><span style="text-decoration: underline">g</span>olem</span><span style="flex: 1 1 auto"></span><span style="font-size: 11px; color: {{s.muted}}">HP 400</span></div>
+</div>
+<div style="flex: 1 1 auto; min-width: 0; padding: 10px 12px; background: {{s.raised}}; border: 1px solid {{s.line}}; border-radius: 8px; display: flex; flex-direction: column; gap: 6px">
+<div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; color: {{s.muted}}">prefab · 1 of 3 arguments</div>
+<div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: {{s.body}}">Enemy to spawn. Lists prefabs under Resources/Enemies.</div>
+</div>
+</div>
+<div style="height: 30px; display: flex; align-items: center; gap: 0; padding: 0 16px; margin-top: 10px; border-top: 1px solid {{s.line}}; font-size: 12.5px; white-space: pre"><span style="color: {{s.cmd}}; font-weight: 700">spawn </span><span style="padding: 1px 6px; border-radius: 4px; background: {{s.sel}}; border: 1px solid {{s.selLine}}; color: {{s.ink}}">prefab: <span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}">goblin|ghoul|golem</span></span><span style="color: {{s.muted}}">  [count: </span><span style="color: {{s.num}}">int 1–50</span><span style="color: {{s.muted}}"> = 1]  [at: </span><span style="color: {{s.num}}">Vector3</span><span style="color: {{s.muted}}"> = player]</span></div>
+<div style="height: 48px; display: flex; align-items: center; padding: 0 16px; background: {{s.input}}; border-top: 1px solid {{s.line}}; font-size: 15px; white-space: pre"><span style="color: {{s.accent}}; font-weight: 700">› </span><span style="color: {{s.cmd}}; font-weight: 700">spawn </span><span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}">g</span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: {{s.accent}}"></span><span style="color: {{s.muted}}; font-style: italic">oblin</span></div>
+</div>
+<p style="margin: 0; font-size: 13px; color: #8B949E">The signature line uses the same type colors as the input, so <span style="font-family: 'JetBrains Mono', monospace">int 1–50</span> above and <span style="font-family: 'JetBrains Mono', monospace">12</span> below read as the same kind of thing. The active argument gets the selection fill. Optional arguments are bracketed and show their default.</p>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8B949E">B3 · VALIDATION BEFORE ENTER</div>
+<div style="background: {{s.surface}}; border: 1px solid {{s.line}}; border-radius: 10px; overflow: hidden; font-family: 'JetBrains Mono', monospace">
+<div style="height: 48px; display: flex; align-items: center; padding: 0 16px; background: {{s.input}}; font-size: 15px; white-space: pre"><span style="color: {{s.accent}}; font-weight: 700">› </span><span style="color: {{s.cmd}}; font-weight: 700">spawn </span><span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}">goblin </span><span style="color: {{s.err}}; text-decoration: underline wavy; text-underline-offset: 4px">80</span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: {{s.accent}}"></span></div>
+<div role="status" style="min-height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-top: 1px solid {{s.line}}; font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; color: {{s.body}}"><span aria-hidden="true" style="color: {{s.err}}">■</span><span><span style="font-family: 'JetBrains Mono', monospace; color: {{s.ink}}">count</span> must be 1–50. You typed <span style="font-family: 'JetBrains Mono', monospace; color: {{s.err}}">80</span>.</span><span style="flex: 1 1 auto"></span><span style="font-size: 11px; color: {{s.muted}}">Enter does not run it and logs the same message</span></div>
+</div>
+<div style="background: {{s.surface}}; border: 1px solid {{s.line}}; border-radius: 10px; overflow: hidden; font-family: 'JetBrains Mono', monospace">
+<div style="height: 48px; display: flex; align-items: center; padding: 0 16px; background: {{s.input}}; font-size: 15px; white-space: pre"><span style="color: {{s.accent}}; font-weight: 700">› </span><span style="color: {{s.err}}; font-weight: 700; text-decoration: underline wavy; text-underline-offset: 4px">spwan</span><span style="color: {{s.body}}"> goblin</span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: {{s.accent}}"></span></div>
+<div role="status" style="min-height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-top: 1px solid {{s.line}}; font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; color: {{s.body}}"><span aria-hidden="true" style="color: {{s.err}}">■</span><span>No command <span style="font-family: 'JetBrains Mono', monospace; color: {{s.err}}">spwan</span>. Did you mean</span><button type="button" style="height: 24px; padding: 0 8px; border-radius: 6px; border: 1px solid {{s.selLine}}; background: {{s.sel}}; color: {{s.ink}}; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700">spawn</button><span style="font-size: 11px; color: {{s.muted}}">Tab to fix</span></div>
+</div>
+<div style="background: {{s.surface}}; border: 1px solid {{s.line}}; border-radius: 10px; overflow: hidden; font-family: 'JetBrains Mono', monospace">
+<div style="height: 48px; display: flex; align-items: center; padding: 0 16px; background: {{s.input}}; font-size: 15px; white-space: pre"><span style="color: {{s.accent}}; font-weight: 700">› </span><span style="color: {{s.cmd}}; font-weight: 700">say </span><span style="color: {{s.muted}}">"</span><span style="color: {{s.str}}; font-style: italic">hello wor</span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: {{s.accent}}"></span><span style="color: {{s.muted}}; font-style: italic">"</span></div>
+<div role="status" style="min-height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-top: 1px solid {{s.line}}; font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; color: {{s.body}}"><span aria-hidden="true" style="color: {{s.muted}}">·</span><span>Quote not closed. The rest of the line is one argument. The ghost quote shows where it ends.</span></div>
+</div>
+</div>
+</section>
+
+<aside style="flex: 0 0 470px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8B949E">C · LOG ECHO AND HELP USE THE SAME COLORS</div>
+<div style="background: {{s.surface}}; border: 1px solid {{s.line}}; border-radius: 10px; padding: 10px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 14px; white-space: pre"><span style="color: {{s.muted}}; font-size: 12px">12:04:31</span><span style="color: {{s.accent}}">›</span><span><span style="color: {{s.cmd}}; font-weight: 700">spawn</span> <span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}">goblin</span> <span style="color: {{s.num}}">3</span></span></div>
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 14px"><span style="color: {{s.muted}}; font-size: 12px">12:04:31</span><span style="color: {{s.muted}}">·</span><span style="color: {{s.body}}">Spawned 3 × goblin</span></div>
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 14px; white-space: pre"><span style="color: {{s.muted}}; font-size: 12px">12:04:40</span><span style="color: {{s.accent}}">›</span><span><span style="color: {{s.cmd}}; font-weight: 700">help</span> <span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}">spawn</span></span></div>
+<div style="margin: 6px 14px 4px 88px; padding: 12px 14px; border: 1px solid {{s.line}}; border-radius: 8px; background: {{s.raised}}; display: flex; flex-direction: column; gap: 8px; font-size: 12.5px">
+<div style="white-space: pre"><span style="color: {{s.cmd}}; font-weight: 700">spawn</span> <span style="color: {{s.ink}}">prefab</span> <span style="color: {{s.muted}}">[count] [at]</span></div>
+<div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 12.5px; color: {{s.body}}">Spawns enemies at a point. Group: Combat. Tester and up.</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 12px; font-size: 12px">
+<span style="color: {{s.ink}}">prefab</span><span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}">choice</span><span style="color: {{s.muted}}">required</span>
+<span style="color: {{s.ink}}">count</span><span style="color: {{s.num}}">int 1–50</span><span style="color: {{s.muted}}">= 1</span>
+<span style="color: {{s.ink}}">at</span><span style="color: {{s.num}}">Vector3</span><span style="color: {{s.muted}}">= player</span>
+</div>
+<div style="white-space: pre; font-size: 12px"><span style="color: {{s.muted}}">e.g. </span><span style="color: {{s.cmd}}; font-weight: 700">spawn</span> <span style="color: {{s.choice}}; font-weight: {{s.choiceWeight}}">golem</span> <span style="color: {{s.num}}">2</span> <span style="color: {{s.muted}}">(</span><span style="color: {{s.num}}">0</span><span style="color: {{s.muted}}">, </span><span style="color: {{s.num}}">0</span><span style="color: {{s.muted}}">, </span><span style="color: {{s.num}}">10</span><span style="color: {{s.muted}}">)</span></div>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8B949E">D · ROLE VALUES PER THEME</div>
+<div style="border: 1px solid #232C38; border-radius: 10px; overflow: hidden; font-size: 12px; background: #11161D">
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: 8px 12px; border-bottom: 1px solid #232C38; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.1em; color: #8B949E"><span>ROLE</span><span>DX DARK</span><span>DX PAPER</span><span>PHOSPHOR</span><span>NO COLOR</span></div>
+<sc-for list="{{roleRows}}" as="r" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; padding: 8px 12px; border-bottom: 1px solid #1B2026; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 11.5px">
+<span style="color: #E6EDF3">{{r.role}}</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{r.dark}}"></span><span style="color: #C9D2DC">{{r.dark}}</span></span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 2px; background: {{r.paper}}; border: 1px solid #2A2F38"></span><span style="color: #C9D2DC">{{r.paper}}</span></span>
+<span style="color: #C9D2DC">{{r.phosphor}}</span>
+<span style="font-family: 'IBM Plex Sans', sans-serif; color: #9AA3AF">{{r.carrier}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8B949E">E · WHY FOUR HUES, NOT SIX</div>
+<div style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; font-size: 13px">
+<p style="margin: 0">On a dark input, text must be light, and light colors lose their hue difference for color-blind readers. Measured with the palette validator, all pairs, against <span style="font-family: 'JetBrains Mono', monospace">#0A0E13</span> (dark input) and <span style="font-family: 'JetBrains Mono', monospace">#F4F1EA</span> (paper surface):</p>
+<div style="display: flex; flex-direction: column; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>5 hues, 4 tries</span><span style="color: #FF7A8E">■ fail · protan ΔE 0.9–5.5</span></div>
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>Dx Dark, 4 hues</span><span style="color: #B8F2CF">✓ pass · CVD ΔE 13.1 · normal 16.1</span></div>
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>Dx Paper, 4 hues</span><span style="color: #FF7A8E">■ fail · deutan ΔE 4.6</span></div>
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>Dx Paper, 3 hues</span><span style="color: #B8F2CF">✓ pass · CVD ΔE 6.7 with ■ + underline</span></div>
+</div>
+<p style="margin: 0; color: #9AA3AF">Every role also has a non-color carrier: weight, quotes, $, underline. Paper drops the choice hue and uses weight. Studies of syntax color show modest and mixed gains, so fewer, reliable hues cost little. Every value passes 4.5:1 in the worst case, on the input and on the translucent surface. The Paper error red sits in the 6–8 ΔE band, which is allowed only because errors also carry ■ and the underline.</p>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; color: #8B949E">F · HOW IT RENDERS IN UI TOOLKIT</div>
+<ol style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13px">
+<li>The TextField does not take rich text, so its text is transparent and keeps the caret and selection. A rich-text Label on top draws the colors.</li>
+<li>The font is monospaced, so a token's x is its column times the glyph width. The wavy underline and the ghost text are positioned this way, with no text measuring.</li>
+<li>Rebuild only when the value changes: tokenize, classify, write <span style="font-family: 'JetBrains Mono', monospace">&lt;color&gt;</span> spans with a pooled StringBuilder. Budget: one string per keystroke and nothing on idle frames.</li>
+<li>Roles are <span style="font-family: 'JetBrains Mono', monospace">--dxt-syn-number</span>, <span style="font-family: 'JetBrains Mono', monospace">-string</span> and <span style="font-family: 'JetBrains Mono', monospace">-choice</span>. Command uses ink, ghost text uses ink-muted, errors use error-text. They are read once per theme change into a color table.</li>
+</ol>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #8B949E">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em">SOURCES</div>
+<div><a href="https://fishshell.com/docs/4.9/interactive.html">fish: interactive use</a> · <a href="https://learn.microsoft.com/en-us/powershell/scripting/learn/shell/using-predictors?view=powershell-7.4">PSReadLine predictors</a> · <a href="https://docs.unity3d.com/Manual/ui-systems/introduction-to-rich-text-tags.html">Unity rich text tags</a> · <a href="https://advait.org/files/sarkar_2015_syntax_colouring.pdf">Sarkar 2015</a> · <a href="https://bop.unibe.ch/JEMR/article/view/2429">Beelders and du Plessis</a></div>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Dx Dark","Dx Paper","Phosphor"],"default":"Dx Dark"},"$preview":{"width":1440,"height":1960}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { gray: false };
+}
+renderVals() {
+const themes = {
+'Dx Dark': { surface: '#11161D', raised: '#161C25', input: '#0A0E13', line: '#232C38', ink: '#E6EDF3', body: '#C9D2DC', muted: '#9AA3AF', accent: '#5CD68F', soft: '#B8F2CF', sel: '#12301F', selLine: '#347E52', cmd: '#E6EDF3', choice: '#C2F5D8', choiceWeight: '500', choiceDeco: 'none', num: '#6CB6FF', str: '#FAC062', strStyle: 'normal', err: '#FF7A8E' },
+'Dx Paper': { surface: '#F4F1EA', raised: '#FAF8F3', input: '#FFFFFF', line: '#E4DFD1', ink: '#1B1813', body: '#46423A', muted: '#5F5A4F', accent: '#1F7A47', soft: '#23704A', sel: '#DCEFE3', selLine: '#4F9068', cmd: '#1B1813', choice: '#1B1813', choiceWeight: '600', choiceDeco: 'none', num: '#1F5FA8', str: '#7A5A00', strStyle: 'normal', err: '#C42847' },
+'Phosphor': { surface: '#07110B', raised: '#0C1A11', input: '#050C08', line: '#1A3324', ink: '#C8F7D9', body: '#8FE3B0', muted: '#5FB383', accent: '#5CD68F', soft: '#B8F2CF', sel: '#143D26', selLine: '#2F7A4F', cmd: '#C8F7D9', choice: '#C8F7D9', choiceWeight: '500', choiceDeco: 'none', num: '#8FE3B0', str: '#8FE3B0', strStyle: 'italic', err: '#FF7A8E' }
+};
+const s = themes[this.props.theme] || themes['Dx Dark'];
+const seg = (on) => ({ pressed: on ? 'true' : 'false', bg: on ? '#12301F' : '#0F1216', fg: on ? '#E6EDF3' : '#C9D2DC' });
+return {
+s,
+filter: this.state.gray ? 'grayscale(1)' : 'none',
+segOn: seg(!this.state.gray), segOff: seg(this.state.gray),
+colorOn: () => this.setState({ gray: false }),
+colorOff: () => this.setState({ gray: true }),
+roleRows: [
+{ role: 'command', dark: '#E6EDF3', paper: '#1B1813', phosphor: 'ink bold', carrier: 'bold, first' },
+{ role: 'choice', dark: '#C2F5D8', paper: '#1B1813', phosphor: 'ink medium', carrier: 'medium weight' },
+{ role: 'number', dark: '#6CB6FF', paper: '#1F5FA8', phosphor: 'body', carrier: 'digits' },
+{ role: 'string', dark: '#FAC062', paper: '#7A5A00', phosphor: 'body italic', carrier: 'visible quotes' },
+{ role: 'error', dark: '#FF7A8E', paper: '#C42847', phosphor: '#FF7A8E', carrier: 'wavy underline + ■' },
+{ role: 'ghost', dark: '#9AA3AF', paper: '#5F5A4F', phosphor: 'muted italic', carrier: 'italic, after caret' }
+]
+};
+}
+}
+</script>
+</body>
+</html>

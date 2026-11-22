@@ -1,0 +1,91 @@
+/* DxTerminal docs theme for MkDocs Material. Values: production/TOKENS.md and the Dx family. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@600;700&display=swap");
+
+:root {
+  --md-text-font: "IBM Plex Sans";
+  --md-code-font: "JetBrains Mono";
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #1f7a47;
+  --md-primary-fg-color--light: #2f9a5e;
+  --md-primary-fg-color--dark: #17603a;
+  --md-accent-fg-color: #1f7a47;
+  --md-default-bg-color: #f4f1ea;
+  --md-default-fg-color: #1b1813;
+  --md-default-fg-color--light: #46423a;
+  --md-default-fg-color--lighter: #5f5a4f;
+  --md-default-fg-color--lightest: #e4dfd1;
+  --md-code-bg-color: #ffffff;
+  --md-typeset-a-color: #1f7a47;
+  --dx-line: #e4dfd1;
+  --dx-selection: #dcefe3;
+  --dx-selection-line: #8cc5a3;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #5cd68f;
+  --md-primary-fg-color--light: #b8f2cf;
+  --md-primary-fg-color--dark: #2b6b45;
+  --md-accent-fg-color: #b8f2cf;
+  --md-default-bg-color: #0d1117;
+  --md-default-fg-color: #e6edf3;
+  --md-default-fg-color--light: #c9d2dc;
+  --md-default-fg-color--lighter: #8b949e;
+  --md-default-fg-color--lightest: #232c38;
+  --md-code-bg-color: #0c1016;
+  --md-typeset-a-color: #5cd68f;
+  --dx-line: #232c38;
+  --dx-selection: #12301f;
+  --dx-selection-line: #2b6b45;
+}
+
+.md-header,
+.md-tabs {
+  background-color: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  box-shadow: none;
+}
+
+.md-header {
+  border-bottom: 1px solid var(--dx-line);
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-header__topic {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Selection is a contained fill plus outline. No edge bars. */
+.md-nav__link--active {
+  background: var(--dx-selection);
+  outline: 1px solid var(--dx-selection-line);
+  border-radius: 6px;
+  padding: 0 0.4rem;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border: 1px solid var(--dx-line);
+  border-left-width: 1px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.md-typeset pre > code,
+.md-typeset :not(pre) > code {
+  border: 1px solid var(--dx-line);
+  border-radius: 6px;
+}
+
+.dx-eyebrow {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--lighter);
+}

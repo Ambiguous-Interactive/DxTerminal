@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Theme asset roles and contrast</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style>
+</helmet>
+<div style="width: 1040px; height: 960px; box-sizing: border-box; background: #14171C; color: #C9D2DC; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px; display: flex; flex-direction: column">
+
+<div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #121519; border-bottom: 1px solid #23282F">
+<span style="font-weight: 600; color: #E6EDF3">Dx Dark</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3AF">TerminalThemeAsset · {{roleCount}}</span>
+<span style="flex: 1 1 auto"></span>
+<div role="group" aria-label="Role values" style="display: flex; border: 1px solid #2A2F38; border-radius: 6px; overflow: hidden">
+<button type="button" onClick="{{useProposed}}" aria-pressed="{{vProposed.pressed}}" style="height: 28px; padding: 0 12px; border: 0; background: {{vProposed.bg}}; color: {{vProposed.fg}}; font-family: inherit; font-size: 12px; cursor: pointer">As in TOKENS.md</button>
+<button type="button" onClick="{{useFixed}}" aria-pressed="{{vFixed.pressed}}" style="height: 28px; padding: 0 12px; border: 0; border-left: 1px solid #2A2F38; background: {{vFixed.bg}}; color: {{vFixed.fg}}; font-family: inherit; font-size: 12px; cursor: pointer">With G1 + G2 fixes</button>
+</div>
+</div>
+
+<div style="flex: 1 1 auto; min-height: 0; display: flex">
+
+<div style="flex: 1 1 600px; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid #23282F">
+<div style="height: 32px; flex: 0 0 32px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #23282F; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #9AA3AF">
+<span style="flex: 0 0 150px">ROLE</span><span style="flex: 0 0 96px">VALUE</span><span style="flex: 0 0 84px; text-align: right">WCAG MIN</span><span style="flex: 0 0 68px; text-align: right">APCA LC</span><span style="flex: 1 1 auto; text-align: right">RESULT</span>
+</div>
+<sc-for list="{{roles}}" as="r" hint-placeholder-count="11">
+<div style="height: 40px; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-bottom: 1px solid #1B2026; background: {{r.rowBg}}">
+<span style="flex: 0 0 150px; display: flex; align-items: center; gap: 10px"><span style="width: 18px; height: 18px; border-radius: 4px; border: 1px solid #2A2F38; background: {{r.hex}}"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #E6EDF3">{{r.name}}</span></span>
+<span style="flex: 0 0 96px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #C9D2DC">{{r.hex}}</span>
+<span style="flex: 0 0 84px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #E6EDF3">{{r.wcag}}</span>
+<span style="flex: 0 0 68px; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #C9D2DC">{{r.apca}}</span>
+<span style="flex: 1 1 auto; display: flex; justify-content: flex-end"><span style="height: 22px; line-height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid {{r.chipLine}}; background: {{r.chipBg}}; color: {{r.chipFg}}; font-family: 'JetBrains Mono', monospace; font-size: 11px; white-space: nowrap">{{r.result}}</span></span>
+</div>
+</sc-for>
+<div style="padding: 14px 16px; color: #9AA3AF; font-size: 12px; line-height: 1.5">Worst case of the 94% surface composited over black, mid gray and white game backdrops. Text needs 4.5:1. Outlines need 3:1 (WCAG 1.4.11). APCA is advisory: below Lc 45 is weak for 13 px text. Swatch-only roles (surface, raised, hover, line) are backgrounds and are not listed.</div>
+</div>
+
+<div style="flex: 0 0 400px; display: flex; flex-direction: column; gap: 12px; padding: 16px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: #9AA3AF">LIVE PREVIEW</span>
+<div role="group" aria-label="Preview backdrop" style="display: flex; border: 1px solid #2A2F38; border-radius: 6px; overflow: hidden">
+<button type="button" onClick="{{bdDark}}" aria-pressed="{{bDark.pressed}}" style="height: 26px; padding: 0 10px; border: 0; background: {{bDark.bg}}; color: {{bDark.fg}}; font-family: inherit; font-size: 11px; cursor: pointer">Dark scene</button>
+<button type="button" onClick="{{bdBright}}" aria-pressed="{{bBright.pressed}}" style="height: 26px; padding: 0 10px; border: 0; border-left: 1px solid #2A2F38; background: {{bBright.bg}}; color: {{bBright.fg}}; font-family: inherit; font-size: 11px; cursor: pointer">Bright scene</button>
+</div>
+</div>
+<div style="border-radius: 10px; padding: 18px; background: {{backdrop}}; border: 1px solid #2A2F38">
+<div style="border-radius: 8px; background: rgba(13,17,23,0.94); border: 1px solid #232C38; overflow: hidden; font-family: 'JetBrains Mono', monospace; font-size: 13px">
+<div style="padding: 8px 0">
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 12px"><span style="color: {{c.muted}}; font-size: 12px">12:04:31</span><span style="color: #5CD68F">›</span><span style="white-space: pre"><span style="color: #E6EDF3; font-weight: 700">spawn</span> <span style="color: #C2F5D8; font-weight: 500">goblin</span> <span style="color: #6CB6FF">3</span></span></div>
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 12px"><span style="color: {{c.muted}}; font-size: 12px">12:04:31</span><span style="color: {{c.muted}}">·</span><span style="color: #C9D2DC">Spawned 3 × goblin</span></div>
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 12px"><span style="color: {{c.muted}}; font-size: 12px">12:04:32</span><span style="color: #F4A836">▲</span><span style="color: #F4A836">Agent not on NavMesh</span></div>
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #12301F; border-top: 1px solid {{c.selLine}}; border-bottom: 1px solid {{c.selLine}}"><span style="color: {{c.muted}}; font-size: 12px">12:04:33</span><span aria-hidden="true" style="color: #EC4661">■</span><span style="color: {{c.error}}">NullReferenceException</span></div>
+<div style="height: 22px; display: flex; align-items: center; gap: 10px; padding: 0 12px"><span style="color: {{c.muted}}; font-size: 12px">12:04:35</span><span style="color: {{c.muted}}"> </span><span style="color: {{c.muted}}">Time scale is 0.5</span></div>
+</div>
+<div style="height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #0A0E13; border-top: 1px solid #232C38; font-size: 14px"><span style="color: #5CD68F">›</span><span style="color: #E6EDF3">help</span></div>
+</div>
+</div>
+<div style="border-radius: 8px; border: 1px solid {{note.line}}; background: {{note.bg}}; padding: 12px; display: flex; gap: 10px; color: {{note.fg}}; line-height: 1.5; font-size: 12px">
+<span aria-hidden="true" style="font-family: 'JetBrains Mono', monospace">{{note.glyph}}</span><span>{{note.text}}</span>
+</div>
+<div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: auto">
+<button type="button" style="height: 32px; padding: 0 14px; border-radius: 6px; border: 1px solid #2A2F38; background: transparent; color: #C9D2DC; font-family: inherit; font-size: 12px">Convert legacy theme…</button>
+<button type="button" style="height: 32px; padding: 0 14px; border-radius: 6px; border: 0; background: #5CD68F; color: #0D1117; font-family: inherit; font-size: 12px; font-weight: 600">Repair failing roles</button>
+</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":960}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { fixed: false, bright: true };
+}
+renderVals() {
+const s = this.state;
+const pass = { chipBg: '#12301F', chipLine: '#347E52', chipFg: '#B8F2CF', rowBg: 'transparent' };
+const weak = { chipBg: '#241C10', chipLine: '#6B4D1A', chipFg: '#F4D9A8', rowBg: 'transparent' };
+const fail = { chipBg: '#2A1218', chipLine: '#7A2C3B', chipFg: '#FFC2CC', rowBg: '#1A1215' };
+const mk = (name, hex, wcag, apca, kind, result) => Object.assign({ name, hex, wcag, apca, result }, kind);
+const roles = [
+mk('ink', '#E6EDF3', '13.95', '93', pass, 'pass'),
+mk('ink-body', '#C9D2DC', '10.79', '77', pass, 'pass'),
+s.fixed ? mk('ink-muted', '#9AA3AF', '6.46', '50', pass, 'pass') : mk('ink-muted', '#8B949E', '5.36', '42', weak, 'weak Lc'),
+mk('accent', '#5CD68F', '9.01', '67', pass, 'pass'),
+mk('accent-soft', '#B8F2CF', '13.07', '89', pass, 'pass'),
+mk('on-accent', '#0D1117', '10.34', '69', pass, 'pass'),
+mk('warning', '#F4A836', '8.25', '62', pass, 'pass'),
+s.fixed ? mk('error-text', '#FF7A8E', '6.62', '52', pass, 'pass') : mk('error', '#EC4661', '4.41', '36', fail, 'fail < 4.5:1'),
+mk('ink on selection', '#E6EDF3', '12.10', '91', pass, 'pass'),
+s.fixed ? mk('selection-line', '#347E52', '3.34', 'n/a', pass, 'pass ≥ 3:1') : mk('selection-line', '#2B6B45', '2.58', 'n/a', fail, 'fail < 3:1'),
+mk('input text', '#E6EDF3', '16.38', '95', pass, 'pass'),
+mk('syn-number', '#6CB6FF', '7.67', '58', pass, 'pass'),
+mk('syn-string', '#FAC062', '10.04', '73', pass, 'pass'),
+mk('syn-choice', '#C2F5D8', '13.62', '92', pass, 'pass')
+];
+const c = s.fixed ? { muted: '#9AA3AF', error: '#FF7A8E', selLine: '#347E52' } : { muted: '#8B949E', error: '#EC4661', selLine: '#2B6B45' };
+const seg = (on) => ({ pressed: on ? 'true' : 'false', bg: on ? '#12301F' : '#0F1216', fg: on ? '#E6EDF3' : '#C9D2DC' });
+const note = s.fixed
+? { glyph: '✓', text: 'All text roles reach 4.5:1 and the outline reaches 3:1 over any backdrop. The error glyph keeps #EC4661, so the brand red is unchanged.', bg: '#12301F', line: '#2B6B45', fg: '#E6EDF3' }
+: { glyph: '■', text: 'Two roles fail when the game behind is bright: error text 4.41:1 and the selection outline 2.58:1. The #238 test checks an opaque surface, so it passes anyway.', bg: '#2A1218', line: '#7A2C3B', fg: '#FFE0E5' };
+return {
+roles, c, note,
+roleCount: s.fixed ? '15 roles + error-text + 3 syntax' : '15 roles + 3 syntax',
+backdrop: s.bright ? '#F2F4F7' : '#0B0D10',
+vProposed: seg(!s.fixed), vFixed: seg(s.fixed),
+bDark: seg(!s.bright), bBright: seg(s.bright),
+useProposed: () => this.setState({ fixed: false }),
+useFixed: () => this.setState({ fixed: true }),
+bdDark: () => this.setState({ bright: false }),
+bdBright: () => this.setState({ bright: true })
+};
+}
+}
+</script>
+</body>
+</html>

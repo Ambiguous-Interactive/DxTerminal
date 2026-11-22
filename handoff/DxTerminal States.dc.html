@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0D12;color:#C9D2DC;-webkit-font-smoothing:antialiased}
+a{color:#5CD68F;text-decoration:none}
+a:hover{color:#B8F2CF;text-decoration:underline}
+</style>
+</helmet>
+<div style="width:2728px;padding:40px 64px 80px;box-sizing:border-box;background:#0A0D12;font-family:'IBM Plex Sans',sans-serif;display:flex;flex-direction:column;gap:32px;">
+  <nav style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.06em;">
+    <span style="color:#6B7480;margin-right:12px;text-transform:uppercase;letter-spacing:0.22em;">DxTerminal handoff</span>
+    <a href="DxTerminal%20Brand.dc.html" style="color:#8B949E;padding:5px 10px;">Brand</a>
+    <a href="DxTerminal%20Directions.dc.html" style="color:#8B949E;padding:5px 10px;">Directions</a>
+    <a href="DxTerminal%20States.dc.html" style="color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:5px 10px;">States</a>
+    <a href="DxTerminal%20Editor.dc.html" style="color:#8B949E;padding:5px 10px;">Editor</a>
+    <a href="DxTerminal%20Docs%20Site.dc.html" style="color:#8B949E;padding:5px 10px;">Docs site</a>
+    <a href="DxTerminal%20Store%20Media.dc.html" style="color:#8B949E;padding:5px 10px;">Store media</a>
+  </nav>
+  <div style="max-width:1200px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:0.22em;text-transform:uppercase;color:#6B7480;">Terminal states · built on direction 1a</div>
+    <h1 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:44px;letter-spacing:-0.02em;color:#E6EDF3;margin:12px 0 0;">One terminal, six moments.</h1>
+    <p style="font-size:17px;line-height:1.6;color:#AEB7C2;margin:14px 0 0;text-wrap:pretty;">Triage, Actions, watches, quick launch, touch, and gamepad. Every state uses the 15 Dx Dark roles; nothing here needs USS shadows, blur, or gradients, so it builds on Unity 2021.3.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1280px 1280px;gap:56px 40px;">
+
+    <div data-screen-label="S1 Triage" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">S1</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;color:#E6EDF3;letter-spacing:-0.02em;">Full · filter, search, collapse, trace</span></div>
+      <div style="position:relative;width:1280px;height:720px;border-radius:12px;overflow:hidden;border:1px solid #232C38;background:repeating-linear-gradient(135deg,#1A2029 0 14px,#161B23 14px 28px);">
+        <div style="position:absolute;inset:0;background:rgba(13,17,23,0.96);display:flex;flex-direction:column;">
+          <div style="height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:12px;">
+            <span style="color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:3px 10px;">Log <span style="color:#8B949E;">128</span></span>
+            <span style="color:#8B949E;padding:3px 10px;">Actions</span>
+            <span style="color:#8B949E;padding:3px 10px;">Watches <span style="color:#5F6873;">3</span></span>
+            <span style="flex:1;"></span>
+            <span style="display:flex;gap:6px;color:#6B7480;border:1px solid #1F2732;border-radius:6px;padding:3px 9px;"><span>·</span>Info 96</span>
+            <span style="display:flex;gap:6px;color:#F4A836;background:#161C25;border:1px solid #232C38;border-radius:6px;padding:3px 9px;"><span>▲</span>Warn 21</span>
+            <span style="display:flex;gap:6px;color:#EC4661;background:#161C25;border:1px solid #232C38;border-radius:6px;padding:3px 9px;"><span>■</span>Error 11</span>
+            <span style="color:#B8F2CF;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:3px 9px;">Collapse</span>
+            <span style="width:230px;display:flex;align-items:center;justify-content:space-between;background:#0A0E13;border:1px solid #2B6B45;border-radius:6px;padding:3px 9px;"><span style="color:#E6EDF3;">enemy</span><span style="color:#8B949E;">4 of 9 ✕</span></span>
+            <span style="color:#8B949E;padding:3px 8px;">Small</span>
+            <span style="color:#8B949E;padding:3px 6px;">✕</span>
+          </div>
+          <div style="flex:1;position:relative;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:24px;">
+            <div style="display:flex;gap:14px;align-items:center;"><span style="color:#8B949E;">12:04:31.889</span><span style="color:#F4A836;width:12px;">▲</span><span style="color:#F4A836;">Navmesh agent stuck near <span style="color:#E6EDF3;background:#1E4A30;border-radius:3px;padding:0 2px;">enemy</span> spawn A</span><span style="font-size:11px;line-height:16px;color:#E6EDF3;background:#1D2530;border:1px solid #2A3340;border-radius:999px;padding:0 7px;">×12</span></div>
+            <div style="margin:4px -6px;padding:6px 6px 10px;background:#161C25;border:1px solid #2A3340;border-radius:8px;">
+              <div style="display:flex;gap:14px;"><span style="color:#8B949E;">12:04:32.015</span><span style="color:#EC4661;width:12px;">■</span><span style="color:#EC4661;">NullReferenceException: Object reference not set to an instance of an object</span></div>
+              <div style="padding-left:132px;color:#8B949E;">at Weapon.Fire () <span style="color:#5CD68F;">Assets/Scripts/Weapon.cs:42</span></div>
+              <div style="padding-left:132px;color:#8B949E;">at PlayerCombat.Update () <span style="color:#5CD68F;">Assets/Scripts/PlayerCombat.cs:88</span></div>
+              <div style="padding-left:132px;display:flex;gap:8px;margin-top:6px;font-size:12px;"><span style="color:#C9D2DC;background:#1D2530;border:1px solid #2A3340;border-radius:6px;padding:0 9px;">Copy</span><span style="color:#C9D2DC;background:#1D2530;border:1px solid #2A3340;border-radius:6px;padding:0 9px;">Copy with trace</span></div>
+            </div>
+            <div style="display:flex;gap:14px;"><span style="color:#8B949E;">12:04:40.115</span><span style="color:#F4A836;width:12px;">▲</span><span style="color:#F4A836;"><span style="color:#E6EDF3;background:#1E4A30;border-radius:3px;padding:0 2px;">Enemy</span> grunt_07 has no target</span></div>
+            <div style="display:flex;gap:14px;"><span style="color:#8B949E;">12:04:44.902</span><span style="color:#EC4661;width:12px;">■</span><span style="color:#EC4661;"><span style="color:#E6EDF3;background:#1E4A30;border-radius:3px;padding:0 2px;">Enemy</span> pool exhausted (64). Spawn skipped.</span></div>
+            <div style="display:flex;gap:14px;"><span style="color:#8B949E;">12:04:51.300</span><span style="color:#F4A836;width:12px;">▲</span><span style="color:#F4A836;"><span style="color:#E6EDF3;background:#1E4A30;border-radius:3px;padding:0 2px;">Enemy</span> golem_01 fell out of bounds</span></div>
+            <div style="position:absolute;left:50%;bottom:14px;transform:translateX(-50%);font-size:12px;color:#B8F2CF;background:#161C25;border:1px solid #2B6B45;border-radius:999px;padding:4px 14px;">Jump to latest · 4 new ↓</div>
+          </div>
+          <div style="height:26px;flex:none;display:flex;align-items:center;gap:16px;padding:0 14px;border-top:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;"><span>Showing 9 of 128</span><span>Info hidden</span><span>Repeats collapsed</span></div>
+          <div style="height:44px;flex:none;display:flex;align-items:center;gap:10px;padding:0 14px;background:#0A0E13;border-top:1px solid #232C38;font-family:'JetBrains Mono',monospace;font-size:15px;"><span style="color:#5CD68F;">›</span><span style="display:inline-block;width:2px;height:18px;background:#5CD68F;"></span><span style="color:#8B949E;font-size:14px;">Type a command. help lists all.</span></div>
+        </div>
+      </div>
+      <p style="font-size:14px;line-height:1.55;color:#8B949E;margin:0;max-width:1180px;">Type chips filter and show counts. Search highlights matches and counts them. Repeats collapse into ×N. Selecting an error opens its trace with copy actions. New lines below the fold raise <b style="color:#C9D2DC;">Jump to latest</b> instead of moving the view.</p>
+    </div>
+
+    <div data-screen-label="S2 Actions" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">S2</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;color:#E6EDF3;letter-spacing:-0.02em;">Actions · commands as forms</span></div>
+      <div style="position:relative;width:1280px;height:720px;border-radius:12px;overflow:hidden;border:1px solid #232C38;background:repeating-linear-gradient(135deg,#1A2029 0 14px,#161B23 14px 28px);">
+        <div style="position:absolute;left:0;top:0;width:100%;height:560px;background:rgba(13,17,23,0.96);border-bottom:1px solid #232C38;display:flex;flex-direction:column;">
+          <div style="height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:12px;">
+            <span style="color:#8B949E;padding:3px 10px;">Log <span style="color:#5F6873;">128</span></span>
+            <span style="color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:3px 10px;">Actions</span>
+            <span style="color:#8B949E;padding:3px 10px;">Watches <span style="color:#5F6873;">3</span></span>
+            <span style="flex:1;"></span>
+            <span style="width:230px;background:#0A0E13;border:1px solid #232C38;border-radius:6px;padding:3px 9px;color:#8B949E;">Filter actions</span>
+            <span style="color:#8B949E;padding:3px 8px;">Full</span>
+            <span style="color:#8B949E;padding:3px 6px;">✕</span>
+          </div>
+          <div style="flex:1;display:flex;min-height:0;">
+            <div style="width:210px;flex:none;border-right:1px solid #1A212B;padding:12px 10px;display:flex;flex-direction:column;gap:2px;font-size:13.5px;">
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;color:#AEB7C2;"><span>All</span><span style="font-family:'JetBrains Mono',monospace;color:#6B7480;">26</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;color:#AEB7C2;"><span>Recent</span><span style="font-family:'JetBrains Mono',monospace;color:#6B7480;">4</span></div>
+              <div style="display:flex;justify-content:space-between;padding:5px 9px;color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;"><span>Cheats</span><span style="font-family:'JetBrains Mono',monospace;color:#B8F2CF;">4</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;color:#AEB7C2;"><span>Spawning</span><span style="font-family:'JetBrains Mono',monospace;color:#6B7480;">4</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;color:#AEB7C2;"><span>Inventory</span><span style="font-family:'JetBrains Mono',monospace;color:#6B7480;">4</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;color:#AEB7C2;"><span>Scene</span><span style="font-family:'JetBrains Mono',monospace;color:#6B7480;">5</span></div>
+              <div style="display:flex;justify-content:space-between;padding:6px 10px;color:#AEB7C2;"><span>Terminal</span><span style="font-family:'JetBrains Mono',monospace;color:#6B7480;">9</span></div>
+            </div>
+            <div style="flex:1;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start;">
+              <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#E6EDF3;">heal</span><span style="font-size:12.5px;color:#8B949E;">Heals a target</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px;"><span style="width:56px;color:#AEB7C2;">amount</span><div style="flex:1;height:4px;border-radius:2px;background:#232C38;position:relative;"><div style="position:absolute;left:0;top:0;height:4px;width:50%;border-radius:2px;background:#5CD68F;"></div><div style="position:absolute;left:calc(50% - 7px);top:-5px;width:14px;height:14px;border-radius:50%;background:#E6EDF3;"></div></div><span style="font-family:'JetBrains Mono',monospace;width:44px;text-align:right;color:#E6EDF3;background:#0A0E13;border:1px solid #232C38;border-radius:6px;padding:2px 6px;">50</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px;"><span style="width:56px;color:#AEB7C2;">target</span><div style="display:flex;border:1px solid #232C38;border-radius:6px;overflow:hidden;font-family:'JetBrains Mono',monospace;font-size:12px;"><span style="padding:3px 12px;color:#AEB7C2;">self</span><span style="padding:3px 12px;color:#E6EDF3;background:#12301F;box-shadow:inset 0 0 0 1px #2B6B45;">ally</span><span style="padding:3px 12px;color:#AEB7C2;">enemy</span></div></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #1F2732;padding-top:10px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;"><span style="color:#5CD68F;">›</span> heal 50 ally</span><span style="font-size:13px;font-weight:600;color:#0D1117;background:#5CD68F;border-radius:6px;padding:4px 16px;">Run</span></div>
+              </div>
+              <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#E6EDF3;">god</span><span style="font-size:12.5px;color:#8B949E;">Toggles god mode</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px;"><span style="width:56px;color:#AEB7C2;">enabled</span><div style="width:36px;height:20px;border-radius:999px;background:#5CD68F;position:relative;"><div style="position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#0D1117;"></div></div><span style="color:#8B949E;font-size:12.5px;">Runs on change</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #1F2732;padding-top:10px;margin-top:auto;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;"><span style="color:#5CD68F;">›</span> god true</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;">ran 12:04:33</span></div>
+              </div>
+              <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#E6EDF3;">timescale</span><span style="font-size:12.5px;color:#8B949E;">Sets the time scale</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px;"><span style="width:72px;color:#AEB7C2;">multiplier</span><div style="flex:1;height:4px;border-radius:2px;background:#232C38;position:relative;"><div style="position:absolute;left:0;top:0;height:4px;width:10%;border-radius:2px;background:#5CD68F;"></div><div style="position:absolute;left:calc(10% - 7px);top:-5px;width:14px;height:14px;border-radius:50%;background:#E6EDF3;"></div></div><span style="font-family:'JetBrains Mono',monospace;width:44px;text-align:right;color:#E6EDF3;background:#0A0E13;border:1px solid #232C38;border-radius:6px;padding:2px 6px;">1.00</span></div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7480;padding-left:84px;">0 – 10</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #1F2732;padding-top:10px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;"><span style="color:#5CD68F;">›</span> timescale 1</span><span style="font-size:13px;color:#C9D2DC;border:1px solid #2A3340;border-radius:6px;padding:3px 16px;">Run</span></div>
+              </div>
+              <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#E6EDF3;">weather</span><span style="font-size:12.5px;color:#8B949E;">Sets the weather</span></div>
+                <div style="display:flex;align-items:center;gap:12px;font-size:13px;"><span style="width:72px;color:#AEB7C2;">condition</span><span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;display:flex;justify-content:space-between;width:160px;color:#E6EDF3;background:#0A0E13;border:1px solid #232C38;border-radius:6px;padding:3px 10px;"><span>storm</span><span style="color:#8B949E;">▾</span></span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #1F2732;padding-top:10px;margin-top:auto;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;"><span style="color:#5CD68F;">›</span> weather storm</span><span style="font-size:13px;color:#C9D2DC;border:1px solid #2A3340;border-radius:6px;padding:3px 16px;">Run</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:14px;line-height:1.55;color:#8B949E;margin:0;max-width:1180px;">Built from command metadata: ranges become sliders, choices of four or fewer become segments, enums become menus, bools become toggles. The form shows the command line it will run, and <b style="color:#C9D2DC;">Run</b> echoes it into the Log. Only the focused card's Run is filled.</p>
+    </div>
+
+    <div data-screen-label="S3 Watches" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">S3</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;color:#E6EDF3;letter-spacing:-0.02em;">Watches · pinned live values</span></div>
+      <div style="position:relative;width:1280px;height:720px;border-radius:12px;overflow:hidden;border:1px solid #232C38;background:repeating-linear-gradient(135deg,#1A2029 0 14px,#161B23 14px 28px);">
+        <div style="position:absolute;left:0;top:0;width:100%;height:300px;background:rgba(13,17,23,0.96);border-bottom:1px solid #232C38;display:flex;flex-direction:column;">
+          <div style="height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:12px;">
+            <span style="color:#8B949E;padding:3px 10px;">Log <span style="color:#5F6873;">128</span></span>
+            <span style="color:#8B949E;padding:3px 10px;">Actions</span>
+            <span style="color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:3px 10px;">Watches <span style="color:#B8F2CF;">6</span></span>
+            <span style="flex:1;"></span>
+            <span style="color:#8B949E;">Sampling 4 Hz</span>
+          </div>
+          <div style="flex:1;padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;">
+            <div style="display:grid;grid-template-columns:200px 160px 1fr 90px;padding:6px 0;color:#6B7480;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;border-bottom:1px solid #1A212B;"><span>Name</span><span>Value</span><span>Source</span><span>HUD</span></div>
+            <div style="display:grid;grid-template-columns:200px 160px 1fr 90px;padding:6px 0;align-items:center;"><span style="color:#C9D2DC;">fps</span><span style="color:#E6EDF3;">59.8</span><span style="color:#8B949E;">DxTerminal built-in</span><span style="color:#B8F2CF;">Pinned</span></div>
+            <div style="display:grid;grid-template-columns:200px 160px 1fr 90px;padding:6px 0;align-items:center;"><span style="color:#C9D2DC;">player.hp</span><span style="color:#E6EDF3;">87 / 100</span><span style="color:#8B949E;">PlayerStats.Health</span><span style="color:#B8F2CF;">Pinned</span></div>
+            <div style="display:grid;grid-template-columns:200px 160px 1fr 90px;padding:6px 0;align-items:center;"><span style="color:#C9D2DC;">enemies.alive</span><span style="color:#E6EDF3;">14</span><span style="color:#8B949E;">EnemyRegistry.Count</span><span style="color:#B8F2CF;">Pinned</span></div>
+            <div style="display:grid;grid-template-columns:200px 160px 1fr 90px;padding:6px 0;align-items:center;"><span style="color:#C9D2DC;">time.scale</span><span style="color:#E6EDF3;">1.00</span><span style="color:#8B949E;">Time.timeScale</span><span style="color:#8B949E;">Pin</span></div>
+            <div style="display:grid;grid-template-columns:200px 160px 1fr 90px;padding:6px 0;align-items:center;"><span style="color:#C9D2DC;">wave</span><span style="color:#E6EDF3;">3</span><span style="color:#8B949E;">WaveDirector.Wave</span><span style="color:#8B949E;">Pin</span></div>
+          </div>
+        </div>
+        <div style="position:absolute;right:20px;bottom:20px;width:250px;background:rgba(13,17,23,0.86);border:1px solid #232C38;border-radius:8px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12.5px;display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:8px;color:#6B7480;font-size:10.5px;letter-spacing:0.16em;text-transform:uppercase;margin-bottom:2px;"><svg viewBox="0 0 96 96" width="12" height="12" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="8" stroke-linejoin="round"></polygon></svg>Watches</div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:#8B949E;">fps</span><span style="color:#E6EDF3;">59.8</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:#8B949E;">player.hp</span><span style="color:#E6EDF3;">87 / 100</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="color:#8B949E;">enemies.alive</span><span style="color:#E6EDF3;">14</span></div>
+        </div>
+      </div>
+      <p style="font-size:14px;line-height:1.55;color:#8B949E;margin:0;max-width:1180px;">Declare with <span style="font-family:'JetBrains Mono',monospace;color:#C9D2DC;">[Watch]</span> or <span style="font-family:'JetBrains Mono',monospace;color:#C9D2DC;">Terminal.Watch(name, getter)</span>. Pin from the tab or with <span style="font-family:'JetBrains Mono',monospace;color:#B8F2CF;">watch player.hp</span>. The HUD stays when the terminal closes. Values sample at 4 Hz into reused buffers, so an idle HUD does not allocate per frame.</p>
+    </div>
+
+    <div data-screen-label="S4 Quick launch" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">S4</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;color:#E6EDF3;letter-spacing:-0.02em;">Quick launch · Ctrl Space</span></div>
+      <div style="position:relative;width:1280px;height:720px;border-radius:12px;overflow:hidden;border:1px solid #232C38;background:repeating-linear-gradient(135deg,#1A2029 0 14px,#161B23 14px 28px);">
+        <div style="position:absolute;left:320px;top:150px;width:640px;background:#0D1117;border:1px solid #232C38;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="height:44px;display:flex;align-items:center;gap:10px;padding:0 14px;background:#0A0E13;border:1px solid #2B6B45;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:16px;"><span style="color:#5CD68F;">›</span><span style="color:#E6EDF3;">spa</span><span style="display:inline-block;width:2px;height:19px;background:#5CD68F;margin-left:-8px;"></span><span style="flex:1;"></span><span style="font-size:11px;color:#8B949E;">4 results</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px;font-size:13.5px;">
+            <div style="height:40px;display:flex;align-items:center;gap:16px;padding:0 13px;background:#12301F;border:1px solid #2B6B45;border-radius:8px;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#E6EDF3;min-width:250px;"><span style="color:#B8F2CF;">spa</span>wn enemy <span style="color:#8B949E;">&lt;type&gt; [count]</span></span><span style="color:#C9D2DC;">Spawn enemies at the cursor</span></div>
+            <div style="height:40px;display:flex;align-items:center;gap:16px;padding:0 14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#C9D2DC;min-width:250px;"><span style="color:#B8F2CF;">spa</span>wn item <span style="color:#6B7480;">&lt;item&gt; [count]</span></span><span style="color:#8B949E;">Spawn an item at the player</span></div>
+            <div style="height:40px;display:flex;align-items:center;gap:16px;padding:0 14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#C9D2DC;min-width:250px;"><span style="color:#B8F2CF;">s</span>cene-reload</span><span style="color:#8B949E;">Reload the active scene</span></div>
+            <div style="height:40px;display:flex;align-items:center;gap:16px;padding:0 14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:14px;color:#C9D2DC;min-width:250px;"><span style="color:#B8F2CF;">s</span>et-theme <span style="color:#6B7480;">&lt;theme&gt;</span></span><span style="color:#8B949E;">Switch the terminal theme</span></div>
+          </div>
+          <div style="display:flex;gap:18px;padding:8px 4px 2px;border-top:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;"><span>↵ Run</span><span>Tab Complete</span><span>↑↓ Move</span><span>Esc Close</span></div>
+        </div>
+      </div>
+      <p style="font-size:14px;line-height:1.55;color:#8B949E;margin:0;max-width:1180px;">Fixes from the capture review: selected text is ink on the selection fill, labels sit centered in 40 px rows, no unstyled block under the results, the caret stays in the panel, and the footer is 11 px. Matched characters take the soft hue.</p>
+    </div>
+
+    <div data-screen-label="S5 Touch" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">S5</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;color:#E6EDF3;letter-spacing:-0.02em;">Touch · bottom sheet and key bar</span></div>
+      <div style="position:relative;width:1280px;height:720px;border-radius:12px;overflow:hidden;border:1px solid #232C38;background:#0C1016;display:flex;align-items:center;gap:64px;padding:0 80px;box-sizing:border-box;">
+        <div style="width:330px;height:680px;flex:none;border-radius:44px;border:10px solid #1B2026;box-sizing:border-box;overflow:hidden;position:relative;background:repeating-linear-gradient(135deg,#1A2029 0 12px,#161B23 12px 24px);">
+          <div style="position:absolute;left:0;right:0;bottom:0;height:72%;background:rgba(13,17,23,0.97);border-top:1px solid #232C38;display:flex;flex-direction:column;">
+            <div style="height:44px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;border-bottom:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:13px;">
+              <span style="height:32px;display:flex;align-items:center;color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:8px;padding:0 12px;">Log</span>
+              <span style="height:32px;display:flex;align-items:center;color:#8B949E;padding:0 10px;">Actions</span>
+              <span style="height:32px;display:flex;align-items:center;color:#8B949E;padding:0 10px;">Watch</span>
+              <span style="flex:1;"></span>
+              <span style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:#8B949E;">✕</span>
+            </div>
+            <div style="flex:1;padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:30px;overflow:hidden;">
+              <div style="display:flex;gap:10px;"><span style="color:#C9D2DC;">·</span><span style="color:#C9D2DC;">Wave 3 started</span></div>
+              <div style="display:flex;gap:10px;"><span style="color:#F4A836;">▲</span><span style="color:#F4A836;">Agent stuck ×12</span></div>
+              <div style="display:flex;gap:10px;"><span style="color:#EC4661;">■</span><span style="color:#EC4661;">NullReference… Fire()</span></div>
+              <div style="display:flex;gap:10px;"><span style="color:#5CD68F;">›</span><span style="color:#B8F2CF;">god true</span></div>
+              <div style="display:flex;gap:10px;"><span style="color:#5CD68F;">›</span><span style="color:#B8F2CF;">spawn enemy grunt 3</span></div>
+            </div>
+            <div style="height:48px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;background:#0A0E13;border-top:1px solid #232C38;font-family:'JetBrains Mono',monospace;font-size:15px;"><span style="color:#5CD68F;">›</span><span style="color:#E6EDF3;">heal 5</span><span style="display:inline-block;width:2px;height:18px;background:#5CD68F;"></span></div>
+            <div style="height:52px;flex:none;display:flex;align-items:center;gap:6px;padding:0 6px;background:#11161D;border-top:1px solid #232C38;font-family:'JetBrains Mono',monospace;font-size:13px;">
+              <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;color:#E6EDF3;background:#1D2530;border-radius:8px;">Tab</span>
+              <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;color:#E6EDF3;background:#1D2530;border-radius:8px;">↑</span>
+              <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;color:#E6EDF3;background:#1D2530;border-radius:8px;">↓</span>
+              <span style="flex:1;height:44px;display:flex;align-items:center;justify-content:center;color:#E6EDF3;background:#1D2530;border-radius:8px;">Esc</span>
+            </div>
+            <div style="height:120px;flex:none;display:flex;align-items:center;justify-content:center;background:#1B2026;font-family:'JetBrains Mono',monospace;font-size:11px;color:#6B7480;">system keyboard</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;font-size:15px;line-height:1.55;color:#AEB7C2;max-width:620px;">
+          <div><b style="color:#E6EDF3;">Open.</b> Three-finger tap by default, set in the build profile. Development builds can also show a corner button.</div>
+          <div><b style="color:#E6EDF3;">Sizes.</b> Rows 30 px, every control 44 px or larger. The sheet respects <span style="font-family:'JetBrains Mono',monospace;color:#C9D2DC;">Screen.safeArea</span>.</div>
+          <div><b style="color:#E6EDF3;">Key bar.</b> Tab, history, and Esc sit above the system keyboard, because mobile keyboards have none of them.</div>
+          <div><b style="color:#E6EDF3;">No keyboard needed.</b> The Actions tab runs any command with taps alone. Timestamps hide below 480 px width.</div>
+        </div>
+      </div>
+      <p style="font-size:14px;line-height:1.55;color:#8B949E;margin:0;max-width:1180px;">The same layout at a narrow width. Only sizes and the key bar change; the roles, tabs, and rows are the desktop ones.</p>
+    </div>
+
+    <div data-screen-label="S6 Gamepad" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">S6</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:24px;color:#E6EDF3;letter-spacing:-0.02em;">Gamepad · focus moves through Actions</span></div>
+      <div style="position:relative;width:1280px;height:720px;border-radius:12px;overflow:hidden;border:1px solid #232C38;background:repeating-linear-gradient(135deg,#1A2029 0 14px,#161B23 14px 28px);">
+        <div style="position:absolute;left:0;top:0;width:100%;height:470px;background:rgba(13,17,23,0.96);border-bottom:1px solid #232C38;display:flex;flex-direction:column;">
+          <div style="height:44px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:13px;">
+            <span style="color:#6B7480;">LB</span>
+            <span style="color:#8B949E;padding:4px 12px;">Log</span>
+            <span style="color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:4px 12px;">Actions</span>
+            <span style="color:#8B949E;padding:4px 12px;">Watches</span>
+            <span style="color:#6B7480;">RB</span>
+          </div>
+          <div style="flex:1;padding:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-content:start;">
+            <div style="background:#161C25;border:2px solid #5CD68F;border-radius:10px;padding:15px 17px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#E6EDF3;">heal</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#B8F2CF;">50 · ally</span></div>
+              <div style="font-size:14px;color:#8B949E;">Heals a target</div>
+              <div style="display:flex;gap:14px;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#C9D2DC;"><span>Ⓐ Run</span><span>Ⓨ Edit values</span></div>
+            </div>
+            <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#E6EDF3;">god</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">on</span></div>
+              <div style="font-size:14px;color:#8B949E;">Toggles god mode</div>
+            </div>
+            <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#E6EDF3;">timescale</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">1.00</span></div>
+              <div style="font-size:14px;color:#8B949E;">Sets the time scale</div>
+            </div>
+            <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#E6EDF3;">weather</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">storm</span></div>
+              <div style="font-size:14px;color:#8B949E;">Sets the weather</div>
+            </div>
+            <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#E6EDF3;">scene-reload</span></div>
+              <div style="font-size:14px;color:#8B949E;">Reload the active scene</div>
+            </div>
+            <div style="background:#161C25;border:1px solid #232C38;border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;"><span style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#E6EDF3;">spawn enemy</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">grunt · 1</span></div>
+              <div style="font-size:14px;color:#8B949E;">Spawn enemies at the cursor</div>
+            </div>
+          </div>
+          <div style="height:40px;flex:none;display:flex;align-items:center;gap:22px;padding:0 16px;border-top:1px solid #1A212B;font-family:'JetBrains Mono',monospace;font-size:12.5px;color:#AEB7C2;"><span>Ⓐ Run</span><span>Ⓑ Back</span><span>Ⓨ Edit values</span><span>LB RB Tabs</span><span style="flex:1;"></span><span style="color:#8B949E;">Hold View + Menu 1 s to close</span></div>
+        </div>
+      </div>
+      <p style="font-size:14px;line-height:1.55;color:#8B949E;margin:0;max-width:1180px;">Gamepads open with a held chord set in the build profile. Text entry on a pad is slow, so Actions is the pad path: the focus ring is a 2 px accent outline, and <b style="color:#C9D2DC;">Edit values</b> opens the card's fields one by one.</p>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

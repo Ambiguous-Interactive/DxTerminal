@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0D12;color:#C9D2DC;-webkit-font-smoothing:antialiased}
+a{color:#5CD68F;text-decoration:none}
+a:hover{color:#B8F2CF;text-decoration:underline}
+</style>
+</helmet>
+<div style="width:1800px;padding:40px 64px 80px;box-sizing:border-box;background:#0A0D12;font-family:'IBM Plex Sans',sans-serif;display:flex;flex-direction:column;gap:32px;">
+  <nav style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.06em;">
+    <span style="color:#6B7480;margin-right:12px;text-transform:uppercase;letter-spacing:0.22em;">DxTerminal handoff</span>
+    <a href="DxTerminal%20Brand.dc.html" style="color:#8B949E;padding:5px 10px;">Brand</a>
+    <a href="DxTerminal%20Directions.dc.html" style="color:#8B949E;padding:5px 10px;">Directions</a>
+    <a href="DxTerminal%20States.dc.html" style="color:#8B949E;padding:5px 10px;">States</a>
+    <a href="DxTerminal%20Editor.dc.html" style="color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:5px 10px;">Editor</a>
+    <a href="DxTerminal%20Docs%20Site.dc.html" style="color:#8B949E;padding:5px 10px;">Docs site</a>
+    <a href="DxTerminal%20Store%20Media.dc.html" style="color:#8B949E;padding:5px 10px;">Store media</a>
+  </nav>
+  <div style="max-width:1200px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:0.22em;text-transform:uppercase;color:#6B7480;">Editor · UI Toolkit, Dx editor neutrals</div>
+    <h1 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:44px;letter-spacing:-0.02em;color:#E6EDF3;margin:12px 0 0;">Set up in one step. Configure in plain words.</h1>
+    <p style="font-size:17px;line-height:1.6;color:#AEB7C2;margin:14px 0 0;text-wrap:pretty;">The stock IMGUI inspector becomes four UI Toolkit surfaces: the component inspector, a setup window, a Project Settings page with build profiles, and a theme editor with contrast checks.</p>
+  </div>
+  <div style="display:flex;gap:40px;align-items:flex-start;">
+
+    <div data-screen-label="E1 Inspector" style="width:460px;flex:none;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">E1</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:#E6EDF3;letter-spacing:-0.02em;">Terminal UI inspector</span></div>
+      <div style="background:#14171C;border:1px solid #2A2F38;border-radius:10px;overflow:hidden;font-size:12.5px;">
+        <div style="height:28px;display:flex;align-items:flex-end;padding:0 6px;background:#101318;border-bottom:1px solid #2A2F38;"><span style="color:#E6EDF3;background:#14171C;border:1px solid #2A2F38;border-bottom-color:#14171C;border-radius:6px 6px 0 0;padding:4px 12px;margin-bottom:-1px;">Inspector</span></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:9px 10px;background:#1B1E24;border-bottom:1px solid #23282F;">
+          <span style="color:#8B949E;">▾</span>
+          <svg viewBox="0 0 96 96" width="16" height="16" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="7" stroke-linejoin="round"></polygon><polyline points="31,34 45,48 31,62" stroke="#B8F2CF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="53" y1="62" x2="65" y2="62" stroke="#B8F2CF" stroke-width="7" stroke-linecap="round"></line></svg>
+          <span style="font-weight:600;color:#E6EDF3;">Terminal UI</span>
+          <span style="flex:1;"></span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#B8F2CF;background:#12301F;border:1px solid #2B6B45;border-radius:999px;padding:1px 8px;">Session active</span>
+          <span style="color:#8B949E;">⋮</span>
+        </div>
+        <div style="padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;border-bottom:1px solid #23282F;">42 commands · 128 log lines · dx-dark</div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid #23282F;">
+          <div style="font-weight:600;color:#C9D2DC;">▾ Layout</div>
+          <div style="display:flex;align-items:center;"><span style="width:130px;color:#AEB7C2;">Anchor</span><div style="display:flex;border:1px solid #2A2F38;border-radius:6px;overflow:hidden;"><span style="padding:2px 12px;color:#E6EDF3;background:#12301F;box-shadow:inset 0 0 0 1px #2B6B45;">Top</span><span style="padding:2px 12px;color:#AEB7C2;">Bottom</span><span style="padding:2px 12px;color:#AEB7C2;">Auto</span></div></div>
+          <div style="display:flex;align-items:center;gap:10px;"><span style="width:120px;color:#AEB7C2;">Small height</span><div style="flex:1;height:4px;border-radius:2px;background:#2A2F38;position:relative;"><div style="position:absolute;left:0;top:0;height:4px;width:46%;border-radius:2px;background:#5CD68F;"></div><div style="position:absolute;left:calc(46% - 6px);top:-4px;width:12px;height:12px;border-radius:50%;background:#E6EDF3;"></div></div><span style="font-family:'JetBrains Mono',monospace;width:44px;text-align:right;color:#E6EDF3;background:#0F1216;border:1px solid #2A2F38;border-radius:4px;padding:1px 5px;">47%</span></div>
+          <div style="display:flex;align-items:center;"><span style="width:130px;color:#AEB7C2;">Open motion</span><span style="flex:1;display:flex;justify-content:space-between;color:#E6EDF3;background:#0F1216;border:1px solid #2A2F38;border-radius:4px;padding:2px 8px;"><span>Ease out · 120 ms</span><span style="color:#8B949E;">▾</span></span></div>
+          <div style="padding-left:130px;font-size:11.5px;color:#8B949E;">Replaces two curves and two times. <a href="#">Custom curve</a></div>
+        </div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid #23282F;">
+          <div style="font-weight:600;color:#C9D2DC;">▾ Appearance</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+            <div style="border:1px solid #2B6B45;background:#12301F;border-radius:6px;padding:5px;display:flex;flex-direction:column;gap:4px;"><div style="height:26px;border-radius:4px;background:#0D1117;display:flex;align-items:flex-end;gap:3px;padding:3px;"><span style="width:14px;height:3px;background:#C9D2DC;"></span><span style="width:8px;height:3px;background:#5CD68F;"></span></div><span style="font-size:11px;color:#E6EDF3;">Dx Dark</span></div>
+            <div style="border:1px solid #2A2F38;border-radius:6px;padding:5px;display:flex;flex-direction:column;gap:4px;"><div style="height:26px;border-radius:4px;background:#F4F1EA;display:flex;align-items:flex-end;gap:3px;padding:3px;"><span style="width:14px;height:3px;background:#46423A;"></span><span style="width:8px;height:3px;background:#1F7A47;"></span></div><span style="font-size:11px;color:#AEB7C2;">Dx Paper</span></div>
+            <div style="border:1px solid #2A2F38;border-radius:6px;padding:5px;display:flex;flex-direction:column;gap:4px;"><div style="height:26px;border-radius:4px;background:#07110B;display:flex;align-items:flex-end;gap:3px;padding:3px;"><span style="width:14px;height:3px;background:#8FE3B0;"></span><span style="width:8px;height:3px;background:#F4B04A;"></span></div><span style="font-size:11px;color:#AEB7C2;">Phosphor</span></div>
+            <div style="border:1px solid #2A2F38;border-radius:6px;padding:5px;display:flex;flex-direction:column;gap:4px;"><div style="height:26px;border-radius:4px;background:#1C1C1E;display:flex;align-items:flex-end;gap:3px;padding:3px;"><span style="width:14px;height:3px;background:#F2F2F7;"></span><span style="width:8px;height:3px;background:#007AFF;"></span></div><span style="font-size:11px;color:#AEB7C2;">Classic</span></div>
+          </div>
+          <div style="display:flex;align-items:center;"><span style="width:130px;color:#AEB7C2;">Font</span><span style="flex:1;display:flex;justify-content:space-between;color:#E6EDF3;background:#0F1216;border:1px solid #2A2F38;border-radius:4px;padding:2px 8px;"><span>JetBrains Mono · 14</span><span style="color:#8B949E;">▾</span></span></div>
+          <div style="border:1px solid #6B4A16;background:#21190D;border-radius:6px;padding:8px 10px;display:flex;gap:10px;align-items:flex-start;"><span style="color:#F4A836;font-family:'JetBrains Mono',monospace;">▲</span><span style="flex:1;color:#E9D9BC;line-height:1.45;">Theme <b>retro-theme</b> is missing 2 roles: <span style="font-family:'JetBrains Mono',monospace;">--dxt-warning</span>, <span style="font-family:'JetBrains Mono',monospace;">--dxt-error</span>. They fall back to Dx Dark.</span><span style="color:#F4A836;border:1px solid #6B4A16;border-radius:4px;padding:0 8px;">Fix</span></div>
+        </div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid #23282F;">
+          <div style="font-weight:600;color:#C9D2DC;">▾ Open and keys</div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:126px;color:#AEB7C2;">Toggle</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#E6EDF3;background:#1B2026;border:1px solid #2A2F38;border-radius:4px;padding:0 7px;">`</span></div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:126px;color:#AEB7C2;">Full height</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#E6EDF3;background:#1B2026;border:1px solid #2A2F38;border-radius:4px;padding:0 7px;">Shift</span><span style="color:#6B7480;">+</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#E6EDF3;background:#1B2026;border:1px solid #2A2F38;border-radius:4px;padding:0 7px;">`</span></div>
+          <div style="display:flex;align-items:center;gap:4px;"><span style="width:126px;color:#AEB7C2;">Quick launch</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#E6EDF3;background:#1B2026;border:1px solid #2A2F38;border-radius:4px;padding:0 7px;">Ctrl</span><span style="color:#6B7480;">+</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#E6EDF3;background:#1B2026;border:1px solid #2A2F38;border-radius:4px;padding:0 7px;">Space</span></div>
+          <div style="display:flex;align-items:center;"><span style="width:130px;color:#AEB7C2;">Touch · pad</span><span style="color:#C9D2DC;">From the build profile</span></div>
+          <div style="padding-left:130px;font-size:11.5px;color:#8B949E;">Keys live on the input controller and show here. They parse and validate on edit.</div>
+        </div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid #23282F;">
+          <div style="font-weight:600;color:#C9D2DC;">▾ Behavior</div>
+          <div style="display:flex;align-items:center;"><span style="width:130px;color:#AEB7C2;">Completion hints</span><div style="display:flex;border:1px solid #2A2F38;border-radius:6px;overflow:hidden;"><span style="padding:2px 10px;color:#AEB7C2;">Always</span><span style="padding:2px 10px;color:#E6EDF3;background:#12301F;box-shadow:inset 0 0 0 1px #2B6B45;">While typing</span><span style="padding:2px 10px;color:#AEB7C2;">Never</span></div></div>
+          <div style="display:flex;align-items:center;"><span style="width:130px;color:#AEB7C2;">Forward Unity logs</span><span style="width:28px;height:16px;border-radius:999px;background:#5CD68F;position:relative;display:inline-block;"><span style="position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#0D1117;"></span></span></div>
+          <div style="display:flex;align-items:center;"><span style="width:130px;color:#AEB7C2;">Stack traces</span><span style="flex:1;display:flex;justify-content:space-between;color:#E6EDF3;background:#0F1216;border:1px solid #2A2F38;border-radius:4px;padding:2px 8px;"><span>Errors and warnings</span><span style="color:#8B949E;">▾</span></span></div>
+        </div>
+        <div style="padding:10px 12px;font-size:11.5px;line-height:1.5;color:#8B949E;">Behavior fields edit the settings asset: the project default from <b style="color:#C9D2DC;">Project Settings › DxTerminal</b>, or this terminal's own asset.</div>
+      </div>
+    </div>
+
+    <div style="flex:1;display:flex;flex-direction:column;gap:40px;">
+      <div style="display:flex;gap:40px;align-items:flex-start;">
+        <div data-screen-label="E2 Setup" style="width:620px;flex:none;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">E2</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:#E6EDF3;letter-spacing:-0.02em;">Tools › DxTerminal › Setup</span></div>
+          <div style="background:#14171C;border:1px solid #2A2F38;border-radius:10px;overflow:hidden;font-size:13px;">
+            <div style="height:30px;display:flex;align-items:center;justify-content:center;background:#101318;border-bottom:1px solid #2A2F38;color:#AEB7C2;font-size:12px;">DxTerminal Setup</div>
+            <div style="padding:18px 20px;display:flex;flex-direction:column;gap:18px;">
+              <div style="display:flex;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">1</span><div style="flex:1;display:flex;flex-direction:column;gap:8px;"><span style="color:#E6EDF3;font-weight:600;">Add a terminal to the open scene</span><div style="display:flex;gap:8px;"><span style="flex:1;border:1px solid #2B6B45;background:#12301F;border-radius:8px;padding:8px 10px;color:#E6EDF3;">Drop from top<br><span style="color:#8B949E;font-size:11.5px;">Desktop and console</span></span><span style="flex:1;border:1px solid #2A2F38;border-radius:8px;padding:8px 10px;color:#C9D2DC;">Bottom sheet<br><span style="color:#8B949E;font-size:11.5px;">Touch first</span></span><span style="flex:1;border:1px solid #2A2F38;border-radius:8px;padding:8px 10px;color:#C9D2DC;">Auto<br><span style="color:#8B949E;font-size:11.5px;">Sheet on touch</span></span></div><span style="color:#AEB7C2;font-size:12.5px;">☑ Also add Quick launch (Ctrl Space)</span></div></div>
+              <div style="display:flex;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">2</span><div style="flex:1;display:flex;flex-direction:column;gap:8px;"><span style="color:#E6EDF3;font-weight:600;">Theme</span><span style="display:flex;justify-content:space-between;width:260px;color:#E6EDF3;background:#0F1216;border:1px solid #2A2F38;border-radius:4px;padding:3px 8px;"><span>Dx Dark</span><span style="color:#8B949E;">▾</span></span></div></div>
+              <div style="display:flex;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">3</span><div style="flex:1;display:flex;flex-direction:column;gap:8px;"><span style="color:#E6EDF3;font-weight:600;">Build profile</span><span style="display:flex;justify-content:space-between;width:260px;color:#E6EDF3;background:#0F1216;border:1px solid #2A2F38;border-radius:4px;padding:3px 8px;"><span>Recommended</span><span style="color:#8B949E;">▾</span></span><div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.7;color:#8B949E;"><div>Editor ······ all tiers</div><div>Development · Player, Tester, Developer</div><div>Release ····· no terminal (preset Player console keeps it)</div></div></div></div>
+              <div style="display:flex;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">4</span><div style="flex:1;display:flex;flex-direction:column;gap:6px;"><span style="color:#E6EDF3;font-weight:600;">Samples</span><span style="color:#AEB7C2;font-size:12.5px;">☐ Import the 10 sample command components</span></div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #23282F;background:#121519;"><span style="flex:1;font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;">Creates GameObject "DxTerminal" · settings asset if missing</span><span style="color:#C9D2DC;border:1px solid #2A2F38;border-radius:6px;padding:4px 14px;">Cancel</span><span style="font-weight:600;color:#0D1117;background:#5CD68F;border-radius:6px;padding:4px 16px;">Create</span></div>
+          </div>
+          <p style="font-size:13.5px;line-height:1.55;color:#8B949E;margin:0;">The window is optional. <b style="color:#C9D2DC;">GameObject › DxTerminal › Terminal</b> does step 1 with the defaults. Project defaults live in one settings asset, created the first time Project Settings opens.</p>
+        </div>
+
+        <div data-screen-label="E4 Theme" style="flex:1;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">E4</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:#E6EDF3;letter-spacing:-0.02em;">Theme asset · 15 roles</span></div>
+          <div style="background:#14171C;border:1px solid #2A2F38;border-radius:10px;overflow:hidden;font-size:12.5px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:#1B1E24;border-bottom:1px solid #23282F;"><span style="font-weight:600;color:#E6EDF3;">Dx Dark</span><span style="color:#8B949E;">Terminal Theme</span><span style="flex:1;"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;">writes dx-dark-theme.uss</span></div>
+            <div style="padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;display:flex;flex-direction:column;gap:5px;">
+              <div style="color:#6B7480;letter-spacing:0.14em;text-transform:uppercase;font-size:10.5px;">Surface</div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:112px;color:#AEB7C2;">surface</span><span style="width:34px;height:14px;border-radius:3px;background:#0D1117;border:1px solid #2A3340;"></span><span style="color:#C9D2DC;">#0D1117 · 94%</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:112px;color:#AEB7C2;">surface-raised</span><span style="width:34px;height:14px;border-radius:3px;background:#161C25;border:1px solid #2A3340;"></span><span style="color:#C9D2DC;">#161C25</span></div>
+              <div style="color:#6B7480;letter-spacing:0.14em;text-transform:uppercase;font-size:10.5px;margin-top:4px;">Ink</div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:112px;color:#AEB7C2;">ink-body</span><span style="width:34px;height:14px;border-radius:3px;background:#C9D2DC;"></span><span style="color:#C9D2DC;flex:1;">#C9D2DC</span><span style="color:#B8F2CF;">12.4:1</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:112px;color:#AEB7C2;">ink-muted</span><span style="width:34px;height:14px;border-radius:3px;background:#8B949E;"></span><span style="color:#C9D2DC;flex:1;">#8B949E</span><span style="color:#B8F2CF;">6.1:1</span></div>
+              <div style="color:#6B7480;letter-spacing:0.14em;text-transform:uppercase;font-size:10.5px;margin-top:4px;">Accent and status</div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:112px;color:#AEB7C2;">accent</span><span style="width:34px;height:14px;border-radius:3px;background:#5CD68F;"></span><span style="color:#C9D2DC;flex:1;">#5CD68F</span><span style="color:#B8F2CF;">10.3:1</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:112px;color:#AEB7C2;">warning</span><span style="width:34px;height:14px;border-radius:3px;background:#F4A836;"></span><span style="color:#C9D2DC;flex:1;">#F4A836</span><span style="color:#B8F2CF;">9.5:1</span></div>
+              <div style="display:flex;align-items:center;gap:8px;"><span style="width:112px;color:#AEB7C2;">error</span><span style="width:34px;height:14px;border-radius:3px;background:#EC4661;"></span><span style="color:#C9D2DC;flex:1;">#EC4661</span><span style="color:#B8F2CF;">5.0:1</span></div>
+              <div style="color:#6B7480;margin-top:2px;">+ 7 more · contrast against surface, floor 4.5:1</div>
+            </div>
+            <div style="margin:0 12px 12px;background:#0D1117;border:1px solid #232C38;border-radius:8px;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;line-height:20px;">
+              <div><span style="color:#C9D2DC;">· Loaded scene Arena_02</span></div>
+              <div><span style="color:#F4A836;">▲ Agent stuck ×12</span></div>
+              <div><span style="color:#EC4661;">■ NullReferenceException</span></div>
+              <div><span style="color:#5CD68F;">›</span> <span style="color:#B8F2CF;">god true</span></div>
+            </div>
+            <div style="padding:9px 12px;border-top:1px solid #23282F;font-size:11.5px;color:#8B949E;"><b style="color:#C9D2DC;">Convert legacy theme</b> maps the 19 old variables to these roles.</div>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="E3 Build profiles" style="display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:baseline;gap:14px;"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.18em;color:#5CD68F;">E3</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;color:#E6EDF3;letter-spacing:-0.02em;">Project Settings › DxTerminal › Build profiles</span></div>
+        <div style="background:#14171C;border:1px solid #2A2F38;border-radius:10px;overflow:hidden;display:flex;font-size:13px;">
+          <div style="width:190px;flex:none;background:#121519;border-right:1px solid #2A2F38;padding:10px 0;display:flex;flex-direction:column;gap:1px;color:#AEB7C2;">
+            <span style="padding:4px 14px;">Player</span><span style="padding:4px 14px;">Quality</span><span style="padding:4px 14px;">Script Execution Order</span>
+            <span style="padding:4px 14px;color:#E6EDF3;">▾ DxTerminal</span>
+            <span style="padding:4px 14px 4px 30px;">General</span>
+            <span style="margin:0 6px;padding:3px 8px 3px 23px;color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:5px;">Build profiles</span>
+            <span style="padding:4px 14px;">Tags and Layers</span>
+          </div>
+          <div style="flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;align-items:center;gap:10px;"><span style="color:#AEB7C2;">Active profile</span><span style="display:flex;justify-content:space-between;width:220px;color:#E6EDF3;background:#0F1216;border:1px solid #2A2F38;border-radius:4px;padding:2px 8px;"><span>Recommended</span><span style="color:#8B949E;">▾</span></span><span style="color:#C9D2DC;border:1px solid #2A2F38;border-radius:4px;padding:1px 10px;">Duplicate</span><span style="flex:1;"></span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#8B949E;">CI: TerminalBuild.UseProfile(profile)</span></div>
+            <div style="border:1px solid #23282F;border-radius:8px;overflow:hidden;">
+              <div style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));background:#1B1E24;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#8B949E;"><span style="padding:8px 12px;">Tier · commands</span><span style="padding:8px 12px;">Editor</span><span style="padding:8px 12px;">Development</span><span style="padding:8px 12px;">Release</span></div>
+              <div style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));border-top:1px solid #23282F;align-items:center;"><span style="padding:8px 12px;color:#E6EDF3;">Player <span style="font-family:'JetBrains Mono',monospace;color:#8B949E;">15</span></span><span style="padding:8px 12px;color:#5CD68F;">☑</span><span style="padding:8px 12px;color:#5CD68F;">☑</span><span style="padding:8px 12px;color:#5CD68F;">☑</span></div>
+              <div style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));border-top:1px solid #23282F;align-items:center;"><span style="padding:8px 12px;color:#E6EDF3;">Tester <span style="font-family:'JetBrains Mono',monospace;color:#8B949E;">9</span></span><span style="padding:8px 12px;color:#5CD68F;">☑</span><span style="padding:8px 12px;color:#5CD68F;">☑</span><span style="padding:8px 12px;color:#6B7480;">☐</span></div>
+              <div style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));border-top:1px solid #23282F;align-items:center;"><span style="padding:8px 12px;color:#E6EDF3;">Developer <span style="font-family:'JetBrains Mono',monospace;color:#8B949E;">18</span></span><span style="padding:8px 12px;color:#5CD68F;">☑</span><span style="padding:8px 12px;color:#5CD68F;">☑</span><span style="padding:8px 12px;color:#6B7480;">☐</span></div>
+              
+              <div style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));border-top:1px solid #23282F;align-items:center;background:#121519;"><span style="padding:8px 12px;color:#AEB7C2;">Terminal UI</span><span style="padding:8px 12px;color:#C9D2DC;">Included</span><span style="padding:8px 12px;color:#C9D2DC;">Included</span><span style="padding:8px 12px;color:#C9D2DC;">Removed</span></div>
+              <div style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));border-top:1px solid #23282F;align-items:center;background:#121519;"><span style="padding:8px 12px;color:#AEB7C2;">Off tiers</span><span style="padding:8px 12px;color:#6B7480;">—</span><span style="padding:8px 12px;color:#C9D2DC;">Disable ▾</span><span style="padding:8px 12px;color:#C9D2DC;">Strip ▾</span></div>
+              <div style="display:grid;grid-template-columns:240px repeat(3,minmax(0,1fr));border-top:1px solid #23282F;align-items:center;background:#121519;"><span style="padding:8px 12px;color:#AEB7C2;">Open with</span><span style="padding:8px 12px;color:#C9D2DC;">` key</span><span style="padding:8px 12px;color:#C9D2DC;">` · 3-finger tap · View+Menu</span><span style="padding:8px 12px;color:#6B7480;">—</span></div>
+            </div>
+            <div style="display:flex;gap:14px;">
+              <div style="flex:1;border:1px solid #23282F;border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.55;color:#AEB7C2;"><b style="color:#E6EDF3;">Strip</b> removes the tier from the generated catalogs and the link.xml bake, so IL2CPP managed stripping can drop the handlers. Commands without the Player context never ship in a player. Mono builds keep the IL. <b style="color:#E6EDF3;">Disable</b> keeps the code, hides the commands, and rejects them at run time.</div>
+              <div style="flex:1;border:1px solid #23282F;border-radius:8px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.7;color:#8B949E;"><div style="color:#C9D2DC;">Recommended: Release ships no terminal</div><div>Preset "Player console" keeps it in Release</div><div>with the 15 Player commands: 13 built-ins</div><div>(help, find, copy-log, set-theme, quit ...)</div><div>and 2 game commands.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

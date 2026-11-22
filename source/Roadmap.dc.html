@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Roadmap to the final direction</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style>
+</helmet>
+<div style="width: 1280px; height: 1400px; box-sizing: border-box; padding: 56px 64px; background: #0D1117; color: #C9D2DC; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 28px">
+<header style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: #8B949E">09 · ROADMAP</span>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 40px; letter-spacing: -0.02em; color: #E6EDF3">From today to the final direction in 23 PRs</h1>
+<p style="margin: 0; max-width: 860px; font-size: 16px">One milestone is one session and one PR: under 1,000 lines and 18 files, with the red check committed first. Role tokens (A2) unblock everything visual. After A2, tracks B, C and D can run in parallel. Track E needs the rendered host (#250). This replaces the handoff issue order and the previous PLAN.md.</p>
+</header>
+<ol style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px">
+<sc-for list="{{tracks}}" as="tr" hint-placeholder-count="6">
+<li style="display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; align-items: stretch">
+<div style="border-left: 3px solid {{tr.color}}; padding: 4px 0 4px 14px; display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #E6EDF3">{{tr.id}} · {{tr.name}}</span>
+<span style="font-size: 12px; color: #9AA3AF">{{tr.when}}</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3AF">{{tr.issues}}</span>
+</div>
+<ol style="margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px">
+<sc-for list="{{tr.items}}" as="m" hint-placeholder-count="5">
+<li style="background: #11161D; border: 1px solid {{m.border}}; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; min-height: 132px; box-sizing: border-box">
+<div style="display: flex; justify-content: space-between; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 11px">
+<span style="font-weight: 700; color: #5CD68F">{{m.id}}</span><span style="color: #9AA3AF; text-align: right">{{m.tag}}</span>
+</div>
+<strong style="font-size: 13px; color: #E6EDF3; font-weight: 600; line-height: 1.35">{{m.title}}</strong>
+<span style="font-size: 12px; color: #9AA3AF; line-height: 1.45">{{m.done}}</span>
+</li>
+</sc-for>
+</ol>
+</li>
+</sc-for>
+</ol>
+<section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #9AA3AF">START HERE</span>
+<p style="margin: 0; font-size: 13px">A1 needs no host and no design change. It turns the measured 4.41:1 and 2.58:1 into a failing EditMode test, so A2 has a green line to reach.</p>
+</div>
+<div style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #9AA3AF">BLOCKERS KEPT</span>
+<p style="margin: 0; font-size: 13px">Pages (#233, absorbing #151) waits for explicit maintainer authorization. Rehearsal (T14) waits for the operator environment and npm Trusted Publishing. Publishing and the store listing each need separate sign-off.</p>
+</div>
+<div style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #9AA3AF">ISSUE CHANGES (DRAFTED, NOT POSTED)</span>
+<p style="margin: 0; font-size: 13px">Rewrite the #228 order. Add acceptance to #238. Four new issues: syntax, Quick launch, text size and High Contrast, screen reader spike. Merge #151 into #233 and #187 into #234. Comment on the other open issues.</p>
+</div>
+</section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1400}}'>
+class Component extends DCLogic {
+renderVals() {
+const n = '#232C38', h = n;
+const t = (id, tag, title, done, host) => ({ id, tag, title, done, border: host ? h : n });
+return { tracks: [
+{ id: 'A', name: 'Tokens', color: '#5CD68F', when: 'First. Gates B, C, D.', issues: '#238 · new', items: [
+t('A1', 'T1', 'Contrast gate over 3 backdrops', 'Fails today at 4.41:1 and 2.58:1; passes at ≥4.5 text, ≥3 outline.'),
+t('A2', 'T12', 'Role tokens in 3 Dx themes', 'BaseStyles reads only --dxt-* roles. Palette gate passes.'),
+t('A3', 'T2', 'Classic themes pack', '126 legacy themes repaired in OKLCH or labeled with ratio.'),
+t('A4', 'T3', 'Text size + High Contrast', 'S 13 · M 15 · L 18; every role 7:1.') ] },
+{ id: 'B', name: 'Syntax', color: '#6CB6FF', when: 'After A2', issues: 'new issue', items: [
+t('B1', 'T10', 'Classifier from the parser', 'Role spans for quotes, vectors, $vars, unknown names.'),
+t('B2', 'T11', 'Highlighted input', '≤1 string per keystroke, 0 B idle; instrument validated first.'),
+t('B3', 'Syntax B1–B2', 'Completion, ghost text, signature', 'Aligned list; badge only when kinds mix.'),
+t('B4', 'T13', 'Inline error equals logged error', 'One call; did-you-mean at distance ≤2.') ] },
+{ id: 'C', name: 'Terminal chrome', color: '#FAC062', when: 'After A2 · host for acceptance', issues: '#241–#245 · #194', items: [
+t('C1', 'T5 · host', 'Header, tabs, severity chips', 'Within master budget; real-input acceptance closes #194.', true),
+t('C2', 'T14', 'Quick launch parity', 'Shares B1; S4 defects fixed; identical spans.'),
+t('C3', 'T7 · host', 'Actions with typed inputs', 'Whole flow by gamepad; touch, safe areas. Then the T9 spike.', true),
+t('C4', '#244', 'Watches', 'Pinned values with the same row anatomy.'),
+t('C5', 'T8', 'Motion presets', 'None resolves to 0 ms; Subtle ≤120 ms.') ] },
+{ id: 'D', name: 'Editor', color: '#C2F5D8', when: 'After A2', issues: '#239 · #240 · #246', items: [
+t('D1', 'T6', 'Setup + Project Settings', 'Baseline study first; 5 of 5 under 5 min.'),
+t('D2a', 'T4', 'Inspector: Appearance, Layout', 'UI Toolkit, 96 px labels; 0 clipped at 300 px.'),
+t('D2b', 'T4', 'Inspector: Input, Events', 'Key chips with Record; IMGUI path deleted.'),
+t('D3', '#240', 'Font and theme pack inspectors', 'Theme cards show ratio and Repair.'),
+t('D4', '#246', 'Build profiles', 'Developer, Tester and Player tiers.') ] },
+{ id: 'E', name: 'Ship', color: '#FF7A8E', when: 'After B–D · host', issues: '#236 #234 #235 #237 #247 #282', items: [
+t('E1', 'host', 'Recapture every state', 'S, M and L captures become the record.', true),
+t('E2', '#187 · #233', 'Brand, docs, fonts', 'Emoji payload decided; Pages needs authorization.'),
+t('E3', '#237', 'Session API', 'Breaking changes land before 1.0.'),
+t('E4', 'T13', 'Release acceptance', 'Every matrix leg on final visuals.', true),
+t('E5', 'T14', 'Release rehearsal', 'Blocked on operator setup; publish separately.') ] },
+{ id: '∥', name: 'Parallel', color: '#9AA3AF', when: 'Non-visual · when blocked', issues: '#250 #220 #318 #313 #325', items: [
+t('#250', 'gate', 'Host recovery', 'Unblocks every host item above.'),
+t('#220', 'tooling', 'Typed Python', 'Remaining shell scripts, staged.'),
+t('#318', 'tests', 'No-match test requests', 'Fail promptly; valid runs complete.'),
+t('#313', 'tooling', 'Local iteration', 'Spawns and provenance floor.'),
+t('#325', 'style', 'Braced bodies', 'Mechanical, small batches.') ] }
+] };
+}
+}
+</script>
+</body>
+</html>

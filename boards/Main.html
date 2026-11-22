@@ -1,0 +1,203 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap"><style>
+body{margin:0;background:#0D1117}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style></head><body style="margin:0;background:#0D1117"><div id="root">
+
+<main style="background: #0D1117; color: #C9D2DC; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.55; padding: 72px 24px 96px">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 72px">
+
+<header style="display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: center; gap: 14px">
+<svg width="40" height="40" viewBox="0 0 96 96" aria-hidden="true"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" fill="none" stroke="#5CD68F" stroke-width="4.5" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" fill="none" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round"></line></svg>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8B949E">00 · Design review · 2026-11-22 · epic #228</span>
+</div>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: clamp(36px, 5vw, 60px); line-height: 1.05; letter-spacing: -0.03em; color: #E6EDF3">The plan exists. The look has not shipped yet.</h1>
+<p style="margin: 0; max-width: 760px; font-size: 19px; color: #C9D2DC">Epic #228 already covers the in-game terminal, the inspectors and the editor tooling, with boards, tokens and acceptance tests. Behavior work has landed (selection, severity filters, collapse, gamepad navigation). The visual layer has not: <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #E6EDF3">BaseStyles.uss</span> reads zero <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: #E6EDF3">--dxt-*</span> roles, and all three inspectors are still IMGUI. This board checks that plan against measurements and current practice, and adds what it misses.</p>
+</header>
+
+<section aria-label="Final direction" style="background: #11161D; border: 1px solid #347E52; border-radius: 14px; padding: 28px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<span style="height: 26px; line-height: 26px; padding: 0 10px; border-radius: 6px; background: #12301F; border: 1px solid #347E52; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #E6EDF3">✓ Direction final · 2026-11-22</span>
+<span style="font-size: 14px; color: #8B949E">Changes from here need a new measurement, not a preference.</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: #E6EDF3">Locked decisions</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 0; border: 1px solid #232C38; border-radius: 10px; overflow: hidden">
+<div style="flex: 1 1 340px; padding: 18px 20px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">1 · Tokens</div><div style="font-size: 14px">TOKENS.md roles with four fixes: <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">error-text #FF7A8E</span> (the glyph keeps <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">#EC4661</span>), <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">ink-muted #9AA3AF</span>, and <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">selection-line</span> <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">#347E52</span> on Dark and <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">#4F9068</span> on Paper. Contrast is measured over 3 game backdrops. <a href="ThemeRoles.dc.html">Theme roles</a></div></div>
+<div style="flex: 1 1 340px; padding: 18px 20px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">2 · Syntax</div><div style="font-size: 14px">The parser that runs a line also colors it. Dark uses 4 hues, Paper 3 plus weight, Phosphor weight and italic. Every role also has a cue that is not color. <a href="Syntax.dc.html">Syntax</a></div></div>
+<div style="flex: 1 1 340px; padding: 18px 20px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">3 · Completion</div><div style="font-size: 14px">A vertical list with aligned names, description and group; a type badge only when kinds mix. Ghost text after the caret. A signature line that marks the active argument. Errors show before Enter, with the same text the log gets.</div></div>
+<div style="flex: 1 1 340px; padding: 18px 20px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">4 · Terminal layout</div><div style="font-size: 14px">Direction 1a: 38 px header with tabs, search and severity chips. Rows wrap. 38 px signature line, 44 px input. Echoes use syntax colors. Quick launch shares the input, syntax and errors in a 640 px panel with 40 px rows. <a href="Terminal.dc.html">Terminal</a> · <a href="QuickLaunch.dc.html">Quick launch</a></div></div>
+<div style="flex: 1 1 340px; padding: 18px 20px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">5 · Inspectors</div><div style="font-size: 14px">UI Toolkit, grouped by task. Key chips with <strong style="color: #E6EDF3">Record</strong>. Motion presets <strong style="color: #E6EDF3">None · Subtle · Snappy</strong>. Theme cards show contrast. Each warning has a fix button. <a href="Inspector.dc.html">Inspector</a></div></div>
+<div style="flex: 1 1 340px; padding: 18px 20px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">6 · Accessibility</div><div style="font-size: 14px">Text size S 13 · M 15 · L 18. Dx High Contrast at 7:1. Motion None. Everything reads in grayscale. A screen reader spike decides the roadmap item.</div></div>
+</div>
+<div style="font-size: 14px; color: #8B949E">Delivery: 14 red-green tasks, each with a failing check first. <a href="Experiments.dc.html">Task board</a></div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8B949E">01 · Coverage</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -0.02em; color: #E6EDF3">You asked about three surfaces. All three are in the plan.</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<div style="flex: 1 1 300px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 21px; color: #E6EDF3">In-game terminal</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #8B949E">#238 roles · #241 layout · #242 triage · #243 Actions · #244 Watches · #245 touch, pad</div>
+<p style="margin: 0; font-size: 15px">Landed: log selection and jump (#317), severity filters (#321), collapse (#323), gamepad navigation (#324). Open: the header, tabs and roles that make it look new.</p>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #F4A836"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M7 1 L13 12 H1 Z" fill="#F4A836"></path></svg>Behavior shipped, visuals blocked on #238</div>
+</div>
+<div style="flex: 1 1 300px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 21px; color: #E6EDF3">Custom inspectors</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #8B949E">#240 Inspectors in UI Toolkit</div>
+<p style="margin: 0; font-size: 15px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #E6EDF3">TerminalUIEditor.cs</span> is 1,400 lines with 56 GUILayout calls. Plus font pack (13) and theme pack (6) editors. Board E1 and E4 specify the replacement.</p>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #FF7A8E"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="2" width="10" height="10" fill="#FF7A8E"></rect></svg>Not started · depends on #238, #239</div>
+</div>
+<div style="flex: 1 1 300px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 21px; color: #E6EDF3">Editor tooling</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #8B949E">#239 Setup + Project Settings · #246 Build profiles · #236 Captures</div>
+<p style="margin: 0; font-size: 15px">No menu item, setup window or Project Settings page exists in <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #E6EDF3">Editor/</span> today. Captures (#236) are the instrument every board acceptance test relies on.</p>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #FF7A8E"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="2" width="10" height="10" fill="#FF7A8E"></rect></svg>Not started</div>
+</div>
+</div>
+<p style="margin: 0; font-size: 15px; color: #8B949E">Critical path for "prettier": #238 roles → #241 layout and #240 inspectors in parallel → #236 recapture. Everything visual waits on #238.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8B949E">02 · Measured baseline</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -0.02em; color: #E6EDF3">Most shipped themes fail text contrast once the game shows through</h2>
+<p style="margin: 0; max-width: 780px; font-size: 15px">Method: every <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #E6EDF3">Styles/Themes/*.uss</span> class, 9 text-on-background role pairs each. The terminal surface is translucent, so each pair is composited over black, mid gray and white game backdrops and the worst case is kept. WCAG 2 ratio and APCA Lc are both reported.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 20px 24px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 44px; line-height: 1.1; color: #E6EDF3">115<span style="font-size: 22px; color: #8B949E"> / 126</span></div>
+<div style="font-size: 14px; color: #8B949E">themes with at least one text role under 4.5:1</div>
+</div>
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 20px 24px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 44px; line-height: 1.1; color: #E6EDF3">2.45:1</div>
+<div style="font-size: 14px; color: #8B949E">median of each theme's worst role</div>
+</div>
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 20px 24px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 44px; line-height: 1.1; color: #E6EDF3">416<span style="font-size: 22px; color: #8B949E"> / 1,134</span></div>
+<div style="font-size: 14px; color: #8B949E">role pairs under 4.5:1 (211 under 3:1)</div>
+</div>
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 20px 24px; display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 44px; line-height: 1.1; color: #E6EDF3">1<span style="font-size: 22px; color: #8B949E"> / 27</span></div>
+<div style="font-size: 14px; color: #8B949E">proposed Dx role pairs under 4.5:1</div>
+</div>
+</div>
+
+<figure style="margin: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<figcaption style="font-size: 15px; color: #E6EDF3; font-weight: 600">Themes failing 4.5:1, by role <span style="font-weight: 400; color: #8B949E">(of 126)</span></figcaption>
+<div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">text-error</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 81.7%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">103</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">text-shell</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 78.6%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">99</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">text-input-echo</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 49.2%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">62</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">text-warning</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 38.9%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">49</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">button-selected-text</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 35.7%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">45</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">text-message</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 16.7%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">21</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">button-text</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 14.3%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">18</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">button-hover-text</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 11.9%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">15</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="flex: 0 0 168px; font-family: 'JetBrains Mono', monospace; font-size: 13px">input-text-color</span><span style="flex: 1 1 auto; height: 14px; background: #161C25; border-radius: 4px; display: flex"><span style="width: 3.2%; background: #5B9DFF; border-radius: 0 4px 4px 0"></span></span><span style="flex: 0 0 40px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #E6EDF3">4</span></div>
+</div>
+<div style="font-size: 13px; color: #8B949E">Under APCA, 125 of 126 themes have a role below Lc 60. Script: <span style="font-family: 'JetBrains Mono', monospace">contrast_audit.py</span>, reproducible on any USS sheet.</div>
+</figure>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8B949E">03 · Gaps in the plan</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -0.02em; color: #E6EDF3">Nine additions, each with a test that fails today</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #5A2733; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #FF7A8E; letter-spacing: 0.12em">G1 · BLOCKS #238 ACCEPTANCE</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">Contrast is checked against an opaque surface</div>
+<p style="margin: 0; font-size: 15px">TOKENS.md gives Dx Dark error 5.0:1. The surface is 94% opaque, so over a white scene it drops to <strong style="color: #E6EDF3">4.41:1</strong> and the #238 EditMode test would pass while players see a fail. Make the test composite over three backdrops, and split the role: keep <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">#EC4661</span> for glyphs and chips, use <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #FF7A8E">#FF7A8E</span> for error text (6.62:1 worst case). The selection outline <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">#2B6B45</span> is 2.58:1, under the 3:1 that outlines need. <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">#347E52</span> gives 3.34:1.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G2 · APCA AS A SECOND GATE</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">13 px muted text is legal but weak</div>
+<p style="margin: 0; font-size: 15px">Timestamps and shell rows use <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">#8B949E</span>: 5.36:1 worst case, APCA Lc 42. WCAG 2 stays the gate; add APCA as an advisory column. Raising muted to the family's <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">#9AA3AF</span> gives 6.46:1, Lc 50, at no brand cost.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G3 · XAG 101 / 102</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">Text scale and a 7:1 theme</div>
+<p style="margin: 0; font-size: 15px">Sizes are fixed (log 13 px). Add a <strong style="color: #E6EDF3">Text size</strong> setting (S 13 · M 15 · L 18) that scales rows, and a <strong style="color: #E6EDF3">Dx High Contrast</strong> theme where every role reaches 7:1, as Xbox guideline 102 asks of high-contrast modes.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G4 · 126 LEGACY THEMES</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">Decide what happens to the old set</div>
+<p style="margin: 0; font-size: 15px">#238 adds three new themes but does not say what happens to the 115 failing ones. Proposal: move them to an optional <strong style="color: #E6EDF3">Classic themes</strong> pack, have the converter repair them to 4.5:1 by moving lightness in OKLCH, and show a contrast chip in the picker.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G5 · MOTION</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">Motion presets need "None"</div>
+<p style="margin: 0; font-size: 15px">#240 replaces curves with presets. Ship <strong style="color: #E6EDF3">None · Subtle · Snappy</strong>, default Subtle at 120 ms or less. None sets every transition to 0 ms, and a test reads the resolved duration.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G6 · PERFORMANCE BUDGET</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">A budget for the new chrome, not only the log</div>
+<p style="margin: 0; font-size: 15px">The header, chips and tabs add elements. Set three budgets from a first measurement and fail CI on regressions: VisualElement count when open, main-thread ms for open and first frame, and 0 B/frame when idle with 10,000 lines. The log stays a FixedHeight <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">ListView</span>, so wrapped rows need a measured-height plan.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G7 · VERSION-GATED POLISH</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">Pretty on 2021.3, nicer on 6.3+</div>
+<p style="margin: 0; font-size: 15px">The base design uses only 1 px lines and surface steps, no shadows. On Unity 6.3+ add native SVG glyphs and icons, and an optional backdrop blur filter behind the surface, behind <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">UNITY_6000_3_OR_NEWER</span> guards. The contrast test must not rely on the blur.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G8 · SCREEN READERS (ROADMAP)</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">Expose the log and Actions to assistive tech</div>
+<p style="margin: 0; font-size: 15px">Unity 6's Accessibility module needs a hand-built <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">AccessibilityHierarchy</span>. A time-boxed spike: the newest error, the input row and each Actions <strong style="color: #E6EDF3">Run</strong> button as nodes, tested with TalkBack and VoiceOver. Outcome decides whether it becomes an issue or stays in ROADMAP.</p>
+</div>
+
+<div style="flex: 1 1 480px; min-width: 0; background: #11161D; border: 1px solid #232C38; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8B949E; letter-spacing: 0.12em">G9 · SYNTAX AND COMPLETION</div>
+<div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; color: #E6EDF3">The input line has no color at all</div>
+<p style="margin: 0; font-size: 15px">Nothing in <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px">Runtime/</span> uses rich text, and completions are a horizontal row of buttons. #241 does not cover argument colors, signature help or errors before Enter. The Syntax board defines all three and the tests T10–T13.</p>
+</div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8B949E">04 · Principles from the research</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -0.02em; color: #E6EDF3">What modern developer tools agree on</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 0; border: 1px solid #232C38; border-radius: 14px; overflow: hidden">
+<div style="flex: 1 1 340px; padding: 22px 24px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">Keyboard first, pointer complete</div><div style="font-size: 15px">Warp groups each command with its output and drives everything from the keyboard. Every terminal action gets a key, a pad path and a pointer target of 44 px on touch.</div></div>
+<div style="flex: 1 1 340px; padding: 22px 24px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">Meaning never by color alone</div><div style="font-size: 15px">Each severity has a glyph and a label (■ ▲ · ›). Chips show counts as text. Selection is fill plus outline.</div></div>
+<div style="flex: 1 1 340px; padding: 22px 24px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">Elevation by lightness steps</div><div style="font-size: 15px">Dark UIs read depth from surface steps, not shadow. This fits the 2021.3 USS floor and stays crisp at any scale.</div></div>
+<div style="flex: 1 1 340px; padding: 22px 24px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">Semantic tokens, two layers</div><div style="font-size: 15px">Primitives stay fixed; only the role layer changes per theme. Dark is tuned on its own, not inverted. OKLCH makes lightness edits predictable.</div></div>
+<div style="flex: 1 1 340px; padding: 22px 24px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">Virtualize every list</div><div style="font-size: 15px">ListView makes rows on demand and recycles them on scroll. Keep row height fixed per text size, and never use a horizontal layout in a virtualized list.</div></div>
+<div style="flex: 1 1 340px; padding: 22px 24px; border-bottom: 1px solid #232C38; display: flex; flex-direction: column; gap: 6px"><div style="font-weight: 600; color: #E6EDF3">Inspectors bind, validate, explain</div><div style="font-size: 15px">UI Toolkit binding gives undo for free. Group by task, validate inline with a fix button, and show live Play Mode state, as Odin and Tri Inspector do.</div></div>
+</div>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 24px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8B949E">05 · Method</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -0.02em; color: #E6EDF3">Red first, then green, then record the number</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px"><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #5CD68F">1 · Hypothesis</div><div style="font-size: 15px">One sentence that names a metric and a direction.</div></div>
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px"><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #FF7A8E">2 · Red</div><div style="font-size: 15px">A test, capture diff or audit that fails on master. Commit it first.</div></div>
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px"><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #5CD68F">3 · Green</div><div style="font-size: 15px">The smallest change that passes it, with no other baseline regressions.</div></div>
+<div style="flex: 1 1 200px; background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px"><div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #B5D0FF">4 · Record</div><div style="font-size: 15px">Before and after numbers in the PR. A gate keeps the new floor.</div></div>
+</div>
+<p style="margin: 0; font-size: 15px; color: #8B949E">Instruments already in the repo: golden captures (#236, S1–S6, E1–E4), allocation tests (#108, #111), the MCP capture bridge. New: the contrast audit, an inspector overflow sweep, and a 5-person first-run usability study. Tasks are on the red-green board.</p>
+</section>
+
+<section style="display: flex; flex-direction: column; gap: 16px; border-top: 1px solid #232C38; padding-top: 32px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #8B949E">Sources and caveats</div>
+<ul style="margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 6px">
+<li><a href="https://devdocs.xbox.com/build/game-principles/accessibility/xag-deep-dives/xag-102-contrast.md">Xbox Accessibility Guideline 102: Contrast</a> and <a href="https://learn.microsoft.com/da-dk/gaming/accessibility/xbox-accessibility-guidelines/101">101: Text display</a></li>
+<li><a href="https://github.com/Myndex/apca-introduction">APCA introduction</a>: still a draft for WCAG 3, so it is advisory here</li>
+<li><a href="https://discussions.unity.com/t/ui-toolkit-development-status-and-next-milestones-november-2025/1698009">UI Toolkit status, Nov 2025</a> · <a href="https://docs.unity3d.com/Manual/ui-systems/built-in-filters.html">USS built-in filters (6.3)</a></li>
+<li><a href="https://docs.unity3d.com/Manual/accessibility/module-intro.html">Unity Accessibility module</a> · <a href="https://docs.unity3d.com/Manual/UIE-HowTo-CreateCustomInspector">UI Toolkit custom inspectors</a></li>
+<li><a href="https://docs.unity3d.com/2021.3/Documentation/Manual/UIE-uxml-element-ListView.html">ListView virtualization (2021.3)</a> · <a href="https://docs.warp.dev/terminal/blocks.md">Warp blocks</a> · <a href="https://web.dev/articles/baseline-in-action-color-theme?hl=en">web.dev color themes</a></li>
+<li><a href="https://github.com/codewriter-packages/Tri-Inspector">Tri Inspector</a> · Epic #228 handoff: STYLE.md, TOKENS.md, RESEARCH.md, DX-FAMILY.md</li>
+<li>The DxAudio research was not reachable from this workspace, so this board does not use it.</li>
+</ul>
+</section>
+
+</div>
+</main>
+</div></body></html>

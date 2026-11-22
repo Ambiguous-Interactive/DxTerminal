@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Terminal UI inspector</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style>
+</helmet>
+<div style="width: 400px; height: 1320px; box-sizing: border-box; background: #14171C; color: #C9D2DC; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 12px; display: flex; flex-direction: column">
+
+<div style="height: 32px; display: flex; align-items: center; padding: 0 12px; background: #121519; border-bottom: 1px solid #23282F; font-size: 12px; color: #9AA3AF; gap: 8px">Inspector</div>
+
+<div style="display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #23282F; background: #1B1E24">
+<svg width="28" height="28" viewBox="0 0 96 96" aria-hidden="true"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" fill="none" stroke="#5CD68F" stroke-width="7" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" fill="none" stroke="#B8F2CF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="7" stroke-linecap="round"></line></svg>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 600; color: #E6EDF3">Terminal UI</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3AF">DxTerminal 1.0 · Developer tier</span>
+</div>
+<a href="#docs" aria-label="Open docs for Terminal UI" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #2A2F38; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#C9D2DC" stroke-width="1.4"></circle><path d="M6.2 6.2 a1.9 1.9 0 1 1 2.6 1.8 c-.6.3-.8.6-.8 1.3 M8 11.4 v.2" fill="none" stroke="#C9D2DC" stroke-width="1.4" stroke-linecap="round"></path></svg></a>
+</div>
+
+<div role="status" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #12301F; border-bottom: 1px solid #347E52; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #E6EDF3">
+<svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill="#5CD68F"></circle></svg>
+Play Mode · open (full) · 214 lines · 0 B/frame
+</div>
+
+<div style="margin: 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid #6B4D1A; background: #241C10; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; gap: 8px; align-items: flex-start; color: #F4D9A8; font-size: 12px; line-height: 1.45">
+<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" style="flex: 0 0 14px; margin-top: 2px"><path d="M7 1 L13 12 H1 Z" fill="#F4A836"></path></svg>
+<span>No input controller is on this GameObject. The Input System is active, so the terminal cannot open from a key.</span>
+</div>
+<div style="display: flex; justify-content: flex-end"><button type="button" style="height: 26px; padding: 0 12px; border-radius: 6px; border: 1px solid #8A6424; background: transparent; color: #F4D9A8; font-size: 12px; font-family: inherit">Add Player Input controller</button></div>
+</div>
+
+<div style="display: flex; flex-direction: column">
+
+<button type="button" aria-expanded="true" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #1B2026; border: 0; border-top: 1px solid #23282F; border-bottom: 1px solid #23282F; color: #E6EDF3; font-family: inherit; font-size: 12px; font-weight: 600; text-align: left"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3 L5 7 L8 3" fill="none" stroke="#9AA3AF" stroke-width="1.5"></path></svg>Appearance</button>
+<div style="padding: 12px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="color: #9AA3AF">Theme</span>
+<div role="group" aria-label="Theme" style="display: flex; flex-wrap: wrap; gap: 6px">
+<button type="button" aria-pressed="true" style="flex: 1 1 104px; padding: 8px; border-radius: 8px; border: 1px solid #347E52; background: #12301F; display: flex; flex-direction: column; gap: 6px; text-align: left; font-family: inherit"><span style="display: flex; gap: 3px"><span style="width: 14px; height: 14px; border-radius: 3px; background: #0D1117; border: 1px solid #2A2F38"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #C9D2DC"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #5CD68F"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #FF7A8E"></span></span><span style="color: #E6EDF3; font-size: 12px">Dx Dark</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #B8F2CF">✓ Passes AA</span></button>
+<button type="button" style="flex: 1 1 104px; padding: 8px; border-radius: 8px; border: 1px solid #2A2F38; background: #1B2026; display: flex; flex-direction: column; gap: 6px; text-align: left; font-family: inherit"><span style="display: flex; gap: 3px"><span style="width: 14px; height: 14px; border-radius: 3px; background: #F4F1EA"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #46423A"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #1F7A47"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #C42847"></span></span><span style="color: #C9D2DC; font-size: 12px">Dx Paper</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3AF">✓ Passes AA</span></button>
+<button type="button" style="flex: 1 1 104px; padding: 8px; border-radius: 8px; border: 1px solid #2A2F38; background: #1B2026; display: flex; flex-direction: column; gap: 6px; text-align: left; font-family: inherit"><span style="display: flex; gap: 3px"><span style="width: 14px; height: 14px; border-radius: 3px; background: #07110B; border: 1px solid #2A2F38"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #8FE3B0"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #5CD68F"></span><span style="width: 14px; height: 14px; border-radius: 3px; background: #FF5C74"></span></span><span style="color: #C9D2DC; font-size: 12px">Phosphor</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9AA3AF">✓ Passes AA</span></button>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center"><span style="color: #9AA3AF">+ 126 in Classic themes pack</span><a href="#themes">Browse…</a></div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Font</span><select aria-label="Font" style="flex: 1 1 auto; height: 26px; border-radius: 6px; border: 1px solid #2A2F38; background: #0F1216; color: #E6EDF3; font-family: inherit; font-size: 12px; padding: 0 8px"><option>JetBrains Mono</option></select></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Text size</span>
+<div role="group" aria-label="Text size" style="flex: 1 1 auto; display: flex; border: 1px solid #2A2F38; border-radius: 6px; overflow: hidden">
+<button type="button" aria-pressed="true" style="flex: 1 1 0; height: 26px; border: 0; background: #12301F; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 11px">S 13</button>
+<button type="button" style="flex: 1 1 0; height: 26px; border: 0; border-left: 1px solid #2A2F38; background: #0F1216; color: #C9D2DC; font-family: 'JetBrains Mono', monospace; font-size: 11px">M 15</button>
+<button type="button" style="flex: 1 1 0; height: 26px; border: 0; border-left: 1px solid #2A2F38; background: #0F1216; color: #C9D2DC; font-family: 'JetBrains Mono', monospace; font-size: 11px">L 18</button>
+</div></div>
+</div>
+
+<button type="button" aria-expanded="true" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #1B2026; border: 0; border-top: 1px solid #23282F; border-bottom: 1px solid #23282F; color: #E6EDF3; font-family: inherit; font-size: 12px; font-weight: 600; text-align: left"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3 L5 7 L8 3" fill="none" stroke="#9AA3AF" stroke-width="1.5"></path></svg>Layout</button>
+<div style="padding: 12px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Anchor</span>
+<div role="group" aria-label="Anchor" style="flex: 1 1 auto; display: flex; border: 1px solid #2A2F38; border-radius: 6px; overflow: hidden">
+<button type="button" aria-pressed="true" style="flex: 1 1 0; height: 26px; border: 0; background: #12301F; color: #E6EDF3; font-size: 12px; font-family: inherit">Top</button>
+<button type="button" style="flex: 1 1 0; height: 26px; border: 0; border-left: 1px solid #2A2F38; background: #0F1216; color: #C9D2DC; font-size: 12px; font-family: inherit">Bottom</button>
+<button type="button" style="flex: 1 1 0; height: 26px; border: 0; border-left: 1px solid #2A2F38; background: #0F1216; color: #C9D2DC; font-size: 12px; font-family: inherit">Auto</button>
+</div></div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between"><span style="color: #9AA3AF">Full height</span><span style="font-family: 'JetBrains Mono', monospace; color: #E6EDF3">70%</span></div>
+<div aria-hidden="true" style="height: 4px; border-radius: 2px; background: #2A2F38; position: relative"><div style="width: 70%; height: 4px; border-radius: 2px; background: #5CD68F"></div><div style="position: absolute; left: calc(70% - 7px); top: -5px; width: 14px; height: 14px; border-radius: 7px; background: #E6EDF3"></div></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between"><span style="color: #9AA3AF">Small height</span><span style="font-family: 'JetBrains Mono', monospace; color: #E6EDF3">47% of full</span></div>
+<div aria-hidden="true" style="height: 4px; border-radius: 2px; background: #2A2F38; position: relative"><div style="width: 47%; height: 4px; border-radius: 2px; background: #5CD68F"></div><div style="position: absolute; left: calc(47% - 7px); top: -5px; width: 14px; height: 14px; border-radius: 7px; background: #E6EDF3"></div></div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Motion</span>
+<div role="group" aria-label="Motion" style="flex: 1 1 auto; display: flex; border: 1px solid #2A2F38; border-radius: 6px; overflow: hidden">
+<button type="button" style="flex: 1 1 0; height: 26px; border: 0; background: #0F1216; color: #C9D2DC; font-size: 12px; font-family: inherit">None</button>
+<button type="button" aria-pressed="true" style="flex: 1 1 0; height: 26px; border: 0; border-left: 1px solid #2A2F38; background: #12301F; color: #E6EDF3; font-size: 12px; font-family: inherit">Subtle</button>
+<button type="button" style="flex: 1 1 0; height: 26px; border: 0; border-left: 1px solid #2A2F38; background: #0F1216; color: #C9D2DC; font-size: 12px; font-family: inherit">Snappy</button>
+</div></div>
+<div style="color: #9AA3AF; font-family: 'JetBrains Mono', monospace; font-size: 11px">Subtle: 120 ms ease-out. Replaces 2 curves and 3 times.</div>
+</div>
+
+<button type="button" aria-expanded="true" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #1B2026; border: 0; border-top: 1px solid #23282F; border-bottom: 1px solid #23282F; color: #E6EDF3; font-family: inherit; font-size: 12px; font-weight: 600; text-align: left"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3 L5 7 L8 3" fill="none" stroke="#9AA3AF" stroke-width="1.5"></path></svg>Input</button>
+<div style="padding: 12px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Toggle</span><span style="flex: 1 1 auto; display: flex; gap: 4px; flex-wrap: wrap"><kbd style="height: 22px; line-height: 22px; padding: 0 8px; border-radius: 5px; border: 1px solid #2A2F38; border-bottom-width: 2px; background: #1B2026; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 11px">`</kbd></span><button type="button" style="height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid #2A2F38; background: transparent; color: #C9D2DC; font-size: 11px; font-family: inherit">Record</button></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Full toggle</span><span style="flex: 1 1 auto; display: flex; gap: 4px; align-items: center"><kbd style="height: 22px; line-height: 22px; padding: 0 8px; border-radius: 5px; border: 1px solid #2A2F38; border-bottom-width: 2px; background: #1B2026; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 11px">Shift</kbd><span style="color: #9AA3AF">+</span><kbd style="height: 22px; line-height: 22px; padding: 0 8px; border-radius: 5px; border: 1px solid #2A2F38; border-bottom-width: 2px; background: #1B2026; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 11px">`</kbd></span><button type="button" style="height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid #2A2F38; background: transparent; color: #C9D2DC; font-size: 11px; font-family: inherit">Record</button></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Quick launch</span><span style="flex: 1 1 auto; display: flex; gap: 4px; align-items: center"><kbd style="height: 22px; line-height: 22px; padding: 0 8px; border-radius: 5px; border: 1px solid #2A2F38; border-bottom-width: 2px; background: #1B2026; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 11px">Ctrl</kbd><span style="color: #9AA3AF">+</span><kbd style="height: 22px; line-height: 22px; padding: 0 8px; border-radius: 5px; border: 1px solid #2A2F38; border-bottom-width: 2px; background: #1B2026; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 11px">Space</kbd></span><button type="button" style="height: 24px; padding: 0 10px; border-radius: 6px; border: 1px solid #2A2F38; background: transparent; color: #C9D2DC; font-size: 11px; font-family: inherit">Record</button></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Gamepad</span><span style="flex: 1 1 auto; color: #E6EDF3">Hold View + Menu</span></div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="flex: 0 0 96px; color: #9AA3AF">Hints</span><select aria-label="Hints" style="flex: 1 1 auto; height: 26px; border-radius: 6px; border: 1px solid #2A2F38; background: #0F1216; color: #E6EDF3; font-family: inherit; font-size: 12px; padding: 0 8px"><option>While typing</option></select></div>
+</div>
+
+<button type="button" aria-expanded="false" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #1B2026; border: 0; border-top: 1px solid #23282F; border-bottom: 1px solid #23282F; color: #E6EDF3; font-family: inherit; font-size: 12px; font-weight: 600; text-align: left"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 2 L7 5 L3 8" fill="none" stroke="#9AA3AF" stroke-width="1.5"></path></svg>Session<span style="flex: 1 1 auto"></span><span style="font-weight: 400; color: #9AA3AF">from Project Settings</span></button>
+<div style="padding: 10px 12px; color: #9AA3AF; line-height: 1.5">Buffer, history and log forwarding are project-wide. <a href="#settings">Open Project Settings › DxTerminal</a></div>
+
+<button type="button" aria-expanded="false" style="height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #1B2026; border: 0; border-top: 1px solid #23282F; border-bottom: 1px solid #23282F; color: #E6EDF3; font-family: inherit; font-size: 12px; font-weight: 600; text-align: left"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 2 L7 5 L3 8" fill="none" stroke="#9AA3AF" stroke-width="1.5"></path></svg>Events<span style="flex: 1 1 auto"></span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 400; color: #9AA3AF">Opened · Closed</span></button>
+
+<div style="margin: 16px 12px 0; padding: 12px; border: 1px dashed #2A2F38; border-radius: 8px; color: #9AA3AF; line-height: 1.5">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; color: #9AA3AF; margin-bottom: 6px">DESIGN NOTES · NOT UI</div>
+Bound with SerializedObject, so undo works. Labels at 96 px fixed; controls flex. Overflow sweep at 300, 360 and 480 px must report 0 clipped text. Status line updates at most 4 times a second from cached values.
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":400,"height":1320}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

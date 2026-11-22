@@ -1,0 +1,168 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&amp;display=swap"><style>
+body{margin:0}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style></head><body style="margin:0;background:#0D1117"><div id="root">
+
+<div style="width: 1280px; height: 720px; position: relative; overflow: hidden; background: #8FA3B5; font-family: 'IBM Plex Sans', system-ui, sans-serif">
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: 0; height: 430px; background: #C9D6E2"></div>
+<div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 290px; background: #3E4B36"></div>
+<div aria-hidden="true" style="position: absolute; left: 780px; top: 250px; width: 360px; height: 180px; background: #6B7A8A; border-radius: 8px 8px 0 0"></div>
+<div aria-hidden="true" style="position: absolute; left: 120px; top: 300px; width: 220px; height: 130px; background: #EDF1F5; border-radius: 6px"></div>
+<div style="position: absolute; right: 24px; bottom: 20px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #E9EEF4; background: rgba(13,17,23,0.7); padding: 4px 8px; border-radius: 6px">Game view · bright sky behind a translucent surface</div>
+
+<section aria-label="DxTerminal" style="position: absolute; left: 0; top: 0; width: 1280px; height: 504px; display: flex; flex-direction: column; background: rgba(13,17,23,0.94); border-bottom: 1px solid #232C38; color: #C9D2DC">
+
+<header style="height: 38px; flex: 0 0 38px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 16px; border-bottom: 1px solid #232C38">
+<svg width="20" height="20" viewBox="0 0 96 96" aria-hidden="true"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" fill="none" stroke="#5CD68F" stroke-width="7" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" fill="none" stroke="#B8F2CF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="7" stroke-linecap="round"></line></svg>
+<nav aria-label="Terminal views" style="display: flex; gap: 4px">
+<button type="button" aria-pressed="true" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid #347E52; background: #12301F; color: #E6EDF3; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; cursor: pointer">Log <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3AF">214</span></button>
+<button type="button" aria-pressed="false" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #C9D2DC; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer">Actions</button>
+<button type="button" aria-pressed="false" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #C9D2DC; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; cursor: pointer">Watches <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA3AF">4</span></button>
+</nav>
+<div style="flex: 1 1 auto"></div>
+<label style="display: flex; align-items: center; gap: 8px; height: 28px; width: 260px; padding: 0 10px; border-radius: 6px; background: #0A0E13; border: 1px solid #232C38">
+<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="#9AA3AF" stroke-width="1.6"></circle><line x1="11" y1="11" x2="14.5" y2="14.5" stroke="#9AA3AF" stroke-width="1.6" stroke-linecap="round"></line></svg>
+<input type="text" aria-label="Search log" placeholder="Search log  ( / )" style="flex: 1 1 auto; min-width: 0; background: transparent; border: 0; outline: none; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+</label>
+<div role="group" aria-label="Severity filters" style="display: flex; gap: 6px">
+<button type="button" aria-pressed="true" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #232C38; background: #161C25; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer"><span aria-hidden="true" style="color: #EC4661">■</span><span style="text-decoration: none">3 Errors</span></button>
+<button type="button" aria-pressed="true" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #232C38; background: #161C25; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer"><span aria-hidden="true" style="color: #F4A836">▲</span><span style="text-decoration: none">12 Warnings</span></button>
+<button type="button" aria-pressed="true" style="height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid #232C38; background: #161C25; color: #E6EDF3; font-family: 'JetBrains Mono', monospace; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer"><span aria-hidden="true">·</span><span style="text-decoration: none">199 Messages</span></button>
+</div>
+<div style="width: 1px; height: 22px; background: #232C38"></div>
+<button type="button" aria-label="Small size" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #232C38; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="6" rx="1.5" fill="none" stroke="#C9D2DC" stroke-width="1.5"></rect></svg></button>
+<button type="button" aria-label="Close terminal" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #232C38; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4 L12 12 M12 4 L4 12" stroke="#C9D2DC" stroke-width="1.5" stroke-linecap="round"></path></svg></button>
+</header>
+
+
+<div role="log" aria-label="Log" style="flex: 1 1 auto; min-height: 0; overflow: hidden; padding: 6px 0; display: flex; flex-direction: column; font-family: 'JetBrains Mono', monospace; font-size: 13px">
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:31.204</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #5CD68F">›</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #E6EDF3; font-weight: 700">spawn</span><span style="color: #C9D2DC; font-weight: 400"> </span><span style="color: #C2F5D8; font-weight: 500">goblin</span><span style="color: #C9D2DC; font-weight: 400"> </span><span style="color: #6CB6FF; font-weight: 400">3</span></span>
+
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:31.205</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #9AA3AF">·</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #C9D2DC; font-weight: 400">Spawned 3 × goblin at (12.0, 0.0, -4.5)</span></span>
+
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:31.880</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #F4A836">▲</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #F4A836; font-weight: 400">NavMesh agent 'goblin_02' is not on a NavMesh</span></span>
+<span style="flex: 0 0 auto; padding: 0 7px; height: 18px; line-height: 18px; border-radius: 9px; background: #1D2530; border: 1px solid #232C38; color: #E6EDF3; font-size: 11px">×3</span>
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:32.016</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #9AA3AF">·</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #C9D2DC; font-weight: 400">Wave 4 started: 18 enemies</span></span>
+
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: #161C25; border-top: 1px solid #232C38; border-bottom: 1px solid #232C38">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:33.441</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #EC4661">■</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #FF7A8E; font-weight: 400">NullReferenceException: Object reference not set to an instance of an object</span></span>
+
+</div>
+
+<div style="padding: 2px 16px 10px 136px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #C9D2DC">
+<div>at EnemyBrain.Tick () <span style="color: #9AA3AF">Assets/Scripts/AI/EnemyBrain.cs:88</span></div>
+<div>at WaveDirector.Update () <span style="color: #9AA3AF">Assets/Scripts/Waves/WaveDirector.cs:142</span></div>
+<div style="display: flex; gap: 8px; margin-top: 8px">
+<button type="button" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #232C38; background: #161C25; color: #C9D2DC; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; cursor: pointer">Copy line</button>
+<button type="button" style="height: 26px; padding: 0 10px; border-radius: 6px; border: 1px solid #232C38; background: #161C25; color: #C9D2DC; font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; cursor: pointer">Copy with trace</button>
+</div>
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:34.002</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #9AA3AF">·</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #C9D2DC; font-weight: 400">Autosave written: slot_2 (14.2 KB)</span></span>
+
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:35.310</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #5CD68F">›</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #E6EDF3; font-weight: 700">time-scale</span><span style="color: #C9D2DC; font-weight: 400"> </span><span style="color: #6CB6FF; font-weight: 400">0.5</span></span>
+
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:35.311</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #9AA3AF"></span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #9AA3AF; font-weight: 400">Time scale is 0.5</span></span>
+
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:36.118</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #F4A836">▲</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #F4A836; font-weight: 400">Audio clip 'amb_cave' has no loop points; the full clip loops</span></span>
+
+</div>
+
+</div>
+
+<div style="display: flex; flex-direction: column; background: transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent">
+<div style="min-height: 22px; display: flex; align-items: flex-start; gap: 12px; padding: 2px 16px; box-sizing: border-box; line-height: 18px">
+<span style="flex: 0 0 96px; color: #9AA3AF; font-size: 12px">12:04:36.900</span>
+<span aria-hidden="true" style="flex: 0 0 12px; text-align: center; color: #9AA3AF">·</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere"><span style="color: #C9D2DC; font-weight: 400">Player entered zone Crypt_B</span></span>
+
+</div>
+
+</div>
+
+</div>
+
+
+
+
+<div style="height: 38px; flex: 0 0 38px; display: flex; align-items: center; gap: 0; padding: 0 16px; border-top: 1px solid #232C38; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; white-space: pre">
+<span style="color: #E6EDF3; font-weight: 700">spawn </span><span style="color: #9AA3AF">prefab: </span><span style="color: #C2F5D8; font-weight: 500">goblin|ghoul|golem</span><span style="color: #9AA3AF">  </span><span style="padding: 1px 6px; border-radius: 4px; background: #12301F; border: 1px solid #347E52; color: #E6EDF3">[count: <span style="color: #6CB6FF">int 1–50</span> = 1]</span><span style="color: #9AA3AF">  [at: </span><span style="color: #6CB6FF">Vector3</span><span style="color: #9AA3AF"> = player]</span>
+<span style="flex: 1 1 auto"></span>
+<span style="font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: #9AA3AF">Spawns enemies at a point</span>
+</div>
+
+<div style="height: 44px; flex: 0 0 44px; display: flex; align-items: center; gap: 0; padding: 0 16px; background: #0A0E13; border-top: 1px solid #232C38; font-family: 'JetBrains Mono', monospace; font-size: 15px; white-space: pre">
+<span aria-hidden="true" style="color: #5CD68F; font-weight: 700">› </span><span style="color: #E6EDF3; font-weight: 700">spawn</span><span> </span><span style="color: #C2F5D8; font-weight: 500">goblin</span><span> </span><span aria-hidden="true" style="display: inline-block; width: 2px; height: 18px; background: #5CD68F"></span><span style="color: #9AA3AF; font-style: italic">1</span>
+<span style="flex: 1 1 auto"></span>
+<span style="font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; color: #9AA3AF">Tab complete · ↑ history · Esc close</span>
+</div>
+</section>
+</div>
+</div></body></html>

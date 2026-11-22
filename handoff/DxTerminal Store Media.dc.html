@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0A0D12;color:#C9D2DC;-webkit-font-smoothing:antialiased}
+a{color:#5CD68F;text-decoration:none}
+a:hover{color:#B8F2CF;text-decoration:underline}
+</style>
+</helmet>
+<div style="width:4928px;padding:40px 64px 80px;box-sizing:border-box;background:#0A0D12;font-family:'IBM Plex Sans',sans-serif;display:flex;flex-direction:column;gap:40px;">
+  <nav style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.06em;">
+    <span style="color:#6B7480;margin-right:12px;text-transform:uppercase;letter-spacing:0.22em;">DxTerminal handoff</span>
+    <a href="DxTerminal%20Brand.dc.html" style="color:#8B949E;padding:5px 10px;">Brand</a>
+    <a href="DxTerminal%20Directions.dc.html" style="color:#8B949E;padding:5px 10px;">Directions</a>
+    <a href="DxTerminal%20States.dc.html" style="color:#8B949E;padding:5px 10px;">States</a>
+    <a href="DxTerminal%20Editor.dc.html" style="color:#8B949E;padding:5px 10px;">Editor</a>
+    <a href="DxTerminal%20Docs%20Site.dc.html" style="color:#8B949E;padding:5px 10px;">Docs site</a>
+    <a href="DxTerminal%20Store%20Media.dc.html" style="color:#E6EDF3;background:#12301F;border:1px solid #2B6B45;border-radius:6px;padding:5px 10px;">Store media</a>
+  </nav>
+  <div style="max-width:1300px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:0.22em;text-transform:uppercase;color:#6B7480;">Store media · artboards at export size</div>
+    <h1 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:44px;letter-spacing:-0.02em;color:#E6EDF3;margin:12px 0 0;">Key images, banner, and screenshot templates.</h1>
+    <p style="font-size:17px;line-height:1.6;color:#AEB7C2;margin:14px 0 0;text-wrap:pretty;">Text follows the store rules: the icon has none, the card has the title and publisher, the cover adds the tagline. Terminal rows are drawn as bars so key images carry no other text. Screenshots are 2400×1600 templates; the capture tests fill the slots. Export as 24-bit PNG without alpha.</p>
+  </div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;">Icon · 160×160 · no text</div>
+      <div id="store-icon" data-screen-label="Icon" style="width:160px;height:160px;background:#0D1117;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 96 96" width="124" height="124" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="5.5" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" stroke="#B8F2CF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="5.5" stroke-linecap="round"></line></svg>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;">Card · 420×280 · title and publisher</div>
+      <div id="store-card" data-screen-label="Card" style="width:420px;height:280px;background:#0D1117;position:relative;overflow:hidden;">
+        <div style="position:absolute;left:0;top:0;width:100%;height:136px;background:#11161D;border-bottom:1px solid #232C38;display:flex;flex-direction:column;justify-content:flex-end;">
+          <div style="padding:0 18px 8px;display:flex;flex-direction:column;gap:7px;">
+            <div style="display:flex;gap:8px;align-items:center;"><span style="width:34px;height:5px;border-radius:3px;background:#2A3340;"></span><span style="width:150px;height:5px;border-radius:3px;background:#C9D2DC;opacity:0.55;"></span></div>
+            <div style="display:flex;gap:8px;align-items:center;"><span style="width:34px;height:5px;border-radius:3px;background:#2A3340;"></span><span style="width:190px;height:5px;border-radius:3px;background:#F4A836;"></span></div>
+            <div style="display:flex;gap:8px;align-items:center;"><span style="width:34px;height:5px;border-radius:3px;background:#2A3340;"></span><span style="width:120px;height:5px;border-radius:3px;background:#EC4661;"></span></div>
+            <div style="display:flex;gap:8px;align-items:center;"><span style="width:34px;height:5px;border-radius:3px;background:#2A3340;"></span><span style="width:96px;height:5px;border-radius:3px;background:#B8F2CF;"></span></div>
+          </div>
+          <div style="height:30px;display:flex;align-items:center;gap:8px;padding:0 18px;background:#0A0E13;border-top:1px solid #232C38;"><svg viewBox="0 0 20 20" width="12" height="12" fill="none"><polyline points="5,4 12,10 5,16" stroke="#5CD68F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline></svg><span style="width:110px;height:6px;border-radius:3px;background:#E6EDF3;opacity:0.85;"></span><span style="width:7px;height:14px;background:#5CD68F;"></span></div>
+        </div>
+        <div style="position:absolute;left:22px;bottom:24px;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:12px;"><svg viewBox="0 0 96 96" width="46" height="46" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="6" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" stroke="#B8F2CF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="6" stroke-linecap="round"></line></svg><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:38px;color:#E6EDF3;letter-spacing:-0.02em;">Dx<span style="color:#5CD68F;">Terminal</span></span></div>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#8B949E;">Ambiguous Interactive</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;">Social · 1200×630 · also the docs og:image</div>
+      <div id="store-social" data-screen-label="Social" style="width:1200px;height:630px;background:#0D1117;position:relative;overflow:hidden;display:flex;align-items:center;">
+        <div style="padding:0 0 0 88px;display:flex;flex-direction:column;gap:22px;width:640px;">
+          <div style="display:flex;align-items:center;gap:20px;"><svg viewBox="0 0 96 96" width="92" height="92" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="4.5" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round"></line></svg><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:78px;color:#E6EDF3;letter-spacing:-0.03em;">Dx<span style="color:#5CD68F;">Terminal</span></span></div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:36px;color:#C9D2DC;letter-spacing:-0.01em;">Your game, one command away.</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:20px;letter-spacing:0.12em;text-transform:uppercase;color:#8B949E;">Unity 2021.3+ · MIT · Free</div>
+        </div>
+        <div style="position:absolute;right:-40px;top:96px;width:520px;height:438px;background:#11161D;border:1px solid #232C38;border-radius:14px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;">
+          <div style="padding:0 28px 18px;display:flex;flex-direction:column;gap:16px;">
+            <div style="display:flex;gap:14px;align-items:center;"><span style="width:60px;height:9px;border-radius:5px;background:#2A3340;"></span><span style="width:240px;height:9px;border-radius:5px;background:#C9D2DC;opacity:0.55;"></span></div>
+            <div style="display:flex;gap:14px;align-items:center;"><span style="width:60px;height:9px;border-radius:5px;background:#2A3340;"></span><span style="width:300px;height:9px;border-radius:5px;background:#F4A836;"></span></div>
+            <div style="display:flex;gap:14px;align-items:center;"><span style="width:60px;height:9px;border-radius:5px;background:#2A3340;"></span><span style="width:210px;height:9px;border-radius:5px;background:#EC4661;"></span></div>
+            <div style="display:flex;gap:14px;align-items:center;"><span style="width:60px;height:9px;border-radius:5px;background:#2A3340;"></span><span style="width:160px;height:9px;border-radius:5px;background:#B8F2CF;"></span></div>
+            <div style="display:flex;gap:14px;align-items:center;"><span style="width:60px;height:9px;border-radius:5px;background:#2A3340;"></span><span style="width:260px;height:9px;border-radius:5px;background:#8B949E;opacity:0.7;"></span></div>
+            <div style="display:flex;gap:10px;padding-left:74px;"><span style="width:80px;height:24px;border-radius:6px;background:#12301F;border:1px solid #2B6B45;"></span><span style="width:96px;height:24px;border-radius:6px;background:#161C25;border:1px solid #232C38;"></span><span style="width:70px;height:24px;border-radius:6px;background:#161C25;border:1px solid #232C38;"></span></div>
+          </div>
+          <div style="height:58px;display:flex;align-items:center;gap:14px;padding:0 28px;background:#0A0E13;border-top:1px solid #232C38;"><svg viewBox="0 0 20 20" width="20" height="20" fill="none"><polyline points="5,4 12,10 5,16" stroke="#5CD68F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></polyline></svg><span style="width:190px;height:10px;border-radius:5px;background:#E6EDF3;opacity:0.85;"></span><span style="width:12px;height:26px;background:#5CD68F;"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;">README banner · 1280×320 · PNG, renders on GitHub</div>
+      <div id="readme-banner" data-screen-label="README banner" style="width:1280px;height:320px;background:#0D1117;position:relative;overflow:hidden;display:flex;align-items:center;gap:34px;padding:0 72px;box-sizing:border-box;">
+        <svg viewBox="0 0 96 96" width="132" height="132" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="4.5" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round"></line></svg>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:72px;line-height:1;color:#E6EDF3;letter-spacing:-0.03em;">Dx<span style="color:#5CD68F;">Terminal</span></span>
+          <span style="font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:28px;color:#C9D2DC;">Your game, one command away.</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:0.14em;text-transform:uppercase;color:#8B949E;">In-game console for Unity · 2021.3+ · MIT · Free</span>
+        </div>
+        <div style="position:absolute;right:56px;top:64px;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;gap:12px;align-items:center;"><span style="width:48px;height:8px;border-radius:4px;background:#2A3340;"></span><span style="width:170px;height:8px;border-radius:4px;background:#C9D2DC;opacity:0.5;"></span></div>
+          <div style="display:flex;gap:12px;align-items:center;"><span style="width:48px;height:8px;border-radius:4px;background:#2A3340;"></span><span style="width:210px;height:8px;border-radius:4px;background:#F4A836;"></span></div>
+          <div style="display:flex;gap:12px;align-items:center;"><span style="width:48px;height:8px;border-radius:4px;background:#2A3340;"></span><span style="width:140px;height:8px;border-radius:4px;background:#EC4661;"></span></div>
+          <div style="display:flex;gap:12px;align-items:center;"><span style="width:48px;height:8px;border-radius:4px;background:#2A3340;"></span><span style="width:120px;height:8px;border-radius:4px;background:#B8F2CF;"></span></div>
+          <div style="display:flex;gap:12px;align-items:center;margin-top:6px;"><svg viewBox="0 0 20 20" width="16" height="16" fill="none"><polyline points="5,4 12,10 5,16" stroke="#5CD68F" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></polyline></svg><span style="width:130px;height:8px;border-radius:4px;background:#E6EDF3;opacity:0.85;"></span><span style="width:9px;height:20px;background:#5CD68F;"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;">Cover · 1950×1300 · title, publisher, tagline</div>
+    <div id="store-cover" data-screen-label="Cover" style="width:1950px;height:1300px;background:#0D1117;position:relative;overflow:hidden;">
+      <div style="position:absolute;left:0;top:0;width:100%;height:600px;background:#11161D;border-bottom:2px solid #232C38;display:flex;flex-direction:column;">
+        <div style="height:84px;flex:none;display:flex;align-items:center;gap:16px;padding:0 64px;border-bottom:2px solid #1A212B;">
+          <span style="width:140px;height:40px;border-radius:10px;background:#12301F;border:2px solid #2B6B45;"></span>
+          <span style="width:150px;height:40px;border-radius:10px;"></span>
+          <span style="flex:1;"></span>
+          <span style="width:120px;height:40px;border-radius:10px;background:#161C25;border:2px solid #232C38;display:flex;align-items:center;justify-content:center;"><span style="width:50px;height:10px;border-radius:5px;background:#C9D2DC;opacity:0.6;"></span></span>
+          <span style="width:120px;height:40px;border-radius:10px;background:#161C25;border:2px solid #232C38;display:flex;align-items:center;justify-content:center;"><span style="width:50px;height:10px;border-radius:5px;background:#F4A836;"></span></span>
+          <span style="width:120px;height:40px;border-radius:10px;background:#161C25;border:2px solid #232C38;display:flex;align-items:center;justify-content:center;"><span style="width:50px;height:10px;border-radius:5px;background:#EC4661;"></span></span>
+        </div>
+        <div style="flex:1;padding:44px 64px 0;display:flex;flex-direction:column;gap:30px;">
+          <div style="display:flex;gap:28px;align-items:center;"><span style="width:200px;height:16px;border-radius:8px;background:#2A3340;"></span><span style="width:16px;height:16px;border-radius:4px;background:#C9D2DC;opacity:0.6;"></span><span style="width:560px;height:16px;border-radius:8px;background:#C9D2DC;opacity:0.5;"></span></div>
+          <div style="display:flex;gap:28px;align-items:center;"><span style="width:200px;height:16px;border-radius:8px;background:#2A3340;"></span><span style="width:16px;height:16px;border-radius:4px;background:#F4A836;"></span><span style="width:720px;height:16px;border-radius:8px;background:#F4A836;"></span><span style="width:70px;height:28px;border-radius:14px;background:#1D2530;border:2px solid #2A3340;"></span></div>
+          <div style="display:flex;gap:28px;align-items:center;"><span style="width:200px;height:16px;border-radius:8px;background:#2A3340;"></span><span style="width:16px;height:16px;border-radius:4px;background:#EC4661;"></span><span style="width:640px;height:16px;border-radius:8px;background:#EC4661;"></span></div>
+          <div style="display:flex;gap:28px;align-items:center;"><span style="width:200px;height:16px;border-radius:8px;background:#2A3340;"></span><span style="width:16px;height:16px;border-radius:4px;background:#5CD68F;"></span><span style="width:380px;height:16px;border-radius:8px;background:#B8F2CF;"></span></div>
+          <div style="display:flex;gap:28px;align-items:center;"><span style="width:200px;height:16px;border-radius:8px;background:#2A3340;"></span><span style="width:16px;height:16px;"></span><span style="width:470px;height:16px;border-radius:8px;background:#8B949E;opacity:0.7;"></span></div>
+        </div>
+        <div style="height:66px;flex:none;display:flex;align-items:center;gap:18px;padding:0 64px;">
+          <span style="width:150px;height:42px;border-radius:10px;background:#12301F;border:2px solid #2B6B45;"></span>
+          <span style="width:190px;height:42px;border-radius:10px;background:#161C25;border:2px solid #232C38;"></span>
+          <span style="width:130px;height:42px;border-radius:10px;background:#161C25;border:2px solid #232C38;"></span>
+        </div>
+        <div style="height:110px;flex:none;display:flex;align-items:center;gap:26px;padding:0 64px;background:#0A0E13;border-top:2px solid #232C38;"><svg viewBox="0 0 20 20" width="40" height="40" fill="none"><polyline points="5,4 12,10 5,16" stroke="#5CD68F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></polyline></svg><span style="width:440px;height:18px;border-radius:9px;background:#E6EDF3;opacity:0.85;"></span><span style="width:20px;height:50px;background:#5CD68F;"></span><span style="width:120px;height:18px;border-radius:9px;background:#5F6873;"></span></div>
+      </div>
+      <div style="position:absolute;left:140px;top:720px;display:flex;flex-direction:column;gap:36px;">
+        <div style="display:flex;align-items:center;gap:44px;"><svg viewBox="0 0 96 96" width="200" height="200" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="4.5" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round"></line></svg><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:190px;line-height:1;color:#E6EDF3;letter-spacing:-0.035em;">Dx<span style="color:#5CD68F;">Terminal</span></span></div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:68px;color:#C9D2DC;letter-spacing:-0.015em;">Your game, one command away.</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:30px;letter-spacing:0.16em;text-transform:uppercase;color:#8B949E;">Ambiguous Interactive</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:64px;align-items:flex-start;">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;">Screenshot 01 · 2400×1600 · caption band 300 + capture 1300</div>
+      <div id="store-shot-01" data-screen-label="Screenshot 01" style="width:2400px;height:1600px;background:#0D1117;display:flex;flex-direction:column;">
+        <div style="height:300px;flex:none;display:flex;align-items:center;gap:56px;padding:0 120px;">
+          <svg viewBox="0 0 96 96" width="120" height="120" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="4.5" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round"></line></svg>
+          <div style="display:flex;flex-direction:column;gap:16px;"><span style="font-family:'JetBrains Mono',monospace;font-size:30px;letter-spacing:0.2em;text-transform:uppercase;color:#6B7480;">01 · Typed commands</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:84px;line-height:1;color:#E6EDF3;letter-spacing:-0.03em;">Tab completes names and values.</span></div>
+        </div>
+        <div style="flex:1;background:repeating-linear-gradient(135deg,#161C25 0 22px,#121820 22px 44px);display:flex;align-items:flex-end;padding:40px;box-sizing:border-box;font-family:'JetBrains Mono',monospace;font-size:30px;color:#6B7480;">capture · CapturesStoreCompletion · 2400×1300 · state S1 small, completion open</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8B949E;">Screenshot 02 · 2400×1600 · same template</div>
+      <div id="store-shot-02" data-screen-label="Screenshot 02" style="width:2400px;height:1600px;background:#0D1117;display:flex;flex-direction:column;">
+        <div style="height:300px;flex:none;display:flex;align-items:center;gap:56px;padding:0 120px;">
+          <svg viewBox="0 0 96 96" width="120" height="120" fill="none"><polygon points="88,48 68,82.64 28,82.64 8,48 28,13.36 68,13.36" stroke="#5CD68F" stroke-width="4.5" stroke-linejoin="round"></polygon><polyline points="30,35 44,48 30,61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline><line x1="52" y1="61" x2="66" y2="61" stroke="#B8F2CF" stroke-width="4" stroke-linecap="round"></line></svg>
+          <div style="display:flex;flex-direction:column;gap:16px;"><span style="font-family:'JetBrains Mono',monospace;font-size:30px;letter-spacing:0.2em;text-transform:uppercase;color:#6B7480;">02 · Actions</span><span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:84px;line-height:1;color:#E6EDF3;letter-spacing:-0.03em;">Testers run commands as forms.</span></div>
+        </div>
+        <div style="flex:1;background:repeating-linear-gradient(135deg,#161C25 0 22px,#121820 22px 44px);display:flex;align-items:flex-end;padding:40px;box-sizing:border-box;font-family:'JetBrains Mono',monospace;font-size:30px;color:#6B7480;">capture · CapturesStoreActions · 2400×1300 · state S2</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="width:1300px;background:#11161D;border:1px solid #232C38;border-radius:16px;padding:30px 34px;box-sizing:border-box;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:0.22em;text-transform:uppercase;color:#6B7480;">Screenshot set · 6 · same template</div>
+    <div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:10px 20px;margin-top:16px;font-size:15px;line-height:1.5;">
+      <span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">01</span><span style="color:#E6EDF3;">Tab completes names and values.</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">CapturesStoreCompletion · S1</span>
+      <span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">02</span><span style="color:#E6EDF3;">Testers run commands as forms.</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">CapturesStoreActions · S2</span>
+      <span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">03</span><span style="color:#E6EDF3;">Filter, search, and collapse the log.</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">CapturesStoreTriage · S1 full</span>
+      <span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">04</span><span style="color:#E6EDF3;">Pin live values to a HUD.</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">CapturesStoreWatches · S3</span>
+      <span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">05</span><span style="color:#E6EDF3;">Works with touch and gamepads.</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">CapturesStoreTouch · S5 + S6</span>
+      <span style="font-family:'JetBrains Mono',monospace;color:#5CD68F;">06</span><span style="color:#E6EDF3;">Each build ships only the commands you choose.</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#8B949E;">CapturesStoreBuildProfiles · E3</span>
+    </div>
+    <p style="font-size:14px;line-height:1.6;color:#8B949E;margin:16px 0 0;">Screenshot 06 shows an editor window; the other five show the game view, so the set is not only Editor screenshots.</p>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

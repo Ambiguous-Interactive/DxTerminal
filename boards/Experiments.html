@@ -1,0 +1,190 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap"><style>
+body{margin:0}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style></head><body style="margin:0;background:#0D1117"><div id="root">
+
+<div style="width: 1280px; height: 2240px; box-sizing: border-box; padding: 56px 64px; background: #0D1117; color: #C9D2DC; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 32px">
+<header style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: #8B949E">06 · RED-GREEN TASK BOARD</span>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 40px; letter-spacing: -0.02em; color: #E6EDF3">Fourteen tasks. Each starts with a failing check.</h1>
+<p style="margin: 0; max-width: 820px; font-size: 16px">Commit the red check first, then the change. Record before and after in the PR. The order follows dependencies: T1 and T2 unblock #238, and every visual task waits on #238.</p>
+<div style="display: flex; gap: 20px; font-size: 13px; color: #8B949E">
+<span style="display: flex; align-items: center; gap: 6px"><span style="color: #FF7A8E">■</span> Red: fails on master today</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="color: #5CD68F">✓</span> Green: pass condition</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="color: #B5D0FF">◆</span> Metric to record</span>
+</div>
+</header>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T1</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#238 · G1</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Translucency-aware contrast test</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Checking roles over three game backdrops catches fails that the opaque-surface check misses.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · EditMode test composites --dxt-surface over black, mid gray and white. Dx Dark error is 4.41:1 and the selection outline is 2.58:1.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · Every text role is at least 4.5:1 and every outline at least 3:1 in all shipped themes.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>worst ratio per role, per theme</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T2</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#238 · G4</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Triage the 126 legacy themes</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">An OKLCH lightness repair fixes most failing themes and keeps their hue.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · Run contrast_audit.py on Styles/Themes: 115 of 126 themes fail.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · The shipped set passes T1. Classic pack themes are repaired or labeled with their ratio in the picker.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>themes passing; mean ΔE of repaired colors</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T3</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">new · G3</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Text size and Dx High Contrast</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">A three-step text size and a 7:1 theme meet XAG 101 and 102 at a small layout cost.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · No text-size setting exists. No theme reaches 7:1 on every role.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · S, M and L sizes keep rows virtualized. High Contrast passes 7:1. Captures exist at each size.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>rows visible per size; min ratio</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T4</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#240</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Inspector overflow sweep</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Fixed 96 px labels with flexible controls remove clipping at narrow Inspector widths.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · An editor test sets the Inspector to 300 px and finds elements whose text is wider than their resolved width. IMGUI fails ("Set T...").</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · 0 clipped elements at 300, 360 and 480 px for all 5 inspectors.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>clipped elements per width</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T5</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#241 · #242 · G6</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Chrome performance budget</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Header, tabs and chips add less than the budget to open cost and nothing per idle frame.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · Record the master numbers first: element count when open, open ms, first-frame ms, bytes per idle frame with 10,000 lines.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · New layout stays within the budget the first measurement sets. Idle stays at 0 B/frame.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>VisualElements · ms open · B/frame</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T6</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#239</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">First-run usability study</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Menu-item setup lets a new user run a custom command within 5 minutes.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · Baseline: 5 participants follow install.md on master. Record time and blockers.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · 5 of 5 participants finish within 5 minutes with the new flow. Median time drops.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>time on task · errors · SUS score</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T7</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#245</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Gamepad-only Actions flow</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Every Actions control can be reached and run with a pad alone.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · An InputTestFixture test drives a virtual gamepad from toggle to Run on heal and fails to reach Run.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · Open, pick group, set values, Run, close: all with the pad. Focus ring is always visible.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>pad presses to Run; focus-lost events</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T8</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#240 · G5</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Motion presets with None</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Presets replace curves without loss, and None removes all motion.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · No None option exists. A test reads resolved transition durations and finds them above 0.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · None: every duration is 0 ms. Subtle: 120 ms or less. The open state is the same for all presets.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>max resolved duration per preset</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T9</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">ROADMAP · G8</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Screen reader spike</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">A small AccessibilityHierarchy makes the newest error and the Run buttons reachable.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · With TalkBack or VoiceOver on, nothing in the terminal is announced.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · The newest error, the input row and each Run button are announced. Decide: issue or roadmap.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>elements announced; time box 2 days</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T10</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">new · Syntax board</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Highlight from the parser, not a regex</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Classifying tokens with CommandTokenizer and CommandArgument.TryParse keeps color and execution in step.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · A table test of input lines (quotes, unclosed quotes, vectors, $variables, unknown commands) expects a role per span. There is no highlighter, so every case fails.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · Every span gets the expected role. The same lines run with the same argument split.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>cases passing; spans per line</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T11</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">new · G6</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Keystroke cost of highlighting</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Rebuilding the rich-text label only on value change costs one string per keystroke.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · An allocation test types 40 characters and then idles 300 frames. Record master first.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · At most 1 string allocation per keystroke above master. 0 B per idle frame.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>B per keystroke · B per idle frame</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T12</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">new · #238</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Syntax palette gate</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">The colorblind check and the contrast check catch a bad syntax color before it ships.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · A test runs both checks on every shipped theme. A 5-hue dark set fails with protan ΔE 0.9.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · Every pair is ΔE 8 or more, or 6 to 8 with a second cue. Every role is 4.5:1 or more over 3 backdrops.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>worst ΔE · worst ratio per theme</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T13</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">new · Syntax B3</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Inline error equals logged error</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">The message under the input and the log line on Enter come from one call.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · A test compares the inline message for spawn goblin 80 with the logged error. No inline message exists yet.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · Same text for range, choice, type, unknown-command and quote cases. Did-you-mean appears only for edit distance 2 or less.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>mismatched cases</span></div>
+</article>
+
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">T14</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">#241 · Quick launch</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">Quick launch parity and S4 capture</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">Quick launch and the terminal render one line identically because they share one highlighter.</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · Capture S4 shows blue-on-blue selection, a label on the row edge, a stray block and the caret outside. A test typing the same line into both finds no spans in either.</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · S4 matches the board at 40 px rows. Both surfaces produce identical role spans for the T10 cases.</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>S4 pixel diff · mismatched spans</span></div>
+</article>
+
+</div>
+</div>
+</div></body></html>

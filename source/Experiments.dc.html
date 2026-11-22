@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Red-green task board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#5CD68F}a:hover{color:#B8F2CF}
+</style>
+</helmet>
+<div style="width: 1280px; height: 2240px; box-sizing: border-box; padding: 56px 64px; background: #0D1117; color: #C9D2DC; font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 32px">
+<header style="display: flex; flex-direction: column; gap: 10px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.18em; color: #8B949E">06 · RED-GREEN TASK BOARD</span>
+<h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 40px; letter-spacing: -0.02em; color: #E6EDF3">Fourteen tasks. Each starts with a failing check.</h1>
+<p style="margin: 0; max-width: 820px; font-size: 16px">Commit the red check first, then the change. Record before and after in the PR. The order follows dependencies: T1 and T2 unblock #238, and every visual task waits on #238.</p>
+<div style="display: flex; gap: 20px; font-size: 13px; color: #8B949E">
+<span style="display: flex; align-items: center; gap: 6px"><span style="color: #FF7A8E">■</span> Red: fails on master today</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="color: #5CD68F">✓</span> Green: pass condition</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="color: #B5D0FF">◆</span> Metric to record</span>
+</div>
+</header>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<sc-for list="{{tasks}}" as="k" hint-placeholder-count="14">
+<article style="background: #11161D; border: 1px solid #232C38; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 372px; box-sizing: border-box">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #5CD68F">{{k.id}}</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8B949E">{{k.issue}}</span>
+</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 19px; line-height: 1.25; color: #E6EDF3">{{k.title}}</h2>
+<p style="margin: 0; font-size: 13px; color: #C9D2DC">{{k.hyp}}</p>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #FF7A8E">■</span><span><strong style="color: #E6EDF3; font-weight: 600">Red</strong> · {{k.red}}</span></div>
+<div style="display: flex; gap: 8px; font-size: 13px"><span aria-hidden="true" style="flex: 0 0 14px; color: #5CD68F">✓</span><span><strong style="color: #E6EDF3; font-weight: 600">Green</strong> · {{k.green}}</span></div>
+<div style="margin-top: auto; display: flex; gap: 8px; font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #C9D2DC; border-top: 1px solid #232C38; padding-top: 10px"><span aria-hidden="true" style="color: #B5D0FF">◆</span><span>{{k.metric}}</span></div>
+</article>
+</sc-for>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":2240}}'>
+class Component extends DCLogic {
+renderVals() {
+return { tasks: [
+{ id: 'T1', issue: '#238 · G1', title: 'Translucency-aware contrast test', hyp: 'Checking roles over three game backdrops catches fails that the opaque-surface check misses.', red: 'EditMode test composites --dxt-surface over black, mid gray and white. Dx Dark error is 4.41:1 and the selection outline is 2.58:1.', green: 'Every text role is at least 4.5:1 and every outline at least 3:1 in all shipped themes.', metric: 'worst ratio per role, per theme' },
+{ id: 'T2', issue: '#238 · G4', title: 'Triage the 126 legacy themes', hyp: 'An OKLCH lightness repair fixes most failing themes and keeps their hue.', red: 'Run contrast_audit.py on Styles/Themes: 115 of 126 themes fail.', green: 'The shipped set passes T1. Classic pack themes are repaired or labeled with their ratio in the picker.', metric: 'themes passing; mean ΔE of repaired colors' },
+{ id: 'T3', issue: 'new · G3', title: 'Text size and Dx High Contrast', hyp: 'A three-step text size and a 7:1 theme meet XAG 101 and 102 at a small layout cost.', red: 'No text-size setting exists. No theme reaches 7:1 on every role.', green: 'S, M and L sizes keep rows virtualized. High Contrast passes 7:1. Captures exist at each size.', metric: 'rows visible per size; min ratio' },
+{ id: 'T4', issue: '#240', title: 'Inspector overflow sweep', hyp: 'Fixed 96 px labels with flexible controls remove clipping at narrow Inspector widths.', red: 'An editor test sets the Inspector to 300 px and finds elements whose text is wider than their resolved width. IMGUI fails ("Set T...").', green: '0 clipped elements at 300, 360 and 480 px for all 5 inspectors.', metric: 'clipped elements per width' },
+{ id: 'T5', issue: '#241 · #242 · G6', title: 'Chrome performance budget', hyp: 'Header, tabs and chips add less than the budget to open cost and nothing per idle frame.', red: 'Record the master numbers first: element count when open, open ms, first-frame ms, bytes per idle frame with 10,000 lines.', green: 'New layout stays within the budget the first measurement sets. Idle stays at 0 B/frame.', metric: 'VisualElements · ms open · B/frame' },
+{ id: 'T6', issue: '#239', title: 'First-run usability study', hyp: 'Menu-item setup lets a new user run a custom command within 5 minutes.', red: 'Baseline: 5 participants follow install.md on master. Record time and blockers.', green: '5 of 5 participants finish within 5 minutes with the new flow. Median time drops.', metric: 'time on task · errors · SUS score' },
+{ id: 'T7', issue: '#245', title: 'Gamepad-only Actions flow', hyp: 'Every Actions control can be reached and run with a pad alone.', red: 'An InputTestFixture test drives a virtual gamepad from toggle to Run on heal and fails to reach Run.', green: 'Open, pick group, set values, Run, close: all with the pad. Focus ring is always visible.', metric: 'pad presses to Run; focus-lost events' },
+{ id: 'T8', issue: '#240 · G5', title: 'Motion presets with None', hyp: 'Presets replace curves without loss, and None removes all motion.', red: 'No None option exists. A test reads resolved transition durations and finds them above 0.', green: 'None: every duration is 0 ms. Subtle: 120 ms or less. The open state is the same for all presets.', metric: 'max resolved duration per preset' },
+{ id: 'T9', issue: 'ROADMAP · G8', title: 'Screen reader spike', hyp: 'A small AccessibilityHierarchy makes the newest error and the Run buttons reachable.', red: 'With TalkBack or VoiceOver on, nothing in the terminal is announced.', green: 'The newest error, the input row and each Run button are announced. Decide: issue or roadmap.', metric: 'elements announced; time box 2 days' },
+{ id: 'T10', issue: 'new · Syntax board', title: 'Highlight from the parser, not a regex', hyp: 'Classifying tokens with CommandTokenizer and CommandArgument.TryParse keeps color and execution in step.', red: 'A table test of input lines (quotes, unclosed quotes, vectors, $variables, unknown commands) expects a role per span. There is no highlighter, so every case fails.', green: 'Every span gets the expected role. The same lines run with the same argument split.', metric: 'cases passing; spans per line' },
+{ id: 'T11', issue: 'new · G6', title: 'Keystroke cost of highlighting', hyp: 'Rebuilding the rich-text label only on value change costs one string per keystroke.', red: 'An allocation test types 40 characters and then idles 300 frames. Record master first.', green: 'At most 1 string allocation per keystroke above master. 0 B per idle frame.', metric: 'B per keystroke · B per idle frame' },
+{ id: 'T12', issue: 'new · #238', title: 'Syntax palette gate', hyp: 'The colorblind check and the contrast check catch a bad syntax color before it ships.', red: 'A test runs both checks on every shipped theme. A 5-hue dark set fails with protan ΔE 0.9.', green: 'Every pair is ΔE 8 or more, or 6 to 8 with a second cue. Every role is 4.5:1 or more over 3 backdrops.', metric: 'worst ΔE · worst ratio per theme' },
+{ id: 'T13', issue: 'new · Syntax B3', title: 'Inline error equals logged error', hyp: 'The message under the input and the log line on Enter come from one call.', red: 'A test compares the inline message for spawn goblin 80 with the logged error. No inline message exists yet.', green: 'Same text for range, choice, type, unknown-command and quote cases. Did-you-mean appears only for edit distance 2 or less.', metric: 'mismatched cases' },
+{ id: 'T14', issue: '#241 · Quick launch', title: 'Quick launch parity and S4 capture', hyp: 'Quick launch and the terminal render one line identically because they share one highlighter.', red: 'Capture S4 shows blue-on-blue selection, a label on the row edge, a stray block and the caret outside. A test typing the same line into both finds no spans in either.', green: 'S4 matches the board at 40 px rows. Both surfaces produce identical role spans for the T10 cases.', metric: 'S4 pixel diff · mismatched spans' }
+] };
+}
+}
+</script>
+</body>
+</html>
