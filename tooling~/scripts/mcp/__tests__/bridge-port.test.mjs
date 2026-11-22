@@ -90,7 +90,8 @@ test("nextProjectPort skips taken ports and stays inside the range", async () =>
   const taken = new Set([27100, 27101, 27103]);
   assert.equal(await nextProjectPort(27100, (port) => taken.has(port)), 27102);
   assert.equal(await nextProjectPort(27103, (port) => taken.has(port)), 27104);
-  assert.equal(await nextProjectPort(27999, (port) => port >= 27900), null, "exhausted range");
+  assert.equal(await nextProjectPort(27999, (port) => port >= 27900), 27100, "wraps to the range base");
+  assert.equal(await nextProjectPort(27999, () => true), null, "exhausted range");
   assert.equal(await nextProjectPort(26000, () => false), 27100, "clamps to the range base");
 });
 

@@ -1367,13 +1367,12 @@ function portInRange(port) {
   );
 }
 
-// First port at or after `start` that `isTaken` rejects, inside the project
-// range. Async predicate so callers can probe real sockets; null when the
-// range is exhausted.
+// Probe each port once, wrapping to the start of the project range if needed.
 export async function nextProjectPort(startPort, isTaken, range = PROJECT_PORT_RANGE) {
   const end = range.base + range.size - 1;
   const first = Math.max(Math.min(startPort, end), range.base);
-  for (let port = first; port <= end; port += 1) {
+  for (let offset = 0; offset < range.size; offset += 1) {
+    const port = range.base + ((first - range.base + offset) % range.size);
     if (!(await isTaken(port))) return port;
   }
   return null;
