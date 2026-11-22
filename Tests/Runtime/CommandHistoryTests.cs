@@ -67,7 +67,6 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [Test]
         public void ClearOnEmptyHistoryReturnsZero()
         {
-            Assert.Fail("DxTerminal licensed test runner canary: PlayMode");
             CommandHistory history = new(10);
             int count = history.Clear();
             Assert.AreEqual(0, count, "Clear on empty history should return 0");
