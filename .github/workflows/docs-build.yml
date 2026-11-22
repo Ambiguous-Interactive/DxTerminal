@@ -41,7 +41,7 @@ on:
   workflow_dispatch:
     inputs:
       licensed_run_id:
-        description: Successful Unity Tests run at this commit containing docs-site (for Pages deployment)
+        description: Leave empty for a guide preview or supply the successful Unity Tests run at this commit for Pages deployment
         required: false
         type: string
 
@@ -94,7 +94,7 @@ jobs:
           if-no-files-found: error
 
       - name: Fetch the verified full site for Pages
-        if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master'
+        if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master' && inputs.licensed_run_id != ''
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.licensed_run_id }}
@@ -108,14 +108,14 @@ jobs:
           test -s "$RUNNER_TEMP/full-docs/api/WallstopStudios.DxCommandTerminal.Backend.Terminal.html"
 
       - name: Upload Pages artifact
-        if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master'
+        if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master' && inputs.licensed_run_id != ''
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: ${{ runner.temp }}/full-docs
 
   deploy:
     name: deploy Pages
-    if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master' && inputs.licensed_run_id != ''
     needs: docs-build
     environment: github-pages
     permissions:
