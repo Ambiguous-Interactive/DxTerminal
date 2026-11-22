@@ -11,7 +11,7 @@ npm run test:logic
 npm run preflight
 ```
 
-The Windows **Unity Tests** workflow runs the package’s EditMode and PlayMode assemblies on trusted PRs. Scheduled and manual runs add older Editors and the T13 compatibility
+The Windows **Unity Tests** workflow runs the package's EditMode and PlayMode assemblies on trusted PRs. Scheduled and manual runs add older Editors and the T13 compatibility
 fixtures. Download the `unity-<editor>-<attempt>` artifact from the Actions run for test XML, logs, the tested revision and timings. Use the manual graphics option for UI captures.
 Use a built player for player performance measurements.
 
@@ -19,15 +19,19 @@ Enable the licensed job by setting the repository Actions variable `DXT_UNITY_CI
 for unattended testing. The hosted preflight reports a disabled job until then. Require `Unity CI Success` on the default branch after a failed test and a passing rerun both return
 the seat cleanly.
 
+Unity describes the limits for user seats and headless testing in the [Editor Software Terms](https://unity.com/legal/editor-terms-of-service/software). For interactive agent
+access, use the [official Unity CLI](https://docs.unity.com/en-us/unity-cli/replace-mcp-server-unity-cli) under the
+[Unity Terms of Service](https://unity.com/legal/terms-of-service).
+
 ## Connect a licensed workstation
 
 1. On the workstation, check out the revision to inspect in the Unity project. Open it with Unity 6 and install Unity Pipeline through the official CLI.
-2. In that checkout’s gitignored `.env.local`, set `UNITY_MCP_ENABLED=1` and `UNITY_PROJECT_PATH` to the project’s absolute path. Run `npm ci --prefix tooling~`, then
+2. In that checkout's gitignored `.env.local`, set `UNITY_MCP_ENABLED=1` and `UNITY_PROJECT_PATH` to the project's absolute path. Run `npm install --prefix tooling~`, then
    `npm run unity:mcp:install-capture` for captures and `npm run unity:mcp:bridge -- --port 27444`. The bridge binds to loopback and generates a bearer token if needed.
 3. In a container terminal, open a private tunnel to the workstation. For example, `ssh -N -L 127.0.0.1:27444:127.0.0.1:27444 user@workstation`. Set `UNITY_MCP_ENABLED=1`,
-   `UNITY_MCP_BRIDGE_HOST=127.0.0.1`, and `UNITY_MCP_BRIDGE_PORT=27444` in the container checkout’s `.env.local`. Copy the workstation’s bearer token to `UNITY_MCP_BEARER_TOKEN`
+   `UNITY_MCP_BRIDGE_HOST=127.0.0.1`, and `UNITY_MCP_BRIDGE_PORT=27444` in the container checkout's `.env.local`. Copy the workstation's bearer token to `UNITY_MCP_BEARER_TOKEN`
    through your secret store. Set `UNITY_PROJECT_PATH` to the same workstation path when using capture.
-4. Run `npm run unity:mcp:configure -- --offline`, reconnect the agent, then run `npm run unity:mcp:probe`. Interactive commands operate on the workstation’s checkout. Run
+4. Run `npm run unity:mcp:configure -- --offline`, reconnect the agent, then run `npm run unity:mcp:probe`. Interactive commands operate on the workstation's checkout. Run
    `npm run unity:capture -- --no-install` to write captures there. To disconnect, set `UNITY_MCP_ENABLED=0`, reconfigure, restart the agent and close the tunnel. Process
    environment takes precedence over the file. A fresh terminal picks up changes to exported settings.
 
