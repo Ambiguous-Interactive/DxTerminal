@@ -116,7 +116,7 @@ def create_project(project: Path, version: str, revision: str) -> Path:
     (project / "ProjectSettings/ProjectVersion.txt").write_text(f"m_EditorVersion: {version}\n", encoding="utf-8")
     dependencies = {
         PACKAGE: "file:" + PACKAGE,
-        "com.unity.inputsystem": "1.7.0",
+        "com.unity.inputsystem": "1.20.1" if version.startswith("6000.5.") else "1.7.0",
         "com.unity.test-framework": "1.1.33" if version.startswith("2021.") else "1.4.6",
         "com.unity.modules.uielements": "1.0.0",
         "com.unity.modules.imageconversion": "1.0.0",

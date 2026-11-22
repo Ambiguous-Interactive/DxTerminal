@@ -457,6 +457,10 @@ export function scaffoldProject(projectDir, editorVersion, dependencies) {
   if (!/^[0-9a-zA-Z][0-9a-zA-Z.\-_]*$/u.test(editorVersion)) {
     throw new Error(`implausible editor version: ${editorVersion}`);
   }
+  // Input System 1.7.0 references Editor APIs removed in Unity 6.5.
+  if (editorVersion.startsWith("6000.5.") && dependencies["com.unity.inputsystem"] === "1.7.0") {
+    dependencies = { ...dependencies, "com.unity.inputsystem": "1.20.1" };
+  }
   fs.mkdirSync(path.join(projectDir, "ProjectSettings"), { recursive: true });
   fs.mkdirSync(path.join(projectDir, "Packages"), { recursive: true });
   fs.mkdirSync(path.join(projectDir, "Assets", "Editor"), { recursive: true });
