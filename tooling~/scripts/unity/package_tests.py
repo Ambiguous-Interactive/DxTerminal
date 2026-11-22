@@ -83,10 +83,15 @@ def read_results(path: Path, assembly: str) -> dict[str, int]:
     if (root.tag != "test-run" or len(suites) != 1
             or suites[0].get("name") not in (assembly, assembly + ".dll")):
         raise ValueError(f"{path.name} must contain exactly the requested assembly {assembly}")
-    cases = list(suites[0].iter("test-case"))
+    suite = suites[0]
+    cases = list(suite.iter("test-case"))
     counts = Counter(case.get("result") for case in cases)
     total = sum(counts.values())
-    if (root.get("result") != "Passed" or suites[0].get("result") != "Passed"
+    # Unity's NUnit adapter can aggregate ignored fixtures to Skipped even
+    # when the assembly ran successfully and passed hundreds of cases.
+    summary = (root.get("result"), suite.get("result"), suite.get("label"))
+    mixed_result = summary == ("Skipped:Ignored", "Skipped", "Ignored") and counts["Skipped"] > 0
+    if (not (summary[:2] == ("Passed", "Passed") or mixed_result)
             or set(counts) - {"Passed", "Skipped"} or counts["Passed"] < 1
             or root.get("total") != str(total) or root.get("passed") != str(counts["Passed"])
             or root.get("failed") != "0" or root.get("inconclusive") != "0"
