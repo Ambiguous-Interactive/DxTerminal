@@ -17,7 +17,6 @@ function job(name) {
 test("Pages deployment is manual and master-only", () => {
   assert.match(workflow, /^  workflow_dispatch:$/m);
   const guard = "github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master'";
-  assert.equal((workflow.match(/github.event_name == 'workflow_dispatch'/g) ?? []).length, 2);
   const deploy = job("deploy");
   assert.match(deploy, new RegExp(`^    if: ${guard}$`, "m"));
   assert.match(deploy, /^    needs: docs-build$/m);
@@ -38,6 +37,11 @@ test("Pages actions are SHA-pinned with least privilege", () => {
 test("ordinary documentation events cannot publish Pages", () => {
   const build = job("docs-build");
   const guard = "github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master'";
-  assert.match(build, new RegExp(`^        if: ${guard}$`, "m"));
+  const steps = build.split(/^      - name: /m);
+  for (const action of ["gh run download", "actions/upload-pages-artifact@"]) {
+    const publishingStep = steps.find((step) => step.includes(action));
+    assert.ok(publishingStep, `missing the ${action} step`);
+    assert.ok(publishingStep.split("\n").includes(`        if: ${guard}`), `${action} must have the release guard`);
+  }
   assert.doesNotMatch(workflow.slice(0, workflow.indexOf("\n  docs-build:")), /deploy-pages|upload-pages-artifact/);
 });

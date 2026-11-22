@@ -1,28 +1,8 @@
 name: Compat 2021
 
-# Two Unity-free compile-and-run lanes in one job (issues #136, #193),
-# under the name the lane has always had so required checks keep matching:
-#
-# - runtime-2021.3.csproj compiles the real Runtime sources against the
-#   pinned UnityEngine 2021.3.33 reference assemblies, so any member or
-#   API absent from the oldest supported editor fails outright (the
-#   member-level tripwire the docs build cannot see; it only surfaces
-#   missing types).
-# - tests-2021.3.csproj compiles Runtime plus every Tests/Editor source
-#   against the same assemblies, and testhost runs the engine-independent
-#   fixtures under NUnitLite against declared Unity stand-ins - so a test
-#   that cannot compile, or an engine-independent assertion that cannot
-#   pass, fails the job instead of landing green until some editor runs.
-#   One blind spot, stated: `#if UNITY_EDITOR` regions compile in no lane
-#   here (the pin has no UnityEditor assemblies); guarded test code is
-#   editor-answered only.
-#
-# One job, not two: both legs share the checkout, the SDK, and the NuGet
-# cache, and each adds seconds on top of a sub-minute lane. Warnings are
-# errors in both projects; no Unity is provisioned and no license is
-# consumed. Path filters: Runtime/tooling-compat changes rebuild the
-# runtime lane; Tests/Editor and Generator~ changes rebuild and rerun the
-# test lane.
+# Keep the existing required check name while running the standalone NUnit
+# host on every qualifying change. The 2021.3 compatibility compiles run in
+# unity-tests.yml with that editor's installed reference assemblies.
 on:
   push:
     branches:
@@ -81,11 +61,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-compat-${{ hashFiles('global.json', 'tooling~/compat/runtime-2021.3.csproj', 'tooling~/compat/tests/tests-2021.3.csproj', 'tooling~/compat/testhost/testhost.csproj', 'Generator~/WallstopStudios.DxCommandTerminal.SourceGenerators/*.csproj') }}
-          restore-keys: ${{ runner.os }}-nuget-compat-
+          key: ${{ runner.os }}-nuget-logic-${{ hashFiles('global.json', 'tooling~/compat/testhost/testhost.csproj', 'Generator~/WallstopStudios.DxCommandTerminal.SourceGenerators/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-logic-
 
-      - name: Compile Runtime against 2021.3
-        run: npm run compat:check
-
-      - name: Compile and run Tests/Editor without Unity
-        run: npm run test:editor
+      - name: Run engine-independent fixtures
+        run: npm run test:logic

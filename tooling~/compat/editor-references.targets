@@ -1,0 +1,11 @@
+<Project>
+  <ItemGroup Condition="'$(UNITY_EDITOR_MANAGED)' != ''">
+    <Reference Include="$(UNITY_EDITOR_MANAGED)/UnityEngine*.dll">
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <Target Name="RequireUnityReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(UNITY_EDITOR_MANAGED)' == '' or !Exists('$(UNITY_EDITOR_MANAGED)/UnityEngine.CoreModule.dll')"
+           Text="Set UNITY_EDITOR_MANAGED to the installed Unity 2021.3 editor's Data/Managed/UnityEngine directory. Standalone development uses npm run test:logic." />
+  </Target>
+</Project>

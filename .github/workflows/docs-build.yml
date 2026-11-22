@@ -1,13 +1,7 @@
 name: Docs Build
 
-# T12 docs site (PLAN.md). Split out of tooling-tests so guide/sample/API
-# changes build the site without paying for the code lanes, and code-only
-# changes skip the docs build entirely - same coverage, fewer jobs per run.
-# DocFX (pinned via .config/dotnet-tools.json) extracts the API model from
-# Runtime sources against UnityEngine 2021.3.33 reference assemblies (the
-# package minimum, restored from nuget by tooling~/docs/refs.csproj) - no
-# editor, no license. The rendered site uploads as a PR preview artifact;
-# deployment is a separate, reviewed manual step (PLAN.md T12).
+# Guide previews build on ordinary hosted runners. The licensed 2021.3
+# job builds the complete API site, validates xrefs, and retains docs-site.
 on:
   push:
     branches:
@@ -45,8 +39,14 @@ on:
       - "tooling~/.npmrc"
       - ".github/workflows/docs-build.yml"
   workflow_dispatch:
+    inputs:
+      licensed_run_id:
+        description: Successful Unity Tests run at this commit containing docs-site (for Pages deployment)
+        required: false
+        type: string
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -77,28 +77,41 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-docs-${{ hashFiles('global.json', 'tooling~/docs/refs.csproj', '.config/dotnet-tools.json') }}
-          restore-keys: ${{ runner.os }}-nuget-docs-
+          key: ${{ runner.os }}-nuget-docfx-${{ hashFiles('global.json', '.config/dotnet-tools.json') }}
+          restore-keys: ${{ runner.os }}-nuget-docfx-
 
-      - name: Build the docs site
-        run: npm run docs:build
+      - name: Build guide preview
+        run: npm --prefix tooling~ run docs:guides
 
       - name: Lint docs catalog and guide links
-        # Runs after the build so xref uids resolve against the fresh API model.
         run: npm --prefix tooling~ run lint:docs-catalog
 
       - name: Upload the site preview
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: docs-site
+          name: docs-guides
           path: tooling~/docs/obj/_site
           if-no-files-found: error
+
+      - name: Fetch the verified full site for Pages
+        if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.licensed_run_id }}
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" | jq -e --arg sha "$GITHUB_SHA" '
+            .head_sha == $sha and .head_branch == "master" and .conclusion == "success"
+            and (.event == "schedule" or .event == "workflow_dispatch")
+            and .path == ".github/workflows/unity-tests.yml"'
+          gh run download "$RUN_ID" -n docs-site -D "$RUNNER_TEMP/full-docs"
+          test -s "$RUNNER_TEMP/full-docs/api/WallstopStudios.DxCommandTerminal.Backend.Terminal.html"
 
       - name: Upload Pages artifact
         if: github.event_name == 'workflow_dispatch' && github.repository == 'wallstop/DxCommandTerminal' && github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: tooling~/docs/obj/_site
+          path: ${{ runner.temp }}/full-docs
 
   deploy:
     name: deploy Pages
