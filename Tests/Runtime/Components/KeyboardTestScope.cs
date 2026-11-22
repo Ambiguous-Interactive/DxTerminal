@@ -13,13 +13,15 @@
         private readonly List<Keyboard> _owned = new();
         private readonly Keyboard _originalCurrent;
         private readonly InputSettings _originalSettings;
-        private readonly InputSettings _testSettings;
+        private readonly InputSettings.BackgroundBehavior _originalBackgroundBehavior;
+        private readonly InputSettings.EditorInputBehaviorInPlayMode _originalEditorInputBehavior;
 
         internal KeyboardTestScope()
         {
             _originalCurrent = Keyboard.current;
             _originalSettings = InputSystem.settings;
-            _testSettings = UnityEngine.Object.Instantiate(_originalSettings);
+            _originalBackgroundBehavior = _originalSettings.backgroundBehavior;
+            _originalEditorInputBehavior = _originalSettings.editorInputBehaviorInPlayMode;
             foreach (InputDevice device in InputSystem.devices)
             {
                 if (device is Keyboard keyboard)
@@ -32,9 +34,8 @@
                 InputSystem.RemoveDevice(snapshot.Device);
             }
             // Queued test input must reach runtime polls while the editor is unfocused.
-            _testSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
-            _testSettings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
-            InputSystem.settings = _testSettings;
+            _originalSettings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            _originalSettings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             AddKeyboard();
             InputHelpers.ResetControlMemoForTesting();
         }
@@ -46,8 +47,8 @@
                 InputSystem.RemoveDevice(keyboard);
             }
             _owned.Clear();
-            InputSystem.settings = _originalSettings;
-            UnityEngine.Object.Destroy(_testSettings);
+            _originalSettings.backgroundBehavior = _originalBackgroundBehavior;
+            _originalSettings.editorInputBehaviorInPlayMode = _originalEditorInputBehavior;
             foreach (Snapshot snapshot in _originals)
             {
                 InputSystem.AddDevice(snapshot.Device);
