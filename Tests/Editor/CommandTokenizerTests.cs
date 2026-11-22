@@ -76,6 +76,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [Test]
         public void AddedQuoteGroupsArgumentsUnderTheAddedCharacter()
         {
+#if UNITY_EDITOR
+            Assert.Fail("DxTerminal licensed test runner canary: EditMode");
+#endif
             CommandArg.AddQuote('^');
             List<CommandToken> tokens = Tokenize("log ^two words^");
 
