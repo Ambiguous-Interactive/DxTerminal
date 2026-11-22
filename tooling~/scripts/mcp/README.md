@@ -35,8 +35,8 @@ before it starts.
   live bridge, which is reported instead of duplicated) moves to the next free port in the range and persists the choice as `UNITY_MCP_BRIDGE_PORT` in `.env.local`, so every later
   configure and client reads the port the bridge actually bound. A port held on `127.0.0.1` counts as busy even for a `0.0.0.0` bind: Windows accepts that bind, but the loopback
   listener would shadow the bridge.
-- The default probes the configured endpoint. With `--discover`, the search order is the project port, `9020`, `9003`, across `host.docker.internal`, `127.0.0.1`, WSL nameservers,
-  and Linux gateways. `--host`/`--port` restrict probing to one endpoint; `--no-discover` skips fallbacks.
+- The default probes the configured endpoint. Both client and bridge default to loopback. Use `--host` to select another host. On that host, `--discover` tries the project port
+  (when known), then `9020` and `9003`. An explicit `--port` fixes the port even with discovery enabled.
 - Auth: every MCP request needs `Authorization: Bearer <UNITY_MCP_BEARER_TOKEN>`. The token is minted into `.env.local` on first bridge start. `GET /healthz` is the only
   unauthenticated endpoint (liveness only).
 

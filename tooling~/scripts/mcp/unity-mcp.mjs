@@ -69,7 +69,7 @@ export const REPO_ROOT = path.resolve(fileURLToPath(new URL("../../..", import.m
 export const GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/";
 export const DEFAULTS = Object.freeze({
   bindHost: "127.0.0.1",
-  host: "host.docker.internal",
+  host: "127.0.0.1",
   port: 9020,
   endpointPath: "/mcp",
   protocolVersion: "2025-11-25",
@@ -4089,11 +4089,11 @@ function usage() {
     "                              which runs both suites, each with its own run timeout)",
     "  --filter TEXT               Test name filter (tests only)",
     "  --run-timeout MS            Per-leg test run deadline (tests only; default 600000)",
-    "  --host HOST                 Endpoint host; the only host discovery probes",
+    "  --host HOST                 Endpoint host (default: 127.0.0.1)",
     "  --port PORT                 Endpoint port; the only port discovery probes",
     "  --path PATH                 Streamable HTTP path (default: /mcp)",
     "  --offline                   Write configs without network access (configure only)",
-    "  --discover                  Search local bridge candidates (trusted local networks only)",
+    "  --discover                  Try fallback ports on the selected host",
     "  --no-discover               Use only the configured host/port (default)",
     "  --bind HOST                 Bridge bind interface (default: 127.0.0.1)",
     "  --project PATH              Unity project directory (bridge, install-capture, capture)",

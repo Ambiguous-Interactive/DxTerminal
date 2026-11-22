@@ -151,8 +151,8 @@ never appear.
 
 ## Troubleshooting
 
-- `probe` unreachable: is the bridge running on the host (`npm run unity:mcp:bridge`)? Is `UNITY_PROJECT_PATH` set? In the container, `host.docker.internal` must resolve
-  (devcontainer.json adds it via `--add-host`).
+- If `probe` cannot connect, check the port printed by the workstation bridge. For a container client, verify that the SSH tunnel is running and forwards that port to the
+  workstation. The default client address is `127.0.0.1`.
 - `unauthorized` on probe: token mismatch between host and container `.env.local`.
 - Empty tools list from the cli backend: Pipeline is not loaded in that editor; check compilation conflicts and verify the Pipeline installation.
 - Agent cannot see Z.AI servers: no key in `.env.local`; configs not rewritten since the key was added (re-run offline configure).

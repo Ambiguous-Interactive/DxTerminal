@@ -21,7 +21,7 @@ metadata:
 
 ## Running
 
-1. Run `npm run test:logic` for the standalone fixtures. Narrow the loop with `npm run test:logic -- --where='class =~ CommandArg'`. `npm run preflight` runs the standalone gates.
+1. Run `npm run test:logic` for the standalone fixtures. Narrow the loop with `npm run test:logic -- --where="class =~ CommandArg"`. `npm run preflight` runs the standalone gates.
    Use the Windows Unity Tests workflow for package EditMode and PlayMode results.
 
 2. One-command entry point per suite category (through the bridge; host editor up with the bridge running; exit 1 on any failure):

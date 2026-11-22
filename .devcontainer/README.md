@@ -6,7 +6,7 @@ Open this repository in VS Code and choose **Dev Containers: Reopen in Container
 change.
 
 ```bash
-npm run test:logic -- --where='class =~ CommandArg'
+npm run test:logic -- --where="class =~ CommandArg"
 npm run test:logic
 npm run preflight
 ```
@@ -14,6 +14,9 @@ npm run preflight
 The Windows **Unity Tests** workflow runs the package's EditMode and PlayMode assemblies on trusted PRs. Scheduled and manual runs add older Editors and the T13 compatibility
 fixtures. Download the `unity-<editor>-<attempt>` artifact from the Actions run for test XML, logs, the tested revision and timings. Use the manual graphics option for UI captures.
 Use a built player for player performance measurements.
+
+The licensed 2021.3 job also uploads the complete API site as `docs-site`. Download that artifact from DxTerminal Actions. The Pages deploy is restricted to
+`wallstop/DxCommandTerminal` on `master`. In `Ambiguous-Interactive/DxTerminal`, Docs Build produces the guide preview.
 
 Enable the licensed job by setting the repository Actions variable `DXT_UNITY_CI_ENABLED=true` after the organization enrollment is accepted and the runner subscription is verified
 for unattended testing. The hosted preflight reports a disabled job until then. Require `Unity CI Success` on the default branch after a failed test and a passing rerun both return

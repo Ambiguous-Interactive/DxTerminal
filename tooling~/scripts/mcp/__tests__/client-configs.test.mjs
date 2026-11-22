@@ -68,6 +68,8 @@ test("standalone checkout configures offline and removes stale Unity registratio
   assert.equal(fs.readFileSync(generated.claudeCode, "utf8"), before);
   const connected = resolveOptions({ offline: true }, {}, { ...optedIn, UNITY_MCP_BEARER_TOKEN: BEARER }, repoRoot, "configure");
   await runConfigure(connected);
+  const localUrl = JSON.parse(fs.readFileSync(generated.claudeCode, "utf8")).mcpServers["unity-mcp"].url;
+  assert.equal(localUrl, "http://127.0.0.1:9020/mcp");
   for (const file of Object.values(generated)) assert.match(fs.readFileSync(file, "utf8"), /unity-mcp/);
   await runConfigure(standalone());
   for (const file of Object.values(generated)) assert.doesNotMatch(fs.readFileSync(file, "utf8"), /unity-mcp/);
