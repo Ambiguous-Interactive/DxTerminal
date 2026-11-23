@@ -148,7 +148,7 @@ under session sequences (issue #56). Rules:
   (Bugbot catch on PR #114; sweep: compare each `while` budget loop against its trailing assert). A caret rule that needs the marker to drain is pinned synchronously by driving
   `ApplyPendingCaret` against a position the field holds (see `PendingCaretConsumesOnlyAfterStablePasses`).
 - One failure mode survives the deterministic polls: long agent sessions can leave the editor in a state where panel events stop processing entirely (writes re-clamp or never land,
-  for 30+ frames). See the first Debugging failures bullet for the verify-then-refresh recipe.
+  for 30+ frames). See Debugging failures for the domain reload check.
 - Palette caret flakes: `CommandPaletteUI._logCaretPasses = true` (editor eval or a test) logs every pending-caret pass with frame, pending, cursor/select, and focus owner, so a
   #74-class re-clamp shows which pass moved the caret. The caret is parked only after it holds for two passes (`CaretStickPasses`), and a field change cancels the queued caret
   (`_pendingCaretIndex` is `int?`; null = none).
@@ -196,9 +196,9 @@ exercising the behavior.
 - Teardown pairs with setup: when `[UnitySetUp]` can exit early (`Assert.Ignore` for -nographics or missing assets), a teardown assert that reads setup state must guard on that
   state existing (nullable field + `HasValue`, or the same skip condition). NUnit runs `[UnityTearDown]` after a SetUp ignore, so an unguarded baseline - a RenderTexture count,
   say - turns an intended skip into a failure on a machine with pre-existing objects.
-- If an isolated test changes result on the same revision, test whether panel state survives between runs. Compare before and after a domain reload using Assets > Refresh or a
-  script edit that recompiles. A no-op `recompile` ("up_to_date") leaves the domain in place. In session-023 a reload cleared a stuck palette caret. Record what the reload changes
-  and keep the investigation open until the failure has a durable fix.
+- If an isolated test changes result on the same revision, test whether panel state survives between runs. Recompile a temporary script edit and confirm the domain reload in the
+  Editor log before comparing results. In session-023 a reload cleared a stuck palette caret. Record what the reload changes and keep the investigation open until the failure has a
+  durable fix.
 
 - Errors are queued on the terminal (not only the last one) - assert on the full error set where relevant.
 - Static state leaks between tests (`Terminal.Shell`, registered parsers, control sets on `CommandArg`) - reset or isolate when a test mutates global state, see
