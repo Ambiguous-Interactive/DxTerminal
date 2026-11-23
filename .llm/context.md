@@ -190,7 +190,8 @@ few sentences is the ceiling, not the target - cut before adding. PRs cover how 
 lines total. Commit bodies ~8 lines. No per-file tours, no process narration, no restated context. Code comments state only what the code cannot say, and a revised comment is
 edited in place - never stacked beside the stale one (rule 21). Enforced by `npm --prefix tooling~ run lint:pr-copy` and the pr-copy CI job (`tooling~/scripts/lint-pr-copy.mjs`:
 disclosure first line, section structure, line and bullet budgets; the Cursor Bugbot summary block is stripped before checking). Details:
-[simple-writing](./skills/simple-writing/SKILL.md). Follow its visual review rule when a PR changes what users see.
+[simple-writing](./skills/simple-writing/SKILL.md). Use [plan hygiene](./skills/plan-hygiene/SKILL.md#merge-during-a-coderabbit-cooldown) to ship a verified PR during a CodeRabbit
+cooldown. Follow its visual review rule when a PR changes what users see.
 
 ### CHANGELOG (user-facing only)
 

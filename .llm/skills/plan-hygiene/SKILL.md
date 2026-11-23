@@ -46,6 +46,12 @@ files.
 5. Review compatibility and failure paths. Resolve substantive findings and verify required checks on the current PR head. Record checks, environment, evidence, and decisions in
    the session log.
 
+## Merge during a CodeRabbit cooldown
+
+An authorized PR can merge during a confirmed CodeRabbit cooldown when acceptance and required checks pass on the current head and all review feedback is addressed. Verify the
+head, review threads, and cooldown. If a prior CodeRabbit change request is the sole remaining merge gate, dismiss that review with the evidence and use the normal merge path.
+Human review requirements and branch protections still apply.
+
 ## When an Editor runner is unavailable
 
 Keep the goal active when a required Unity runner is unavailable. Record the pending check, the PR head, and the run link if one exists. Continue standalone checks and other
