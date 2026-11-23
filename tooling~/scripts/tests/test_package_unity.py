@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 from unittest.mock import patch
@@ -9,7 +10,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from unity import package_tests as runner
+from unity import activate_seat, package_tests as runner, runner_workspace
 
 
 def windows_error(code: int) -> OSError:
@@ -119,11 +120,78 @@ class PackageTests(unittest.TestCase):
                     raise windows_error(32)
                 return read_text(path, *args, **kwargs)
 
-            with patch.object(runner, "run_process", return_value=0), patch.object(Path, "read_text", read):
+            with (patch.object(runner, "run_process", return_value=0), patch.object(Path, "read_text", read),
+                  patch.object(runner_workspace.time, "sleep") as sleep):
                 runner.prepare_profile(Path("Unity"), project, raw, raw / "out")
             self.assertEqual(blocked, [log])
+            sleep.assert_called_once_with(runner_workspace.SHARING_RETRY_DELAY)
             self.assertEqual((raw / "out" / log.name).read_text(), "Project created")
             self.assertIn("activeInputHandler: 2", settings.read_text())
+
+    @unittest.skipUnless(sys.platform == "win32", "Requires Windows file sharing")
+    def test_workspace_cleanup_waits_for_a_real_windows_log_handle(self) -> None:
+        with TemporaryDirectory() as directory:
+            log_stream = None
+
+            def release(_seconds: float) -> None:
+                assert log_stream is not None
+                log_stream.close()
+
+            try:
+                with patch.object(runner_workspace.time, "sleep", side_effect=release) as sleep:
+                    with runner_workspace.temporary_workspace(prefix="test-", directory=directory) as raw:
+                        log = raw / "activation.log"
+                        log.write_text("Mock activation log")
+                        log_stream = log.open("rb")
+                sleep.assert_called_once_with(runner_workspace.SHARING_RETRY_DELAY)
+                self.assertFalse(raw.exists())
+            finally:
+                if log_stream is not None:
+                    log_stream.close()
+
+    def test_sharing_retries_are_bounded_and_other_errors_fail_immediately(self) -> None:
+        for winerror, retries in [(32, runner_workspace.MAX_SHARING_RETRIES), (5, 0)]:
+            error = windows_error(winerror)
+            with (self.subTest(winerror=winerror), patch.object(runner_workspace.time, "sleep") as sleep,
+                  patch.object(Path, "read_text", side_effect=error) as read,
+                  self.assertRaises(OSError) as failure):
+                runner_workspace.read_editor_text(Path("activation.log"))
+            self.assertIs(failure.exception, error)
+            self.assertEqual(read.call_count, retries + 1)
+            self.assertEqual(sleep.call_count, retries)
+
+    def test_activation_keeps_private_logs_and_retries_only_transient_license_failures(self) -> None:
+        for diagnostic, expected in [
+            ("Licensing:: error 20111", 2),
+            ("Licensing:: error 20111 and 20113", 1),
+            ("Editor error", 1),
+        ]:
+            with self.subTest(diagnostic=diagnostic), TemporaryDirectory() as directory:
+                environment = {
+                    "RUNNER_TEMP": directory, "UNITY_EDITOR_PATH": "Unity",
+                    "UNITY_EMAIL": "email", "UNITY_SERIAL": "serial", "UNITY_PASSWORD": "password",
+                }
+
+                def open_editor(command, *, cwd, env, **_kwargs):
+                    self.assertEqual(env, {key: environment[key] for key in ("RUNNER_TEMP", "UNITY_EDITOR_PATH")})
+                    Path(command[command.index("-logFile") + 1]).write_text(diagnostic)
+                    self.assertEqual(cwd.parent, Path(directory))
+                    return process.return_value
+
+                with (patch.dict(os.environ, environment, clear=True),
+                      patch.object(activate_seat.subprocess, "Popen") as process,
+                      patch.object(activate_seat.time, "sleep") as sleep):
+                    process.side_effect = open_editor
+                    process.return_value.__enter__.return_value.wait.side_effect = [1, 0]
+                    if expected == 2:
+                        activate_seat.activate()
+                        sleep.assert_called_once_with(15)
+                    else:
+                        with self.assertRaisesRegex(SystemExit, "failed \\(exit 1\\)"):
+                            activate_seat.activate()
+                        sleep.assert_not_called()
+                    self.assertEqual(process.call_count, expected)
+                self.assertEqual(list(Path(directory).iterdir()), [])
 
     def test_rendered_evidence_requires_the_matching_positive_capture(self) -> None:
         with TemporaryDirectory() as directory:

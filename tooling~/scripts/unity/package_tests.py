@@ -10,11 +10,17 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import time
 from typing import Any
 import xml.etree.ElementTree as ET
 import zipfile
+
+if __package__:
+    from .runner_workspace import read_editor_text, temporary_workspace
+else:
+    # The embeddable Windows Python can omit the script directory.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from runner_workspace import read_editor_text, temporary_workspace
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = ROOT / "tooling~" / "scripts"
@@ -44,10 +50,10 @@ def redact_json(value: Any) -> Any:
 
 
 def copy_text(source: Path, target: Path) -> None:
-    if not source.is_file():
+    text = read_editor_text(source)
+    if text is None:
         return
     target.parent.mkdir(parents=True, exist_ok=True)
-    text = source.read_text(encoding="utf-8-sig", errors="replace")
     if target.suffix == ".json":
         try:
             contents = json.loads(text)
@@ -290,8 +296,7 @@ def main() -> int:
         report["editorVersion"] = args.version
         revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, timeout=20).strip()
         report["commit"] = revision
-        with tempfile.TemporaryDirectory(prefix="dxt-", dir=os.getenv("RUNNER_TEMP")) as work:
-            raw = Path(work)
+        with temporary_workspace(prefix="dxt-", directory=os.getenv("RUNNER_TEMP")) as raw:
             project = raw / "p"
             prepare_profile(unity, project, raw, out)
             report["inputProfile"] = "both"
