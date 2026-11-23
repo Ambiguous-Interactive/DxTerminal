@@ -12,6 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from unity import package_tests as runner
 
 
+def windows_error(code: int) -> OSError:
+    error = PermissionError("Simulated Windows file error")
+    setattr(error, "winerror", code)
+    return error
+
+
 class PackageTests(unittest.TestCase):
     def test_fixture_packages_match_supported_editors(self) -> None:
         for editor, inputs, framework in [
@@ -94,6 +100,30 @@ class PackageTests(unittest.TestCase):
                     settings.write_text(bad)
                     with self.assertRaises(ValueError):
                         runner.prepare_profile(Path("Unity"), project, raw, raw / "out")
+
+    def test_project_preparation_reads_log_after_sharing_violation(self) -> None:
+        with TemporaryDirectory() as directory:
+            raw = Path(directory)
+            project = raw / "project"
+            settings = project / "ProjectSettings/ProjectSettings.asset"
+            settings.parent.mkdir(parents=True)
+            settings.write_text("PlayerSettings:\n  activeInputHandler: 0\n")
+            log = raw / "create-project.log"
+            log.write_text("Project created")
+            read_text = Path.read_text
+            blocked: list[Path] = []
+
+            def read(path: Path, *args, **kwargs) -> str:
+                if path == log and not blocked:
+                    blocked.append(path)
+                    raise windows_error(32)
+                return read_text(path, *args, **kwargs)
+
+            with patch.object(runner, "run_process", return_value=0), patch.object(Path, "read_text", read):
+                runner.prepare_profile(Path("Unity"), project, raw, raw / "out")
+            self.assertEqual(blocked, [log])
+            self.assertEqual((raw / "out" / log.name).read_text(), "Project created")
+            self.assertIn("activeInputHandler: 2", settings.read_text())
 
     def test_rendered_evidence_requires_the_matching_positive_capture(self) -> None:
         with TemporaryDirectory() as directory:
