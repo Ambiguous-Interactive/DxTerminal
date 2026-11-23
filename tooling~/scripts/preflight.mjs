@@ -235,7 +235,7 @@ export function buildChecks() {
           themselves, and the ambient PATH folds in through the runtime
           environment the way it does for every cached gate (the
           delegator-style resolutions happen inside the suite). Stated
-          limits: only tooling~/compat/player-smoke is keyed, not all of
+          limits: only the player fixtures and fixture package pins are keyed, not all of
           tooling~/compat - the sibling obj/bin trees are build outputs the
           suites never read; and the player suites' no-repo-read property
           for run_leg rests on their subprocess mocks, so a suite change
@@ -247,7 +247,7 @@ export function buildChecks() {
       command: `${pythonCommand} -m unittest test_verify_opencode test_player_smoke test_player_readiness test_webgl_player test_package_unity`,
       cachePython: true,
       cacheRuntimeEnvironment: true,
-      cachePaths: [".devcontainer", "tooling~/scripts/t13", "tooling~/scripts/unity", "tooling~/scripts/tests", "tooling~/compat/player-smoke"]
+      cachePaths: [".devcontainer", "tooling~/scripts/t13", "tooling~/scripts/unity", "tooling~/scripts/tests", "tooling~/compat/player-smoke", "tooling~/compat/fixture-packages.json"]
     },
     {
       /*

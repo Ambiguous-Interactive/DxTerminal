@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  fixtureDependencies,
   importUnityArgs,
   listArtifact,
   probeEditorVersion,
@@ -539,10 +540,8 @@ export async function runLeg(options, matrix, leg, runtime = {}) {
     return manifest;
   }
   try {
-    scaffoldProject(project, editorVersion, {
-      ...artifact.scratchDependencies,
-      "com.unity.test-framework": "1.1.33"
-    });
+    const required = [...Object.keys(artifact.scratchDependencies), "com.unity.test-framework"];
+    scaffoldProject(project, editorVersion, fixtureDependencies(editorVersion, required));
     manifest.editorDevToolHashes = installEditorDevTools(project);
   } catch (error) {
     manifest.failure = `fixture scaffold failed: ${error.message}`;

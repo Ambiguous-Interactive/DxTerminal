@@ -107,8 +107,8 @@ jobs:
         run: |
           $work = Join-Path $env:RUNNER_TEMP "dxterminal-python-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
           $archive = "$work.zip"
-          Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.14.10/python-3.14.10-embed-amd64.zip' -OutFile $archive
-          $expected = '90905e64a840557d8c1bc4f5b74db3d7ee85e3ffb217611cac1c7813acea4159'
+          Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.15.2/python-3.15.2-embed-amd64.zip' -OutFile $archive
+          $expected = 'd012f3aa29cf07436dae8aea1fec0fd195c2612a0b059b1f915ae0afb9ad1f62'
           if ((Get-FileHash -Path $archive -Algorithm SHA256).Hash -ne $expected) {
             throw 'The Python archive SHA-256 does not match the python.org release.'
           }
@@ -123,12 +123,12 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         timeout-minutes: 5
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Set up .NET for the minimum supported Editor
         if: ${{ matrix.unity-version == '2021.3.45f1' }}
         timeout-minutes: 5
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
 

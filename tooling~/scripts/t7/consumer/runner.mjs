@@ -36,7 +36,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { scanLogForErrors } from "../../release/import-drill.mjs";
+import { fixtureDependencies, scanLogForErrors } from "../../release/import-drill.mjs";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(MODULE_DIR, "../../../..");
@@ -175,10 +175,7 @@ export function scaffoldProject(projectDir, editorVersion, driverSource) {
     path.join(projectDir, "Packages", "manifest.json"),
     `${JSON.stringify(
       {
-        dependencies: {
-          "com.unity.inputsystem": "1.7.0",
-          "com.unity.test-framework": "1.1.33"
-        }
+        dependencies: fixtureDependencies(editorVersion)
       },
       null,
       2

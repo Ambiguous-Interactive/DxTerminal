@@ -216,7 +216,7 @@ test("listArtifact models folders, files, order, and the shared import root", ()
 
 test("listArtifact derives scratch UPM dependencies from the artifact's asmdefs", () => {
   const artifact = listArtifact(standardArtifact());
-  assert.deepStrictEqual(artifact.scratchDependencies, { "com.unity.inputsystem": "1.7.0" });
+  assert.deepStrictEqual(artifact.scratchDependencies, { "com.unity.inputsystem": "1.15.0" });
   const withTests = listArtifact(
     standardArtifact({
       extraEntries: [
@@ -233,8 +233,8 @@ test("listArtifact derives scratch UPM dependencies from the artifact's asmdefs"
     })
   );
   assert.deepStrictEqual(withTests.scratchDependencies, {
-    "com.unity.inputsystem": "1.7.0",
-    "com.unity.test-framework": "1.1.33"
+    "com.unity.inputsystem": "1.15.0",
+    "com.unity.test-framework": "1.4.6"
   });
 });
 
@@ -645,7 +645,7 @@ test("runImportDrill completes end to end and cleans up the scratch project", as
   assert.strictEqual(manifest.timedOut, false);
   assert.strictEqual(manifest.entries, 4);
   assert.strictEqual(manifest.importRoot, ROOT);
-  assert.deepStrictEqual(manifest.upmDependencies, { "com.unity.inputsystem": "1.7.0" });
+  assert.deepStrictEqual(manifest.upmDependencies, { "com.unity.inputsystem": "1.20.1" });
   assert.ok(manifest.checks.length > 0, "manifest records validation checks");
   assert.ok(manifest.artifactSha256.length === 64);
   assert.strictEqual(manifest.unityImport.exitCode, 0);
@@ -897,7 +897,7 @@ test("the reader parses an exporter artifact", async () => {
   assert.strictEqual(artifact.root, "Packages/reader.pkg");
   assert.ok(artifact.assets.length > 5, "the artifact must carry the packaged tree");
   assert.deepStrictEqual(artifact.scratchDependencies, {
-    "com.unity.inputsystem": "1.7.0"
+    "com.unity.inputsystem": "1.15.0"
   });
   assert.ok(artifact.assets.every((asset) => !asset.pathname.includes("/Tests/")));
   const analyzers = artifact.assets.filter((asset) => asset.pathname.includes("/Analyzers/"));

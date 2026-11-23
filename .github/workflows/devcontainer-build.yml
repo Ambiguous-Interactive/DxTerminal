@@ -20,12 +20,14 @@ on:
       - main
     paths:
       - "global.json"
+      - ".config/dotnet-tools.json"
       - ".devcontainer/**"
       - "tooling~/package.json"
       - ".github/workflows/devcontainer-build.yml"
   pull_request:
     paths:
       - "global.json"
+      - ".config/dotnet-tools.json"
       - ".devcontainer/**"
       - "tooling~/package.json"
       - ".github/workflows/devcontainer-build.yml"

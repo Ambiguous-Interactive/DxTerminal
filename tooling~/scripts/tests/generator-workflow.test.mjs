@@ -90,7 +90,7 @@ for (const available of [false, true]) {
             const diagnostics = path.join(root, "diagnostics");
             const bytes = '{"runtimeOptions":{"configProperties":{"System.GC.Server":false}}}\n';
             if (available) {
-                const source = path.join(root, "Generator~", "WallstopStudios.DxCommandTerminal.SourceGenerators.Tests", "bin", "Release", "net9.0");
+                const source = path.join(root, "Generator~", "WallstopStudios.DxCommandTerminal.SourceGenerators.Tests", "bin", "Release", "net11.0");
                 fs.mkdirSync(source, { recursive: true });
                 fs.writeFileSync(path.join(source, "WallstopStudios.DxCommandTerminal.SourceGenerators.Tests.runtimeconfig.json"), bytes);
             }

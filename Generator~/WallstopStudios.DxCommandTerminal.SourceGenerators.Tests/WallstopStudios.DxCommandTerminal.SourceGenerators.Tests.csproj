@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <TargetFramework>net11.0</TargetFramework>
+        <OutputType>Exe</OutputType>
         <LangVersion>latest</LangVersion>
         <Nullable>disable</Nullable>
         <IsPackable>false</IsPackable>
@@ -68,10 +69,11 @@
         </ProjectReference>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Basic.Reference.Assemblies.NetStandard21" Version="1.8.11" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
-        <PackageReference Include="xunit" Version="2.9.0" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+        <PackageReference Include="Basic.Reference.Assemblies.NetStandard21" Version="1.8.15" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
+        <!-- The VSTest adapter retains the TRX and console diagnostics used by CI. -->
+        <PackageReference Include="xunit.v3.mtp-off" Version="4.0.3" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
     </ItemGroup>
 </Project>

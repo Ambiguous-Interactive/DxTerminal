@@ -104,6 +104,15 @@ def read_results(path: Path, assembly: str) -> dict[str, int]:
     return {"total": total, "passed": counts["Passed"], "skipped": counts["Skipped"]}
 
 
+def fixture_dependencies(version: str) -> dict[str, str]:
+    editor = [int(part) for part in version.split(".")[:2]]
+    profiles = json.loads((ROOT / "tooling~/compat/fixture-packages.json").read_text(encoding="utf-8"))
+    for profile in profiles:
+        if editor >= profile["minimumEditor"]:
+            return profile["dependencies"]
+    raise ValueError(f"No fixture package versions for Unity {version}")
+
+
 def create_project(project: Path, version: str, revision: str) -> Path:
     package = project / "Packages" / PACKAGE
     package.mkdir(parents=True)
@@ -121,8 +130,7 @@ def create_project(project: Path, version: str, revision: str) -> Path:
     (project / "ProjectSettings/ProjectVersion.txt").write_text(f"m_EditorVersion: {version}\n", encoding="utf-8")
     dependencies = {
         PACKAGE: "file:" + PACKAGE,
-        "com.unity.inputsystem": "1.20.1" if version.startswith("6000.5.") else "1.7.0",
-        "com.unity.test-framework": "1.1.33" if version.startswith("2021.") else "1.4.6",
+        **fixture_dependencies(version),
         "com.unity.modules.uielements": "1.0.0",
         "com.unity.modules.imageconversion": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0",

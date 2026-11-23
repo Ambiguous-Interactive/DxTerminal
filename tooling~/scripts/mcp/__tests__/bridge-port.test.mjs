@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { nextProjectPort, projectPort, startBridge } from "../unity-mcp.mjs";
+import { PassThrough } from "node:stream";
+import { nextProjectPort, probeEndpoint, projectPort, startBridge } from "../unity-mcp.mjs";
 
 const BEARER = "a".repeat(64);
 
@@ -187,6 +189,42 @@ test("an operator-supplied port fails fast instead of moving silently", async ()
     assert.equal(persistedPort(repoRoot), undefined, "explicit ports are never rewritten");
   } finally {
     await stop(occupier);
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  }
+});
+test("the authenticated bridge negotiates the Unity protocol and releases its relay", async () => {
+  const repoRoot = tempRepo();
+  const protocolVersion = "2025-11-25";
+  const options = bridgeOptions(repoRoot, { host: "127.0.0.1", protocolVersion, connectTimeout: 1000, timeout: 3000, sessionTimeout: 4000, requestTimeout: 4000 });
+  const methods = [];
+  const relay = Object.assign(new EventEmitter(), {
+    stdin: new PassThrough(),
+    stdout: new PassThrough(),
+    stderr: new PassThrough(),
+    exitCode: null,
+    signalCode: null,
+    kill(signal) { this.signalCode = signal; this.emit("exit", null, signal); }
+  });
+  relay.stdin.setEncoding("utf8").on("data", (line) => {
+    const request = JSON.parse(line);
+    methods.push(request.method);
+    const result = request.method === "initialize"
+      ? { protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "fixture", version: "1.0.0" } }
+      : { tools: [{ name: "Unity_RunCommand", inputSchema: { type: "object" } }] };
+    if ("id" in request) relay.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: request.id, result }) + "\n");
+  });
+  let bridge;
+  try {
+    bridge = await startBridge(options, { spawnRelay: () => relay });
+    const rejected = await probeEndpoint(bridge.options, { ...options, bearerToken: "wrong" });
+    assert.equal(rejected.status, "unauthorized");
+    const result = await probeEndpoint(bridge.options, options, fetch, "tools");
+    assert.equal(result.ok, true, result.detail);
+    assert.equal(result.protocolVersion, protocolVersion);
+    assert.deepEqual(methods, ["initialize", "notifications/initialized", "tools/list"]);
+    assert.equal(relay.signalCode, "SIGTERM");
+  } finally {
+    await stop(bridge?.httpServer);
     fs.rmSync(repoRoot, { recursive: true, force: true });
   }
 });

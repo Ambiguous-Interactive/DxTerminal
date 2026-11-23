@@ -11,7 +11,7 @@ metadata:
 
 | Tool            | Source                      | Command                                                                          |
 | --------------- | --------------------------- | -------------------------------------------------------------------------------- |
-| CSharpier 1.1.2 | `.config/dotnet-tools.json` | `dotnet tool run csharpier format`                                               |
+| CSharpier 1.4.1 | `.config/dotnet-tools.json` | `dotnet tool run csharpier format`                                               |
 | pre-commit      | `.pre-commit-config.yaml`   | `pre-commit run --all-files`                                                     |
 | uv              | `tooling~/pyproject.toml`   | `uv run --project tooling~ python ...` (the python linter hooks hard-require it) |
 

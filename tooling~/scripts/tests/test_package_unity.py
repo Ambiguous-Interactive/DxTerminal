@@ -13,6 +13,16 @@ from unity import package_tests as runner
 
 
 class PackageTests(unittest.TestCase):
+    def test_fixture_packages_match_supported_editors(self) -> None:
+        for editor, inputs, framework in [
+            ("2021.3.45f1", "1.15.0", "1.4.6"),
+            ("2022.3.45f1", "1.19.0", "1.4.6"),
+            ("6000.5.2f1", "1.20.1", "1.7.0"),
+        ]:
+            with self.subTest(editor=editor):
+                self.assertEqual(runner.fixture_dependencies(editor), {
+                    "com.unity.inputsystem": inputs, "com.unity.test-framework": framework})
+
     def test_requires_a_passing_case_from_the_selected_assembly(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "results.xml"
