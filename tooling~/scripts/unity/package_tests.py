@@ -187,15 +187,20 @@ def prepare_profile(unity: Path, project: Path, raw: Path, out: Path) -> None:
 
 
 def retain_captures(captures: Path, out: Path, version: str) -> None:
-    scenario = "CapturesTerminalSmallSurface"
-    verified = False
+    required = {
+        "CapturesTerminalSmallSurface",
+        "CapturesLightThemeSurface",
+        "CapturesDarkThemeSurface",
+    }
+    verified: set[str] = set()
     for file in captures.glob("*/*"):
         if file.suffix not in (".json", ".png") or not file.is_file():
             continue
         target = out / "captures" / file.relative_to(captures)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(file, target)
-        if file.name == scenario + ".manifest.json":
+        scenario = file.name.removesuffix(".manifest.json")
+        if scenario in required and file.name.endswith(".manifest.json"):
             data = json.loads(file.read_text(encoding="utf-8-sig"))
             png = file.with_name(scenario + ".png")
             if (data.get("scenario") == scenario and data.get("complete") is True and data.get("unityVersion") == version
@@ -203,9 +208,11 @@ def retain_captures(captures: Path, out: Path, version: str) -> None:
                     and png.is_file() and png.stat().st_size > 8
                     and data.get("metrics", {}).get("pngBytes") == png.stat().st_size):
                 with png.open("rb") as image:
-                    verified |= image.read(8) == b"\x89PNG\r\n\x1a\n"
-    if not verified:
-        raise ValueError(f"Graphics run lacks a completed {scenario} capture and matching PNG from Unity {version}")
+                    if image.read(8) == b"\x89PNG\r\n\x1a\n":
+                        verified.add(scenario)
+    missing = required - verified
+    if missing:
+        raise ValueError(f"Missing complete Unity {version} captures with matching PNGs: {', '.join(sorted(missing))}")
 
 
 def package_suites(unity: Path, project: Path, raw: Path, out: Path, graphics: bool,

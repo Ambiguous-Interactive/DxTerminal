@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       capture_graphics:
-        description: Run the Unity 6 graphics capture fixtures and retain screenshots
+        description: Run Unity 6 batch graphics and retain runtime surface screenshots
         type: boolean
         default: false
 
