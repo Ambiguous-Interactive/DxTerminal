@@ -292,8 +292,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             for (int attempt = 0; attempt < 3; ++attempt)
             {
-                _terminal._commandInput.cursorIndex = caretIndex;
-                _terminal._commandInput.selectIndex = caretIndex;
+                _terminal._commandInput.SelectRange(caretIndex, caretIndex);
 
                 int frameBudget = 100;
                 while (0 < frameBudget-- && _terminal._commandInput.cursorIndex != caretIndex)
