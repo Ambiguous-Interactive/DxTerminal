@@ -108,8 +108,22 @@
             {
                 foreach ((string foreground, string background, double minimum) in Pairs)
                 {
-                    yield return new TestCaseData(theme, foreground, background, minimum);
+                    TestCaseData test = new(theme, foreground, background, minimum);
+                    if (ProposedFailures.ContainsKey((theme, foreground, background)))
+                    {
+                        test.Explicit("Run strict checks for the proposed colors before A2.").SetCategory("ProposedThemeContrast");
+                    }
+
+                    yield return test;
                 }
+            }
+        }
+
+        private static IEnumerable<TestCaseData> ProposedFailureCases()
+        {
+            foreach (KeyValuePair<(string Theme, string Foreground, string Background), (string Backdrop, double Ratio)> failure in ProposedFailures)
+            {
+                yield return new TestCaseData(failure.Key.Theme, failure.Key.Foreground, failure.Key.Background, failure.Value.Backdrop, failure.Value.Ratio);
             }
         }
 
@@ -139,8 +153,7 @@
             return -0.1 < darkerBackground ? 0.0 : (darkerBackground + 0.027) * 100;
         }
 
-        [TestCaseSource(nameof(ContrastCases))]
-        public void RolesMeetContrastMinimum(string theme, string foregroundRole, string backgroundRole, double minimum)
+        private static (double Ratio, string Backdrop, string Result) MeasureContrast(string theme, string foregroundRole, string backgroundRole)
         {
             Dictionary<string, Rgb> colors = Themes[theme];
             double worstRatio = double.PositiveInfinity;
@@ -169,16 +182,24 @@
 
             string pair = $"{theme} {foregroundRole} on {backgroundRole}";
             TestContext.WriteLine(FormattableString.Invariant($"{pair} on {weakestBackdrop}: APCA Lc {weakestLc:F1} (advisory)"));
-            string result = FormattableString.Invariant($"{pair} on {worstBackdrop}: {worstRatio:F2}:1 (minimum {minimum:F1}:1)");
+            string result = FormattableString.Invariant($"{pair} on {worstBackdrop}: {worstRatio:F2}:1");
             TestContext.WriteLine(result);
-            if (ProposedFailures.TryGetValue((theme, foregroundRole, backgroundRole), out (string Backdrop, double Ratio) known))
-            {
-                Assert.That(worstBackdrop, Is.EqualTo(known.Backdrop), result);
-                Assert.That(worstRatio, Is.EqualTo(known.Ratio).Within(0.000001), result);
-                return;
-            }
+            return (worstRatio, worstBackdrop, result);
+        }
 
-            Assert.That(worstRatio, Is.GreaterThanOrEqualTo(minimum), result);
+        [TestCaseSource(nameof(ContrastCases))]
+        public void RolesMeetContrastMinimum(string theme, string foregroundRole, string backgroundRole, double minimum)
+        {
+            (double ratio, _, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
+            Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum), result);
+        }
+
+        [TestCaseSource(nameof(ProposedFailureCases))]
+        public void ProposedFailuresMatchHandoff(string theme, string foregroundRole, string backgroundRole, string expectedBackdrop, double expectedRatio)
+        {
+            (double ratio, string backdrop, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
+            Assert.That(backdrop, Is.EqualTo(expectedBackdrop), result);
+            Assert.That(ratio, Is.EqualTo(expectedRatio).Within(0.000001), result);
         }
 
         private readonly struct Rgb
