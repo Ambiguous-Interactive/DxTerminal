@@ -9,7 +9,7 @@
     using Themes;
 #if UNITY_EDITOR
     using UnityEditor;
-    using UnityEditor.PackageManager;
+    using PackageInfo = UnityEditor.PackageManager.PackageInfo;
     using UnityEngine.UIElements;
 #endif
 
