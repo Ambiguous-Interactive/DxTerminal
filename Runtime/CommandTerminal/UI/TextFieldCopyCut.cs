@@ -98,16 +98,8 @@
             field.cursorIndex = start;
             field.selectIndex = start;
 #else
-            /* 2021.3 exposes the caret getters only; the engine owns placement. */
+            field.SelectRange(start, start);
 #endif
-            /*
-                The reported caret is the computed start on every version,
-                the same contract the paste reports on: 2021.3 cannot place
-                the field's caret programmatically, so the value there is
-                where the engine left it, but the position a caller ranks
-                against is still the span's start - the one position the cut
-                can state with certainty.
-             */
             caret = start;
             return true;
         }

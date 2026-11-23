@@ -326,6 +326,7 @@
             TextField row = (TextField)LogContent()[0];
             Assert.That(row.value, Is.EqualTo("repeat"));
             Assert.That(row.label, Does.EndWith(" x2"));
+            yield return Settle();
             Vector2 textSize = row.labelElement.MeasureTextSize(row.label, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
             if (0f < row.labelElement.layout.width)
             {
@@ -363,14 +364,10 @@
         public IEnumerator LogRowsExposeUtcTimeAndSeverityWithoutChangingMessageText()
         {
             yield return SpawnOpenTerminal();
-            TerminalSession.Current.Buffer = new CommandLog(
-                16,
-                null,
-                static () =>
-                {
-                    return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
-                }
-            );
+            TerminalSession.Current.Buffer = new CommandLog(16, null, static () =>
+            {
+                return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+            });
             TerminalLogType[] types =
             {
                 TerminalLogType.Error,
@@ -913,6 +910,8 @@
             yield return RunCommand("find " + HitMarker);
             yield return WaitForDrawnText("the hit", "The search landed");
 
+            _terminal._textInput.Focus();
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "The command field must hold focus before sending F3");
             yield return SendKey(KeyCode.F3);
             yield return WaitForLastLogLine("Match 2 of 80", "The key the field holds focus for reaches the search");
             _terminal.keyBindings.findNext = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F4) };
@@ -951,6 +950,8 @@
             yield return RunCommand("find " + HitMarker);
             yield return WaitForDrawnText("the hit", "The search landed");
 
+            _terminal._textInput.Focus();
+            Assert.That(_terminal.InputOwnsFocus, Is.True, "The command field must hold focus before sending F3");
             yield return SendKey(KeyCode.F3);
             yield return WaitForLastLogLine("Match 2 of 80", "F3 moved the search while one was set");
 

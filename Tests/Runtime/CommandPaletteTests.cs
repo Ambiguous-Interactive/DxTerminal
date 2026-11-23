@@ -2023,10 +2023,14 @@
         private IEnumerator SendPaletteClipboardKey(KeyCode keyCode, Func<IEnumerator> arrange, Func<bool> satisfied, string satisfiedBecause)
         {
             bool keyRouted = false;
+            int cursorBefore = 0;
+            int anchorBefore = 0;
             for (int attempt = 0; attempt < 8; ++attempt)
             {
                 yield return arrange();
                 _keyRouted = false;
+                cursorBefore = _palette._input.cursorIndex;
+                anchorBefore = _palette._input.selectIndex;
                 yield return SendKeyDown(keyCode, EventModifiers.Control);
                 keyRouted |= _keyRouted;
                 if (satisfied())
@@ -2047,7 +2051,11 @@
             yield return ProbeClipboard();
             if (_clipboardProbeHeld)
             {
-                Assert.Fail($"{satisfiedBecause}; the key did route, so the verdict is a product defect (#207, #250)");
+                Assert.Fail(
+                    $"Expected {satisfiedBecause}. Before: caret={cursorBefore}, anchor={anchorBefore}. "
+                        + $"After: value='{_palette._input.value}', caret={_palette._input.cursorIndex}, anchor={_palette._input.selectIndex}, "
+                        + $"completion={_palette._completionMode}, replacement={_palette._completionContext.ReplacementStart}."
+                );
             }
 
             Assert.Ignore("The host clipboard did not hold a direct probe twice in a row; " + "the clipboard-key fixtures need a platform that answers (#207)");
