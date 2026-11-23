@@ -7,12 +7,12 @@ remain binding after a task leaves the plan.
 
 - Preserve public APIs, serialized assets, production assembly identities, and Unity 2021.3 minimum compatibility. New capabilities stay additive.
 - Source-generated registration remains the primary path. Measure its overhead; do not replace it with broad reflection.
-- CI never provisions Unity or consumes a license. Unity-dependent validation runs locally on pinned environments with retained evidence.
+- The Unity Tests workflow uses the organization’s licensed Windows runners, preinstalled Editors and reviewed build-lock actions. Ordinary CI and the devcontainer run Editor-free.
 - Contextual completion stays synchronous and local. Network/async providers are out of scope.
 - The palette remains an in-game runtime quick-launch surface. Edit Mode execution requires explicit opt-in and gameplay commands never become Edit Mode commands by default.
 - Do not promise universal zero allocation. Claims cover only designated, measured operations with valid instruments.
 - DxMessaging and unity-helpers are design references only: copy-adapt with attribution; no `uses:`, submodules, cross-repo actions, runtime references, or third-party Unity
-  packaging actions. GitHub-owned actions may be pinned. Workflows remain Unity-free.
+  packaging actions. The licensed workflow uses the central build-lock actions at an approved immutable revision.
 - MIT licensing, upstream attribution, and the no-paid-features policy remain binding.
 - Keep tasks staged and reviewable. Partial evidence is not milestone completion.
 - Do not silently weaken targets, compatibility promises, or visual checks.

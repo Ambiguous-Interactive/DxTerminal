@@ -6,14 +6,15 @@
 node tooling~/scripts/mcp/unity-mcp.mjs <probe|configure|bridge|install-capture|capture> [options]
 ```
 
-Unity stays on the host. The `bridge` command (host) exposes the editor through an authenticated HTTP MCP endpoint; `configure`/`probe`/`capture` (container or host) talk to that
-endpoint. See `.devcontainer/README.md` for the full picture and [unity-mcp](../../.llm/skills/unity-mcp/SKILL.md) for the agent workflow.
+Standalone checkouts configure the general MCP servers offline. Set `UNITY_MCP_ENABLED=1` to register Unity and enable interactive commands. The `bridge` command (host) exposes the
+editor through an authenticated HTTP MCP endpoint; `configure`/`probe`/`capture` (container or host) talk to that endpoint. See `.devcontainer/README.md` for the full picture and
+[unity-mcp](../../.llm/skills/unity-mcp/SKILL.md) for the agent workflow.
 
 ## Commands
 
 | Command           | Where  | Behavior                                                                                                                                               |
 | ----------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bridge`          | host   | Serve Unity over MCP HTTP. Needs `--project` or `UNITY_PROJECT_PATH`. `--backend cli` (Unity 6 CLI) or `relay` (legacy Assistant).                     |
+| `bridge`          | host   | Serve the official Unity CLI over authenticated HTTP. Needs `--project` or `UNITY_PROJECT_PATH`.                                                       |
 | `probe`           | either | Discover endpoints; verify a live editor answers (`editor_status` / `Unity_ManageEditor`).                                                             |
 | `configure`       | either | Probe (unless `--offline`) then write all agent MCP configs in one transaction.                                                                        |
 | `install-capture` | host   | Copy the editor dev tools (`DxTerminalStateCapture.cs.txt`, `DxTerminalTestRunReporter.cs.txt`) to `<project>/Assets/Editor/` (backs up prior copies). |
@@ -26,16 +27,16 @@ before it starts.
 
 ## Ports and discovery
 
-- The bridge binds `0.0.0.0` and defaults to a **deterministic per-project port**: FNV-1a of the resolved project path mapped into `27100..27999`. Several editors on one host never
-  collide as long as each project has its own path. Override with `UNITY_MCP_BRIDGE_PORT` or `--port`. The path spelling is normalized before hashing (`\` -> `/`, drive letter kept
-  root-anchored, lowercased), so the host (`C:\Code\Game`) and a POSIX container (`C:/Code/Game`) derive the same port; a plain `path.resolve` on a drive path inside a POSIX
-  container prepends the cwd and made container-side `configure`/`probe` aim at the wrong port.
+- The bridge binds `127.0.0.1` and defaults to a **deterministic per-project port**: FNV-1a of the resolved project path mapped into `27100..27999`. Several editors on one host
+  never collide as long as each project has its own path. Override with `UNITY_MCP_BRIDGE_PORT` or `--port`. The path spelling is normalized before hashing (`\` -> `/`, drive
+  letter kept root-anchored, lowercased), so the host (`C:\Code\Game`) and a POSIX container (`C:/Code/Game`) derive the same port; a plain `path.resolve` on a drive path inside a
+  POSIX container prepends the cwd and made container-side `configure`/`probe` aim at the wrong port.
 - Conflicts heal by port source. A flag or process-environment port is binding intent: it fails fast on conflict. A `.env.local` or project-derived port that is busy (and not a
   live bridge, which is reported instead of duplicated) moves to the next free port in the range and persists the choice as `UNITY_MCP_BRIDGE_PORT` in `.env.local`, so every later
   configure and client reads the port the bridge actually bound. A port held on `127.0.0.1` counts as busy even for a `0.0.0.0` bind: Windows accepts that bind, but the loopback
   listener would shadow the bridge.
-- Discovery probes, in order: the project port, `9020`, `9003`, across `host.docker.internal`, `127.0.0.1`, WSL nameservers, and Linux gateways. `--host`/`--port` restrict probing
-  to one endpoint; `--no-discover` skips fallbacks.
+- The default probes the configured endpoint. Both client and bridge default to loopback. Use `--host` to select another host. On that host, `--discover` tries the project port
+  (when known), then `9020` and `9003`. An explicit `--port` fixes the port even with discovery enabled.
 - Auth: every MCP request needs `Authorization: Bearer <UNITY_MCP_BEARER_TOKEN>`. The token is minted into `.env.local` on first bridge start. `GET /healthz` is the only
   unauthenticated endpoint (liveness only).
 

@@ -1,7 +1,7 @@
 <!--
     Unity-free execution host for the engine-independent Tests/Editor
     fixtures (issue #193). tests-2021.3.csproj proves every Tests/Editor
-    file compiles against the pinned 2021.3.33 assemblies; this project
+    file compiles against the supported 2021.3 editor assemblies; this project
     proves the engine-independent fixtures also *pass* - a red assertion
     fails the job, so a broken test cannot land green (the #192 class).
 
@@ -23,8 +23,8 @@
     defined, so discovery exercises the reflection path, not
     UnityEditor.TypeCache.
 
-    Run via `npm run test:editor` (builds tests-2021.3.csproj first: the
-    compile gate is the reason this host exists).
+    Run via `npm run test:logic` on a standalone checkout. The licensed
+    runner also builds tests-2021.3.csproj against its installed editor.
 -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>

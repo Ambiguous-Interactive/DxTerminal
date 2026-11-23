@@ -128,13 +128,13 @@ jobs:
       - name: Test tooling
         run: npm --prefix tooling~ test
 
-      - name: Test player evidence suites
-        # One interpreter for all four suites (same modules and order as the
+      - name: Test Unity runner and player evidence
+        # One interpreter for the suites (same modules and order as the
         # preflight python-tests gate): unittest aggregates the module list,
         # any suite failure still fails the step, and three fewer steps of
         # per-step overhead leave both legs sooner.
         working-directory: tooling~/scripts/tests
-        run: python -m unittest test_verify_opencode test_player_smoke test_player_readiness test_webgl_player
+        run: python -m unittest test_verify_opencode test_player_smoke test_player_readiness test_webgl_player test_package_unity
 
       - name: Check shell entry syntax
         # One file per call: `bash -n a b` checks a and passes b as arguments.
@@ -309,8 +309,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', 'tooling~/scripts/mcp/grammar/DxTerminalClaimGrammar.csproj') }}
-          restore-keys: ${{ runner.os }}-nuget-
+          key: ${{ runner.os }}-nuget-grammar-${{ hashFiles('global.json', 'tooling~/scripts/mcp/grammar/DxTerminalClaimGrammar.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-grammar-
 
       # The claim reader is imported from unity-mcp.mjs, so this job needs the
       # npm project even though it runs no node suite. The node_modules cache

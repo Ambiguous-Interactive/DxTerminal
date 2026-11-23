@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import {
   configure,
+  resolveOptions,
+  runConfigure,
   clientConfigPaths,
   githubCredentialHint,
   mergeCodexToml,
@@ -50,6 +52,33 @@ function options(repoRoot, overrides = {}) {
     ...overrides
   };
 }
+
+test("standalone checkout configures offline and removes stale Unity registrations from every frontend", async (t) => {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "dxt-standalone-"));
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  const generated = paths(repoRoot);
+  fs.writeFileSync(generated.claudeCode, JSON.stringify({ mcpServers: { custom: { command: "my-tool" } } }));
+  const standalone = () => resolveOptions({}, {}, { UNITY_MCP_BRIDGE_PORT: "stale-port" }, repoRoot, "configure");
+  await runConfigure(standalone());
+  assert.equal(fs.existsSync(path.join(repoRoot, ".env.local")), false);
+  const before = fs.readFileSync(generated.claudeCode, "utf8");
+  const optedIn = { UNITY_MCP_ENABLED: "1" };
+  await assert.rejects(runConfigure(resolveOptions({ offline: true }, {}, optedIn, repoRoot, "configure")), /workstation.*token/i);
+  assert.equal(fs.existsSync(path.join(repoRoot, ".env.local")), false);
+  assert.equal(fs.readFileSync(generated.claudeCode, "utf8"), before);
+  const connected = resolveOptions({ offline: true }, {}, { ...optedIn, UNITY_MCP_BEARER_TOKEN: BEARER }, repoRoot, "configure");
+  await runConfigure(connected);
+  const localUrl = JSON.parse(fs.readFileSync(generated.claudeCode, "utf8")).mcpServers["unity-mcp"].url;
+  assert.equal(localUrl, "http://127.0.0.1:9020/mcp");
+  for (const file of Object.values(generated)) assert.match(fs.readFileSync(file, "utf8"), /unity-mcp/);
+  await runConfigure(standalone());
+  for (const file of Object.values(generated)) assert.doesNotMatch(fs.readFileSync(file, "utf8"), /unity-mcp/);
+  assert.equal(fs.readFileSync(generated.claudeCode, "utf8"), before);
+  assert.match(before, /my-tool/);
+  for (const command of ["tests", "capture", "probe", "bridge", "install-capture", "t4-capture"]) {
+    assert.throws(() => resolveOptions({}, {}, {}, repoRoot, command), /UNITY_MCP_ENABLED=1/);
+  }
+});
 
 test("OpenCode credential references are reported when only aliases are set", () => {
   const canonical = {

@@ -1,9 +1,9 @@
 /*
     Compile-only stand-in for UnityEngine.TestRunner's LogAssert (issue
-    #193). The UnityEngine.Modules package does not carry the test
-    runner assembly, but two Tests/Editor files call LogAssert.Expect,
+    #193). The installed engine modules exclude the Test Framework
+    package, but two Tests/Editor files call LogAssert.Expect,
     and the point of tests-2021.3.csproj is that *every* Tests/Editor
-    file compiles against the pinned 2021.3.33 assemblies.
+    file compiles against the supported 2021.3 editor assemblies.
 
     This file is never executed: the fixtures that call LogAssert
     assert against the editor's own log pump, which exists only inside

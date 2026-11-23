@@ -60,8 +60,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', 'Generator~/**/*.csproj') }}
-          restore-keys: ${{ runner.os }}-nuget-
+          key: ${{ runner.os }}-nuget-generator-${{ hashFiles('global.json', 'Generator~/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-generator-
 
       - name: Setup DotNet
         id: dotnet

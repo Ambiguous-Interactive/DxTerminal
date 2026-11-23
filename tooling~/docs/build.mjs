@@ -1,38 +1,13 @@
 /*
-    Builds the documentation site (Unity-free):
+    Full API extraction uses the licensed 2021.3 runner's installed engine
+    modules. DocFX resolves its reference glob inside this project, so stage
+    just those DLLs for extraction and remove them before rendering the site.
+    --guides-only renders guides on a standalone checkout and reuses any
+    locally generated API model.
 
-    1. dotnet tool restore  - docfx is pinned in .config/dotnet-tools.json.
-    2. dotnet restore refs.csproj - downloads the pinned UnityEngine
-       reference assemblies into the NuGet global cache.
-    3. Copies those DLLs into obj/unity-refs/ - docfx reference globs are
-       relative to docfx.json and cannot use `../`, so the files must live
-       inside the docfx project directory.
-    4. docfx metadata - extracts the API model from Runtime sources against
-       those references (no Unity editor involved).
-    5. docfx build - renders guides (Documentation~) + API YAML into
-       obj/_site, a searchable static site.
-
-    `--guides-only` (npm run docs:guides) skips steps 1-4 for guide/stylesheet
-    iteration: it re-stages guides + samples + the screenshots page and runs
-    docfx build against the existing obj/api model. Fails when no model has
-    been generated yet (run the full build once).
-
-    Extraction limits, by design:
-
-    - No defines are set (Unity projects define ENABLE_INPUT_SYSTEM etc.),
-      so class-level input-system-gated public APIs (notably
-      TerminalPlayerInputController) are absent from the API reference, and
-      ENABLE_INPUT_SYSTEM code paths inside otherwise-documented types (for
-      example InputHelpers) are compiled out of their pages. There is no
-      Unity.InputSystem reference assembly on nuget to bind them against;
-      enabling the define without the reference would only add errors.
-    - allowCompilationErrors: true in docfx.json absorbs the resulting
-      unresolved types, and docfx prints "0 errors" even when extraction
-      degrades - so `REQUIRED_API_PAGES` below asserts the core public
-      surface actually produced pages before the build may pass.
-
-    Output: tooling~/docs/obj/_site. Preview with any static server.
-    Stdlib only, cross-OS (GitHub CI runs this on ubuntu).
+    Input-system-only APIs are excluded because this source extraction uses
+    the default compilation symbols. DocFX tolerates source compilation
+    errors, so the full build verifies core public API pages explicitly.
 */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -51,9 +26,6 @@ const GUIDES_SOURCE = path.join(repoRoot, "Documentation~");
 const SAMPLES_SOURCE = path.join(repoRoot, "Samples~", "TerminalCommands");
 const CATALOG_SOURCE = path.join(repoRoot, "tooling~", "scripts/t11/scenario-catalog.json");
 const BASELINES_SOURCE = path.join(repoRoot, "Tests/Runtime/Capture/Baselines~");
-const NUGET_PACKAGE = "unityengine.modules";
-const NUGET_VERSION = "2021.3.33";
-const NUGET_LIB = "netstandard2.0";
 const SCREENSHOT_GROUP_ORDER = SCREENSHOT_GROUPS.filter((group) => group !== "negative");
 const PROVENANCE = (scenario, field) => {
   const value = scenario[field];
@@ -90,42 +62,22 @@ function missingRequiredApiPages() {
   });
 }
 
-function run(command, args, options) {
+function run(command, args, cwd = docsDir) {
   execFileSync(command, args, {
-    stdio: options?.quiet ? "pipe" : "inherit",
-    cwd: options?.cwd ?? docsDir,
+    stdio: "inherit",
+    cwd,
     shell: false,
   });
 }
 
-function dotnetStdout(args) {
-  return execFileSync("dotnet", args, { cwd: docsDir, encoding: "utf8", shell: false });
-}
-
-function globalPackagesDir() {
-  const output = dotnetStdout(["nuget", "locals", "global-packages", "--list"]);
-  const marker = "global-packages:";
-  const line = output.split(/\r?\n/).find((entry) => entry.trim().startsWith(marker));
-  if (line === undefined) {
-    throw new Error(`could not parse the NuGet global-packages folder from:\n${output}`);
-  }
-  return line.slice(line.indexOf(marker) + marker.length).trim();
-}
-
 function copyReferenceDlls() {
-  const sourceDir = path.join(
-    globalPackagesDir(),
-    NUGET_PACKAGE,
-    NUGET_VERSION,
-    "lib",
-    NUGET_LIB
-  );
-  if (!fs.existsSync(sourceDir)) {
-    throw new Error(`reference assemblies missing: ${sourceDir} (restore failed?)`);
+  const sourceDir = process.env.UNITY_EDITOR_MANAGED;
+  if (!sourceDir || !fs.existsSync(path.join(sourceDir, "UnityEngine.CoreModule.dll"))) {
+    throw new Error("Set UNITY_EDITOR_MANAGED to the installed Unity 2021.3 engine modules for docs:build. Use npm --prefix tooling~ run docs:guides for a standalone preview.");
   }
   fs.rmSync(refsDir, { recursive: true, force: true });
   fs.mkdirSync(refsDir, { recursive: true });
-  const dlls = fs.readdirSync(sourceDir).filter((file) => file.endsWith(".dll"));
+  const dlls = fs.readdirSync(sourceDir).filter((file) => /^UnityEngine.*\.dll$/u.test(file));
   for (const file of dlls) {
     fs.copyFileSync(path.join(sourceDir, file), path.join(refsDir, file));
   }
@@ -144,10 +96,18 @@ function copyGuides() {
   fs.rmSync(guidesDir, { recursive: true, force: true });
   fs.mkdirSync(guidesDir, { recursive: true });
   const files = fs.readdirSync(GUIDES_SOURCE).filter((file) => file.endsWith(".md"));
+  const hasApi = fs.existsSync(path.join(objDir, "api", "toc.yml"));
   for (const file of files) {
-    fs.copyFileSync(path.join(GUIDES_SOURCE, file), path.join(guidesDir, file));
+    const text = fs.readFileSync(path.join(GUIDES_SOURCE, file), "utf8");
+    // A fresh standalone preview can identify the referenced types, while
+    // links to the generated API are available with a local metadata model.
+    const markdown = hasApi ? text : text
+      .replace(/\[([^\]]+)\]\(xref:([^)]+)\)/gu, "$1 (`$2`)")
+      .replace(/<xref:([^>]+)>/gu, "`$1`");
+    fs.writeFileSync(path.join(guidesDir, file), markdown);
   }
-  fs.copyFileSync(path.join(docsDir, "toc.yml"), path.join(guidesDir, "toc.yml"));
+  const toc = fs.readFileSync(path.join(docsDir, "toc.yml"), "utf8");
+  fs.writeFileSync(path.join(guidesDir, "toc.yml"), hasApi ? toc : toc.replace(/^- name: API Reference\r?\n  href: \.\.\/api\/toc\.yml\r?\n?/mu, ""));
   return files.length;
 }
 
@@ -275,22 +235,15 @@ function generateScreenshotsPage() {
 }
 
 let dllCount = 0;
-if (GUIDES_ONLY) {
-  const apiModelDir = path.join(objDir, "api");
-  const apiPages = fs.existsSync(apiModelDir)
-    ? fs.readdirSync(apiModelDir).filter((file) => file.endsWith(".yml")).length
-    : 0;
-  if (apiPages === 0) {
-    throw new Error(
-      "no docfx API model under obj/api; run the full docs:build once before docs:guides"
-    );
+run("dotnet", ["tool", "restore"], repoRoot);
+if (!GUIDES_ONLY) {
+  try {
+    dllCount = copyReferenceDlls();
+    fs.rmSync(path.join(objDir, "api"), { recursive: true, force: true });
+    run("dotnet", ["docfx", "metadata", "docfx.json"]);
+  } finally {
+    fs.rmSync(refsDir, { recursive: true, force: true });
   }
-} else {
-  run("dotnet", ["tool", "restore"], { cwd: repoRoot, quiet: false });
-  run("dotnet", ["restore", "refs.csproj"]);
-  dllCount = copyReferenceDlls();
-  fs.rmSync(path.join(objDir, "api"), { recursive: true, force: true });
-  run("dotnet", ["docfx", "metadata", "docfx.json"]);
   const missingPages = missingRequiredApiPages();
   if (missingPages.length > 0) {
     throw new Error(

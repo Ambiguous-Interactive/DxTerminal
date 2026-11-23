@@ -7,13 +7,14 @@ metadata:
 
 # Unity MCP Bridge and Agent Backends
 
-Unity runs on the host; agents (in the devcontainer or on the host) reach it through `tooling~/scripts/mcp/unity-mcp.mjs`. Full reference: `tooling~/scripts/mcp/README.md`.
+Set `UNITY_MCP_ENABLED=1` for interactive access to a licensed workstation; agents (in the devcontainer or on the host) reach it through `tooling~/scripts/mcp/unity-mcp.mjs`. Full
+reference: `tooling~/scripts/mcp/README.md`.
 
 ## Commands
 
 | npm script                          | Does                                                                                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `npm run unity:mcp`                 | Host only: start the bridge (`unity-mcp.mjs bridge`). Requires `UNITY_PROJECT_PATH` in `.env.local` or `--project`. |
+| `npm run unity:mcp:bridge`          | Host only: start the bridge (`unity-mcp.mjs bridge`). Requires `UNITY_PROJECT_PATH` in `.env.local` or `--project`. |
 | `npm run unity:mcp:probe`           | Discover endpoints, verify a live editor answers.                                                                   |
 | `npm run unity:mcp:configure`       | Write all agent MCP configs (probe first). `-- --offline` writes without network.                                   |
 | `npm run unity:capture`             | Capture editor/game state; see [capture-unity-state](../capture-unity-state/SKILL.md).                              |
@@ -42,8 +43,7 @@ envelope that read as a broken eval schema (#211). Prefixes that carry meaning s
 - One bridge per project path. Each checkout sets its own `UNITY_PROJECT_PATH` in `.env.local`; the same `unity-mcp` server name in each checkout then reaches that checkout's
   editor.
 - Keep the bridge alive under the host's service manager (launchd on macOS) if it must survive terminal closure: host `node <repo>/tooling~/scripts/mcp/unity-mcp.mjs bridge`.
-- Backend selection: `--backend cli` (default; Unity 6 CLI `unity mcp --project-path`) or `--backend relay` (legacy AI Assistant under `~/.unity/relay/`). If
-  `unity list --project-path <project> --format json` shows no Pipeline tools, use relay.
+- The bridge uses the official Unity CLI. Configure the private endpoint as described in `.devcontainer/README.md`. Use `--discover` only on a trusted local network.
 
 ## configure behavior
 
@@ -151,10 +151,10 @@ never appear.
 
 ## Troubleshooting
 
-- `probe` unreachable: is the bridge running on the host (`npm run unity:mcp`)? Is `UNITY_PROJECT_PATH` set? In the container, `host.docker.internal` must resolve
-  (devcontainer.json adds it via `--add-host`).
+- If `probe` cannot connect, check the port printed by the workstation bridge. For a container client, verify that the SSH tunnel is running and forwards that port to the
+  workstation. The default client address is `127.0.0.1`.
 - `unauthorized` on probe: token mismatch between host and container `.env.local`.
-- Empty tools list from the cli backend: Pipeline is not loaded in that editor; check compilation conflicts, or fall back to `--backend relay`.
+- Empty tools list from the cli backend: Pipeline is not loaded in that editor; check compilation conflicts and verify the Pipeline installation.
 - Agent cannot see Z.AI servers: no key in `.env.local`; configs not rewritten since the key was added (re-run offline configure).
 - Bridge answers 503 `Too many concurrent MCP sessions`: something is leaking sessions. Raise `--max-sessions` for a busy host, and check every path that opens a session releases
   it.

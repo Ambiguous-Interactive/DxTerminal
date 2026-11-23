@@ -3,22 +3,16 @@
     Tests/Editor, so a test that could not compile (a missing using, a
     renamed member) landed green until a live editor ran it. This project
     compiles the real Runtime sources plus every Tests/Editor source
-    against the same pinned UnityEngine 2021.3.33 reference assemblies
-    the package minimum (and runtime-2021.3.csproj) pins, so a broken
-    test fails the build outright.
+    against the installed 2021.3 engine assemblies used by runtime-2021.3.csproj.
 
     UnityEngine.TestRunner (LogAssert) is not part of the
-    UnityEngine.Modules package; LogAssertCompileStub.cs next to this
+    engine modules; LogAssertCompileStub.cs next to this
     file stands in for the members the suite calls. The stub is
     compile-only: the two files that call LogAssert run on a live
     editor, never here.
 
-    Stated limit: `#if UNITY_EDITOR` regions compile nowhere in CI - the
-    pin carries no UnityEditor assemblies, and the host deliberately
-    leaves UNITY_EDITOR undefined. The guarded test code (the discovery
-    fixtures' Reflection.Emit rig, the inclusion tests' editor-only
-    cases) is editor-answered only; the compile tripwire covers
-    unguarded code.
+    This compile omits UNITY_EDITOR. The licensed runner exercises the
+    editor-specific branches in the actual package test assemblies.
 
     Execution of the engine-independent fixtures is testhost/'s job;
     this project only answers "does it compile against 2021.3".
@@ -51,8 +45,8 @@
     -->
     <NoWarn>$(NoWarn);NU1701;CS0649;CS0169;CS0414</NoWarn>
   </PropertyGroup>
+  <Import Project="../editor-references.targets" />
   <ItemGroup>
-    <PackageReference Include="UnityEngine.Modules" Version="2021.3.33" />
     <PackageReference Include="NUnit" Version="3.14.0" />
     <Compile Include="../../../Runtime/**/*.cs" Exclude="../../../Runtime/Analyzers/**" />
     <Compile Include="../../../Tests/Editor/**/*.cs" />

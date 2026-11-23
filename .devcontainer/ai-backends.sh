@@ -569,6 +569,7 @@ print_env_exports() {
     emit_export OPENROUTER_API_KEY OPENROUTER_API_KEY
     emit_export GITHUB_TOKEN GITHUB_TOKEN GH_TOKEN GITHUB_PERSONAL_ACCESS_TOKEN GITHUB_PAT GITHUB_MCP_PAT
     emit_export UNITY_MCP_BEARER_TOKEN UNITY_MCP_BEARER_TOKEN
+    emit_export UNITY_MCP_ENABLED UNITY_MCP_ENABLED
     emit_export UNITY_PROJECT_PATH UNITY_PROJECT_PATH
 }
 
@@ -588,7 +589,7 @@ The ordinary `codex` and `claude` commands retain their native backends.
 the environment or the checkout's .env.local (never sourced, parsed as data):
 ZAI_API_KEY, ZHIPU_API_KEY (for native opencode's Z.AI Coding Plan provider),
 OPENROUTER_API_KEY, GITHUB_TOKEN (from any GitHub alias), UNITY_MCP_BEARER_TOKEN,
-and UNITY_PROJECT_PATH. A credential an alias supplied is exported under the
+UNITY_MCP_ENABLED, and UNITY_PROJECT_PATH. A credential an alias supplied is exported under the
 alias's own name as well, because generated OpenCode configs reference that
 name ({env:GITHUB_MCP_PAT}, {env:Z_AI_API_KEY}) and the lookup resolves only
 against the exact exported key. Native tools can pick the credentials up with:

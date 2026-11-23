@@ -217,7 +217,7 @@ export function buildChecks() {
     {
       /*
           The player-tooling python suites CI runs in tooling-tests.yml,
-          in CI's order. One interpreter for all four suites (CI keeps one
+          in CI's order. One interpreter for the suites (CI keeps one
           discover step each): measured 4.1 s -> 1.0 s standalone here, more
           saved under preflight's parallel load. unittest aggregates the
           module list without failing between suites, and any suite failure
@@ -244,10 +244,10 @@ export function buildChecks() {
        */
       name: "python-tests",
       cwd: "tooling~/scripts/tests",
-      command: `${pythonCommand} -m unittest test_verify_opencode test_player_smoke test_player_readiness test_webgl_player`,
+      command: `${pythonCommand} -m unittest test_verify_opencode test_player_smoke test_player_readiness test_webgl_player test_package_unity`,
       cachePython: true,
       cacheRuntimeEnvironment: true,
-      cachePaths: [".devcontainer", "tooling~/scripts/t13", "tooling~/scripts/tests", "tooling~/compat/player-smoke"]
+      cachePaths: [".devcontainer", "tooling~/scripts/t13", "tooling~/scripts/unity", "tooling~/scripts/tests", "tooling~/compat/player-smoke"]
     },
     {
       /*
@@ -347,93 +347,13 @@ export function buildChecks() {
         "tooling~/package.json"
       ]
     },
-    /*
-        Two Unity-free dotnet builds (runtime-2021.3.csproj and the
-        tests-2021.3 compile gate below), each in its own directory since
-        the compile gate moved to tooling~/compat/tests/ - concurrent
-        restores in one obj used to scramble each other's references into
-        a CS0246 storm (measured: a 1,294-error build that passes either
-        build alone), and the old shared-obj layout is what the retired
-        dotnet lane serialized. testhost, whose restore lands in
-        tooling~/compat/testhost/obj, was already isolated.
-
-        Both are cached (keyed on the sources each project compiles plus
-        the dotnet environment). The old reason not to - "the input
-        surface is the whole tree, so a key either hashes everything or
-        goes stale" - was the keying wall that git-index identity removed:
-        the key now costs one index listing and reads only dirty bytes.
-        A warm no-op build still pays ~10 s of MSBuild evaluation on this
-        host; a cache hit pays none.
-
-        Stated limit: the cache keys the check's inputs, not MSBuild's
-        obj state. A build killed mid-write (preflight's timeout) leaves
-        obj in a state the next build repairs by timestamp, and a cache
-        entry written before an external obj corruption would age a pass
-        until the inputs move; --no-cache bypasses the cache.
-     */
-    {
-      name: "compat-check",
-      command: "dotnet build tooling~/compat/runtime-2021.3.csproj -c Release --nologo",
-      cacheNpm: true,
-      cacheDotnet: true,
-      cacheRuntimeEnvironment: true,
-      cachePaths: [
-        "global.json",
-        "Runtime",
-        "tooling~/package.json",
-        "tooling~/compat/runtime-2021.3.csproj"
-      ],
-      // The analyzer payload copied into Runtime/Analyzers is the
-      // generator build's own output, excluded from both projects'
-      // compilation - keying it would let the lane invalidate itself.
-      cacheExcludes: ["Runtime/Analyzers"]
-    },
-    /*
-        test:editor builds tests-2021.3 (the compile gate) and testhost
-        (the execution host), and the testhost build applies the source
-        generator. Preflight splits the command into its two halves so
-        they run concurrently: each project restores into its own
-        directory's obj (the compile gate moved to tooling~/compat/tests/
-        for exactly that - the shared tooling~/compat/obj was the CS0246
-        storm the retired dotnet lane existed for). compat-2021.yml keeps
-        the chained npm script; the halves here are its steps in CI's
-        order, called directly because the npm wrapper would chain them
-        again.
-
-        Keys: editor-compile spans what tests-2021.3 compiles (Runtime,
-        all of Tests/Editor, the LogAssert stub, its csproj); editor-run
-        spans what testhost compiles (selected Runtime and Tests/Editor
-        sources, the stub surface in its own directory, and the generator
-        its analyzer reference applies). The generator's test project,
-        compat's T13 fixture project, and matrix.json compile nowhere
-        here and are excluded or simply not rooted; obj/bin are excluded
-        - they are the builds' own outputs, and keying them would
-        invalidate the cache on every run the builds themselves run - and
-        so is the NUnitLite result XML a direct testhost run drops into
-        the keyed tree.
-     */
-    {
-      name: "editor-compile",
-      command: "dotnet build tooling~/compat/tests/tests-2021.3.csproj -c Release --nologo",
-      cacheDotnet: true,
-      cacheRuntimeEnvironment: true,
-      cachePaths: [
-        "global.json",
-        "Runtime",
-        "Tests/Editor",
-        "tooling~/compat/tests"
-      ],
-      cacheExcludes: [
-        "Runtime/Analyzers",
-        "tooling~/compat/tests/obj",
-        "tooling~/compat/tests/bin"
-      ]
-    },
+    // The compatibility compiles use the licensed runner's 2021.3 installation.
+    // This execution host only uses repository-owned stand-ins.
     {
       name: "editor-run",
       command:
         "dotnet build tooling~/compat/testhost/testhost.csproj -c Release --nologo "
-          + "&& dotnet run --project tooling~/compat/testhost -c Release --no-build --",
+          + "&& dotnet run --project tooling~/compat/testhost -c Release --no-build -- --noresult",
       cacheDotnet: true,
       cacheRuntimeEnvironment: true,
       cachePaths: [

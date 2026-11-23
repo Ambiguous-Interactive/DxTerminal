@@ -117,8 +117,6 @@ test("buildChecks: unique names, non-empty commands, expected canaries", () => {
     "t11-check",
     "package-validate",
     "docs-guides",
-    "compat-check",
-    "editor-compile",
     "editor-run",
     "lint-linq-production",
     "lint-docs-catalog",
@@ -132,56 +130,9 @@ test("buildChecks: unique names, non-empty commands, expected canaries", () => {
       assert.equal(check.cacheRuntimeEnvironment, true, `${check.name} must key inherited runtime state`);
     }
   }
-  const compatCheck = checks.find((check) => check.name === "compat-check");
-  assert.equal(compatCheck.lane, undefined, "no check shares build state anymore; every check owns a lane");
-  assert.equal(compatCheck.cacheDotnet, true);
-  assert.deepEqual(compatCheck.cachePaths, [
-    "global.json",
-    "Runtime",
-    "tooling~/package.json",
-    "tooling~/compat/runtime-2021.3.csproj"
-  ]);
-  assert.deepEqual(compatCheck.cacheExcludes, ["Runtime/Analyzers"]);
-  const editorCompileCheck = checks.find((check) => check.name === "editor-compile");
-  assert.equal(editorCompileCheck.lane, undefined);
-  assert.equal(editorCompileCheck.cacheDotnet, true);
-  assert.ok(editorCompileCheck.cachePaths.includes("Tests/Editor"));
-  assert.ok(
-    editorCompileCheck.cachePaths.includes("tooling~/compat/tests"),
-    "the compile gate must key the directory its project and stub live in"
-  );
-  for (const buildOutput of ["tooling~/compat/tests/obj", "tooling~/compat/tests/bin"]) {
-    assert.ok(
-      editorCompileCheck.cacheExcludes.includes(buildOutput),
-      `editor-compile must not key its own build output ${buildOutput}`
-    );
+  for (const licensed of ["compat-check", "editor-compile"]) {
+    assert.ok(!names.includes(licensed), `${licensed} needs the licensed runner's editor references`);
   }
-  assert.ok(
-    !editorCompileCheck.cacheExcludes.includes("tooling~/compat/obj"),
-    "the compile gate no longer writes the shared compat obj"
-  );
-  /*
-      Directory isolation is the retired dotnet lane's replacement: two
-      projects restoring into one obj scramble each other's assets into a
-      CS0246 storm, so the compile gate's project must not sit beside
-      runtime-2021.3.csproj - and no obj-path override may try to
-      reintroduce isolation from inside the project body (that fires
-      after Microsoft.Common.props resolved the extensions path, and the
-      restore still collides).
-   */
-  const testsDirectory = fs
-    .readdirSync(path.join(toolingRoot, "compat", "tests"))
-    .filter((entry) => entry.endsWith(".csproj"));
-  assert.deepEqual(
-    testsDirectory,
-    ["tests-2021.3.csproj"],
-    "tests-2021.3.csproj must be the only project in its directory"
-  );
-  const csproj = fs.readFileSync(
-    path.join(toolingRoot, "compat", "tests", "tests-2021.3.csproj"),
-    "utf8"
-  );
-  assert.ok(!csproj.includes("<BaseIntermediateOutputPath"), "directory isolation replaces the obj-path override");
   const editorRunCheck = checks.find((check) => check.name === "editor-run");
   assert.equal(editorRunCheck.lane, undefined, "testhost's restore owns its obj state, so it runs outside the dotnet lane");
   assert.equal(editorRunCheck.cacheDotnet, true);
@@ -241,6 +192,7 @@ test("buildChecks: unique names, non-empty commands, expected canaries", () => {
   assert.deepEqual(pythonTests.cachePaths, [
     ".devcontainer",
     "tooling~/scripts/t13",
+    "tooling~/scripts/unity",
     "tooling~/scripts/tests",
     "tooling~/compat/player-smoke"
   ]);

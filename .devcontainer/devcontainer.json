@@ -3,9 +3,7 @@
 // =============================================================================
 // For format details, see https://aka.ms/devcontainer.json
 // Project: DxCommandTerminal | Unity UPM package (min 2021.3, host editor 6000.4)
-// The Unity Editor stays on the host; this container ships the .NET / Node /
-// PowerShell toolchain plus every agent CLI and MCP server, and drives the host
-// editor through the unity-mcp bridge (tooling~/scripts/mcp/unity-mcp.mjs).
+// Standalone package checkout. Interactive Unity is opt-in.
 // =============================================================================
 {
   "name": "DxCommandTerminal Dev",
@@ -34,17 +32,14 @@
   // ---------------------------------------------------------------------------
   // Volume names are deterministic (no ${devcontainerId}) so they survive
   // rebuilds and are shared across dev container instances of this project.
-  // Keep these aligned with .devcontainer/cache-contract.sh. The final bind
-  // mount exposes the enclosing Unity project (two levels up) read-write so
-  // agentic capture can install Assets/Editor tooling and read host artifacts.
+  // Keep these aligned with .devcontainer/cache-contract.sh.
   "mounts": [
     "source=dxt-nuget-cache,target=/home/vscode/.nuget,type=volume",
     "source=dxt-dotnet-tools,target=/home/vscode/.dotnet/tools,type=volume",
     "source=dxt-powershell-modules,target=/home/vscode/.local/share/powershell,type=volume",
     "source=dxt-python-cache,target=/home/vscode/.cache/pip,type=volume",
     "source=dxt-npm-cache,target=/home/vscode/.npm,type=volume",
-    "source=dxt-node-modules,target=${containerWorkspaceFolder}/tooling~/node_modules,type=volume",
-    "source=${localWorkspaceFolder}/../..,target=/unity-project,type=bind,consistency=consistent"
+    "source=dxt-node-modules,target=${containerWorkspaceFolder}/tooling~/node_modules,type=volume"
   ],
   // ---------------------------------------------------------------------------
   // Container Environment
@@ -70,7 +65,8 @@
     "GITHUB_PERSONAL_ACCESS_TOKEN": "${localEnv:GITHUB_PERSONAL_ACCESS_TOKEN}",
     "GITHUB_PAT": "${localEnv:GITHUB_PAT}",
     "UNITY_PROJECT_PATH": "${localEnv:UNITY_PROJECT_PATH}",
-    "UNITY_PROJECT_CONTAINER_PATH": "/unity-project",
+    "UNITY_MCP_ENABLED": "${localEnv:UNITY_MCP_ENABLED}",
+    "UNITY_PROJECT_CONTAINER_PATH": "${localEnv:UNITY_PROJECT_CONTAINER_PATH}",
     "UNITY_MCP_BEARER_TOKEN": "${localEnv:UNITY_MCP_BEARER_TOKEN}",
     "UNITY_MCP_BRIDGE_HOST": "${localEnv:UNITY_MCP_BRIDGE_HOST}",
     "UNITY_MCP_BRIDGE_PORT": "${localEnv:UNITY_MCP_BRIDGE_PORT}",
