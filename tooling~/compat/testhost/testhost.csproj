@@ -123,5 +123,6 @@
     <Compile Remove="../../../Tests/Editor/CommandDiscoveryProviderTests.cs" />
     <Compile Include="UnityStubs.cs" />
     <Compile Include="Program.cs" />
+    <EmbeddedResource Include="../../../Styles/Themes/DxThemes.uss" LogicalName="Styles/Themes/DxThemes.uss" />
   </ItemGroup>
 </Project>

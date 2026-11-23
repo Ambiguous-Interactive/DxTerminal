@@ -2,71 +2,22 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
+    using System.IO;
+    using System.Text.RegularExpressions;
     using NUnit.Framework;
+#if UNITY_EDITOR
+    using UnityEditor.PackageManager;
+#endif
 
     public sealed class ThemeContrastTests
     {
         private const double TextMinimum = 4.5;
         private const double OutlineMinimum = 3.0;
 
-        // Handoff DxThemes.uss supplies the proposed roles. DESIGN.md 3.2 adds error-line.
-        private static readonly Dictionary<string, Dictionary<string, Rgb>> Themes = new(StringComparer.Ordinal)
-        {
-            ["Dx Dark"] = new Dictionary<string, Rgb>(StringComparer.Ordinal)
-            {
-                ["surface"] = new Rgb(0x0D1117, 0.94),
-                ["surface-raised"] = new Rgb(0x161C25),
-                ["hover"] = new Rgb(0x1D2530),
-                ["input"] = new Rgb(0x0A0E13),
-                ["ink"] = new Rgb(0xE6EDF3),
-                ["ink-body"] = new Rgb(0xC9D2DC),
-                ["ink-muted"] = new Rgb(0x8B949E),
-                ["accent"] = new Rgb(0x5CD68F),
-                ["accent-soft"] = new Rgb(0xB8F2CF),
-                ["on-accent"] = new Rgb(0x0D1117),
-                ["selection"] = new Rgb(0x12301F),
-                ["selection-line"] = new Rgb(0x2B6B45),
-                ["warning"] = new Rgb(0xF4A836),
-                ["error"] = new Rgb(0xEC4661),
-                ["error-line"] = new Rgb(0xB4445A),
-            },
-            ["Dx Paper"] = new Dictionary<string, Rgb>(StringComparer.Ordinal)
-            {
-                ["surface"] = new Rgb(0xF4F1EA, 0.97),
-                ["surface-raised"] = new Rgb(0xFAF8F3),
-                ["hover"] = new Rgb(0xEFEBE1),
-                ["input"] = new Rgb(0xFFFFFF),
-                ["ink"] = new Rgb(0x1B1813),
-                ["ink-body"] = new Rgb(0x46423A),
-                ["ink-muted"] = new Rgb(0x5F5A4F),
-                ["accent"] = new Rgb(0x1F7A47),
-                ["accent-soft"] = new Rgb(0x23704A),
-                ["on-accent"] = new Rgb(0xFFFFFF),
-                ["selection"] = new Rgb(0xDCEFE3),
-                ["selection-line"] = new Rgb(0x8CC5A3),
-                ["warning"] = new Rgb(0x9A5B00),
-                ["error"] = new Rgb(0xC42847),
-                ["error-line"] = new Rgb(0xC4677A),
-            },
-            ["Phosphor"] = new Dictionary<string, Rgb>(StringComparer.Ordinal)
-            {
-                ["surface"] = new Rgb(0x07110B, 0.96),
-                ["surface-raised"] = new Rgb(0x0C1A11),
-                ["hover"] = new Rgb(0x12251A),
-                ["input"] = new Rgb(0x050C08),
-                ["ink"] = new Rgb(0xC8F7D9),
-                ["ink-body"] = new Rgb(0x8FE3B0),
-                ["ink-muted"] = new Rgb(0x4A9A6C),
-                ["accent"] = new Rgb(0x5CD68F),
-                ["accent-soft"] = new Rgb(0xB8F2CF),
-                ["on-accent"] = new Rgb(0x07110B),
-                ["selection"] = new Rgb(0x143D26),
-                ["selection-line"] = new Rgb(0x2F7A4F),
-                ["warning"] = new Rgb(0xF4B04A),
-                ["error"] = new Rgb(0xFF5C74),
-                ["error-line"] = new Rgb(0xB4445A),
-            },
-        };
+        private const string ThemeSheet = "Styles/Themes/DxThemes.uss";
+        private static readonly string[] ThemeClasses = { "dx-dark-theme", "dx-paper-theme", "phosphor-theme" };
+        private static readonly Lazy<Dictionary<string, Dictionary<string, Rgb>>> Themes = new(LoadThemes);
 
         private static readonly (string Foreground, string Background, double Minimum)[] Pairs =
         {
@@ -94,37 +45,49 @@
 
         private static readonly (string Name, Rgb Color)[] Backdrops = { ("black", new Rgb(0x000000)), ("mid gray", new Rgb(0x808080)), ("white", new Rgb(0xFFFFFF)) };
 
-        // Remove these baselines when A2 switches the gate to shipped themes.
-        private static readonly Dictionary<(string Theme, string Foreground, string Background), (string Backdrop, double Ratio)> ProposedFailures = new()
+        private static Dictionary<string, Dictionary<string, Rgb>> LoadThemes()
         {
-            [("Dx Dark", "error", "surface")] = ("white", 4.409032),
-            [("Dx Dark", "selection-line", "surface")] = ("white", 2.584630),
-            [("Dx Paper", "selection-line", "surface")] = ("black", 1.640742),
-        };
+#if UNITY_EDITOR
+            PackageInfo package = PackageInfo.FindForAssetPath("Packages/com.wallstop-studios.dxcommandterminal/" + ThemeSheet);
+            string sheet = File.ReadAllText(Path.Combine(package.resolvedPath, ThemeSheet));
+#else
+            using StreamReader reader = new(typeof(ThemeContrastTests).Assembly.GetManifestResourceStream(ThemeSheet));
+            string sheet = reader.ReadToEnd();
+#endif
+            Dictionary<string, Dictionary<string, Rgb>> themes = new(StringComparer.Ordinal);
+            foreach (string themeClass in ThemeClasses)
+            {
+                Match block = Regex.Match(sheet, @"^\." + themeClass + @"\s*\{([^}]*)\}", RegexOptions.Multiline);
+                Assert.That(block.Success, Is.True, $"Missing theme .{themeClass}");
+                Dictionary<string, Rgb> roles = new(StringComparer.Ordinal);
+                foreach (Match declaration in Regex.Matches(block.Groups[1].Value, @"^\s*--dxt-([a-z-]+):\s*rgba\(([^)]*)\);", RegexOptions.Multiline))
+                {
+                    string[] components = declaration.Groups[2].Value.Split(',');
+                    roles.Add(
+                        declaration.Groups[1].Value,
+                        new Rgb(
+                            byte.Parse(components[0], CultureInfo.InvariantCulture) / 255.0,
+                            byte.Parse(components[1], CultureInfo.InvariantCulture) / 255.0,
+                            byte.Parse(components[2], CultureInfo.InvariantCulture) / 255.0,
+                            double.Parse(components[3], CultureInfo.InvariantCulture)
+                        )
+                    );
+                }
+
+                themes.Add(themeClass, roles);
+            }
+
+            return themes;
+        }
 
         private static IEnumerable<TestCaseData> ContrastCases()
         {
-            // Unity's assembly filter can run NUnit explicit cases during a full suite.
-            bool strict = string.Equals(Environment.GetEnvironmentVariable("DXT_STRICT_PROPOSED_THEME_CONTRAST"), "1", StringComparison.Ordinal);
-            foreach (string theme in Themes.Keys)
+            foreach (string theme in ThemeClasses)
             {
                 foreach ((string foreground, string background, double minimum) in Pairs)
                 {
-                    if (!strict && ProposedFailures.ContainsKey((theme, foreground, background)))
-                    {
-                        continue;
-                    }
-
                     yield return new TestCaseData(theme, foreground, background, minimum);
                 }
-            }
-        }
-
-        private static IEnumerable<TestCaseData> ProposedFailureCases()
-        {
-            foreach (KeyValuePair<(string Theme, string Foreground, string Background), (string Backdrop, double Ratio)> failure in ProposedFailures)
-            {
-                yield return new TestCaseData(failure.Key.Theme, failure.Key.Foreground, failure.Key.Background, failure.Value.Backdrop, failure.Value.Ratio);
             }
         }
 
@@ -154,9 +117,9 @@
             return -0.1 < darkerBackground ? 0.0 : (darkerBackground + 0.027) * 100;
         }
 
-        private static (double Ratio, string Backdrop, string Result) MeasureContrast(string theme, string foregroundRole, string backgroundRole)
+        private static (double Ratio, string Result) MeasureContrast(string theme, string foregroundRole, string backgroundRole)
         {
-            Dictionary<string, Rgb> colors = Themes[theme];
+            Dictionary<string, Rgb> colors = Themes.Value[theme];
             double worstRatio = double.PositiveInfinity;
             string worstBackdrop = string.Empty;
             double weakestLc = double.PositiveInfinity;
@@ -185,22 +148,14 @@
             TestContext.WriteLine(FormattableString.Invariant($"{pair} on {weakestBackdrop}: APCA Lc {weakestLc:F1} (advisory)"));
             string result = FormattableString.Invariant($"{pair} on {worstBackdrop}: {worstRatio:F2}:1");
             TestContext.WriteLine(result);
-            return (worstRatio, worstBackdrop, result);
+            return (worstRatio, result);
         }
 
         [TestCaseSource(nameof(ContrastCases))]
         public void RolesMeetContrastMinimum(string theme, string foregroundRole, string backgroundRole, double minimum)
         {
-            (double ratio, _, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
+            (double ratio, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
             Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum), result);
-        }
-
-        [TestCaseSource(nameof(ProposedFailureCases))]
-        public void ProposedFailuresMatchHandoff(string theme, string foregroundRole, string backgroundRole, string expectedBackdrop, double expectedRatio)
-        {
-            (double ratio, string backdrop, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
-            Assert.That(backdrop, Is.EqualTo(expectedBackdrop), result);
-            Assert.That(ratio, Is.EqualTo(expectedRatio).Within(0.000001), result);
         }
 
         private readonly struct Rgb
@@ -213,7 +168,7 @@
             public Rgb(int hex, double alpha = 1)
                 : this((hex >> 16) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, alpha) { }
 
-            private Rgb(double red, double green, double blue, double alpha)
+            public Rgb(double red, double green, double blue, double alpha)
             {
                 _red = red;
                 _green = green;
