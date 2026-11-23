@@ -63,7 +63,7 @@
         private readonly List<ScriptableObject> _spawnedAssets = new();
 
         private static T LoadPack<T>(string relativePath)
-            where T : ScriptableObject
+            where T : UnityEngine.Object
         {
 #if UNITY_EDITOR
             return UnityEditor.AssetDatabase.LoadAssetAtPath<T>($"{PackageRoot}/{relativePath}");
@@ -1790,6 +1790,7 @@
             document.panelSettings = _panelSettings;
             _palette = _paletteObject.AddComponent<CommandPaletteUI>();
             _palette._uiDocument = document;
+            _palette._font = LoadPack<Font>("Fonts/Fira_Mono/FiraMono-Regular.ttf");
             _paletteObject.SetActive(true);
             yield return null;
         }

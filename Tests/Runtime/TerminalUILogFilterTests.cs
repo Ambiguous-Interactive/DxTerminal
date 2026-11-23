@@ -160,6 +160,7 @@
             yield return WaitForDrawnCount(2, "Both search candidates are drawn");
             _terminal.SetLogFilter("alpha", false);
             _terminal.RefreshUI();
+            yield return Settle();
             TextField first = (TextField)LogContent()[0];
             TextField second = (TextField)LogContent()[1];
             Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.True);
