@@ -179,6 +179,8 @@
 #endif
             VisualElement root = _terminal._uiDocument.rootVisualElement.Q("TerminalRoot");
             VisualElement container = root.Q("TerminalContainer");
+            // Keep the toolbar below the configured floor so font metrics cannot change the expected height.
+            container.Q("LogToolbar").style.height = 64f;
             _terminal.maxHeight = 1f;
             _terminal.smallTerminalRatio = 0f;
             _terminal.SetState(TerminalState.OpenSmall);
@@ -192,7 +194,7 @@
             yield return null;
             yield return null;
             Assert.That(root.ClassListContains("terminal-root--narrow"), Is.True);
-            Assert.That(container.style.height.value.value, Is.InRange(Mathf.Min(Screen.height, 288), (float)Screen.height));
+            Assert.That(container.style.height.value.value, Is.EqualTo(Mathf.Min(Screen.height, 288)));
 
             SetResponsiveWindowSettings(0, 0);
             yield return null;

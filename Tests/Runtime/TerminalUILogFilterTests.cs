@@ -910,18 +910,16 @@
             yield return RunCommand("find " + HitMarker);
             yield return WaitForDrawnText("the hit", "The search landed");
 
-            _terminal._textInput.Focus();
-            Assert.That(_terminal.InputOwnsFocus, Is.True, "The command field must hold focus before sending F3");
-            yield return SendKey(KeyCode.F3);
+            yield return SendSearchKey(KeyCode.F3);
             yield return WaitForLastLogLine("Match 2 of 80", "The key the field holds focus for reaches the search");
             _terminal.keyBindings.findNext = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F4) };
-            yield return SendKey(KeyCode.F3);
+            yield return SendSearchKey(KeyCode.F3);
             yield return Settle();
             Assert.That(LastLogText(), Does.Contain("Match 2 of 80"));
-            yield return SendKey(KeyCode.F4);
+            yield return SendSearchKey(KeyCode.F4);
             yield return WaitForLastLogLine("Match 3 of 80", "The configured key steps the search");
             _terminal.keyBindings.findNext = System.Array.Empty<ConsoleKeyBindings.Shortcut>();
-            yield return SendKey(KeyCode.F4);
+            yield return SendSearchKey(KeyCode.F4);
             yield return Settle();
             Assert.That(LastLogText(), Does.Contain("Match 3 of 80"));
         }
@@ -950,15 +948,13 @@
             yield return RunCommand("find " + HitMarker);
             yield return WaitForDrawnText("the hit", "The search landed");
 
-            _terminal._textInput.Focus();
-            Assert.That(_terminal.InputOwnsFocus, Is.True, "The command field must hold focus before sending F3");
-            yield return SendKey(KeyCode.F3);
+            yield return SendSearchKey(KeyCode.F3);
             yield return WaitForLastLogLine("Match 2 of 80", "F3 moved the search while one was set");
 
             yield return RunCommand("clear-filter");
             yield return WaitForDrawnText(MissMarker, "Clearing the search brought the rest of the log back");
 
-            yield return SendKey(KeyCode.F3);
+            yield return SendSearchKey(KeyCode.F3);
             yield return Settle();
 
             Assert.That(DrawnText(), Does.Contain(MissMarker), "A key with no search set is left to the field, which does nothing with it either");
@@ -1195,6 +1191,13 @@
 
             Assert.That(_terminal._commandInput, Is.Not.Null, "The terminal input field exists once it is open");
             DefaultTerminalInput.Instance.CommandText = string.Empty;
+        }
+
+        private IEnumerator SendSearchKey(KeyCode keyCode)
+        {
+            _terminal._textInput.Focus();
+            Assert.That(_terminal.InputOwnsFocus, Is.True, $"The command field must hold focus before {keyCode}");
+            yield return SendKey(keyCode);
         }
 
         private IEnumerator SendKey(KeyCode keyCode, EventModifiers modifiers = EventModifiers.None)

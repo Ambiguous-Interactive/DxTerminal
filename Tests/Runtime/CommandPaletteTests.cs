@@ -2052,7 +2052,7 @@
             if (_clipboardProbeHeld)
             {
                 Assert.Fail(
-                    $"Expected {satisfiedBecause}. Before: caret={cursorBefore}, anchor={anchorBefore}. "
+                    $"{satisfiedBecause}. Before: caret={cursorBefore}, anchor={anchorBefore}. "
                         + $"After: value='{_palette._input.value}', caret={_palette._input.cursorIndex}, anchor={_palette._input.selectIndex}, "
                         + $"completion={_palette._completionMode}, replacement={_palette._completionContext.ReplacementStart}."
                 );
