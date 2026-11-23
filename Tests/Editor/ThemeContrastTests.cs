@@ -2,71 +2,26 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
+    using System.IO;
+    using System.Text.RegularExpressions;
     using NUnit.Framework;
+    using Themes;
+#if UNITY_EDITOR
+    using UnityEditor;
+    using PackageInfo = UnityEditor.PackageManager.PackageInfo;
+    using UnityEngine.UIElements;
+#endif
 
     public sealed class ThemeContrastTests
     {
         private const double TextMinimum = 4.5;
         private const double OutlineMinimum = 3.0;
 
-        // Handoff DxThemes.uss supplies the proposed roles. DESIGN.md 3.2 adds error-line.
-        private static readonly Dictionary<string, Dictionary<string, Rgb>> Themes = new(StringComparer.Ordinal)
-        {
-            ["Dx Dark"] = new Dictionary<string, Rgb>(StringComparer.Ordinal)
-            {
-                ["surface"] = new Rgb(0x0D1117, 0.94),
-                ["surface-raised"] = new Rgb(0x161C25),
-                ["hover"] = new Rgb(0x1D2530),
-                ["input"] = new Rgb(0x0A0E13),
-                ["ink"] = new Rgb(0xE6EDF3),
-                ["ink-body"] = new Rgb(0xC9D2DC),
-                ["ink-muted"] = new Rgb(0x8B949E),
-                ["accent"] = new Rgb(0x5CD68F),
-                ["accent-soft"] = new Rgb(0xB8F2CF),
-                ["on-accent"] = new Rgb(0x0D1117),
-                ["selection"] = new Rgb(0x12301F),
-                ["selection-line"] = new Rgb(0x2B6B45),
-                ["warning"] = new Rgb(0xF4A836),
-                ["error"] = new Rgb(0xEC4661),
-                ["error-line"] = new Rgb(0xB4445A),
-            },
-            ["Dx Paper"] = new Dictionary<string, Rgb>(StringComparer.Ordinal)
-            {
-                ["surface"] = new Rgb(0xF4F1EA, 0.97),
-                ["surface-raised"] = new Rgb(0xFAF8F3),
-                ["hover"] = new Rgb(0xEFEBE1),
-                ["input"] = new Rgb(0xFFFFFF),
-                ["ink"] = new Rgb(0x1B1813),
-                ["ink-body"] = new Rgb(0x46423A),
-                ["ink-muted"] = new Rgb(0x5F5A4F),
-                ["accent"] = new Rgb(0x1F7A47),
-                ["accent-soft"] = new Rgb(0x23704A),
-                ["on-accent"] = new Rgb(0xFFFFFF),
-                ["selection"] = new Rgb(0xDCEFE3),
-                ["selection-line"] = new Rgb(0x8CC5A3),
-                ["warning"] = new Rgb(0x9A5B00),
-                ["error"] = new Rgb(0xC42847),
-                ["error-line"] = new Rgb(0xC4677A),
-            },
-            ["Phosphor"] = new Dictionary<string, Rgb>(StringComparer.Ordinal)
-            {
-                ["surface"] = new Rgb(0x07110B, 0.96),
-                ["surface-raised"] = new Rgb(0x0C1A11),
-                ["hover"] = new Rgb(0x12251A),
-                ["input"] = new Rgb(0x050C08),
-                ["ink"] = new Rgb(0xC8F7D9),
-                ["ink-body"] = new Rgb(0x8FE3B0),
-                ["ink-muted"] = new Rgb(0x4A9A6C),
-                ["accent"] = new Rgb(0x5CD68F),
-                ["accent-soft"] = new Rgb(0xB8F2CF),
-                ["on-accent"] = new Rgb(0x07110B),
-                ["selection"] = new Rgb(0x143D26),
-                ["selection-line"] = new Rgb(0x2F7A4F),
-                ["warning"] = new Rgb(0xF4B04A),
-                ["error"] = new Rgb(0xFF5C74),
-                ["error-line"] = new Rgb(0xB4445A),
-            },
-        };
+        private const string PackageRoot = "Packages/com.wallstop-studios.dxcommandterminal/";
+        private const string ThemeSheet = "Styles/Themes/DxThemes.uss";
+        private static readonly string[] ThemeClasses = { "dx-dark-theme", "dx-paper-theme", "phosphor-theme" };
+        private static readonly Lazy<Dictionary<string, Dictionary<string, Rgb>>> Themes = new(LoadThemes);
 
         private static readonly (string Foreground, string Background, double Minimum)[] Pairs =
         {
@@ -84,8 +39,17 @@
             ("on-accent", "accent", TextMinimum),
             ("warning", "surface", TextMinimum),
             ("warning", "surface-raised", TextMinimum),
-            ("error", "surface", TextMinimum),
-            ("error", "surface-raised", TextMinimum),
+            ("error-text", "surface", TextMinimum),
+            ("error-text", "surface-raised", TextMinimum),
+            ("error-text", "input", TextMinimum),
+            ("syn-number", "surface", TextMinimum),
+            ("syn-number", "input", TextMinimum),
+            ("syn-string", "surface", TextMinimum),
+            ("syn-string", "input", TextMinimum),
+            ("syn-choice", "surface", TextMinimum),
+            ("syn-choice", "input", TextMinimum),
+            ("error", "surface", OutlineMinimum),
+            ("error", "surface-raised", OutlineMinimum),
             ("accent", "surface", OutlineMinimum),
             ("selection-line", "surface", OutlineMinimum),
             ("error-line", "surface", OutlineMinimum),
@@ -94,37 +58,102 @@
 
         private static readonly (string Name, Rgb Color)[] Backdrops = { ("black", new Rgb(0x000000)), ("mid gray", new Rgb(0x808080)), ("white", new Rgb(0xFFFFFF)) };
 
-        // Remove these baselines when A2 switches the gate to shipped themes.
-        private static readonly Dictionary<(string Theme, string Foreground, string Background), (string Backdrop, double Ratio)> ProposedFailures = new()
+        private static readonly (string Mode, double[,] Matrix)[] VisionModels =
         {
-            [("Dx Dark", "error", "surface")] = ("white", 4.409032),
-            [("Dx Dark", "selection-line", "surface")] = ("white", 2.584630),
-            [("Dx Paper", "selection-line", "surface")] = ("black", 1.640742),
+            (
+                "normal",
+                new double[,]
+                {
+                    { 1, 0, 0 },
+                    { 0, 1, 0 },
+                    { 0, 0, 1 },
+                }
+            ),
+            // Machado et al. (2009), full severity, https://doi.org/10.1109/TVCG.2009.113
+            (
+                "protan",
+                new double[,]
+                {
+                    { 0.152286, 1.052583, -0.204868 },
+                    { 0.114503, 0.786281, 0.099216 },
+                    { -0.003882, -0.048116, 1.051998 },
+                }
+            ),
+            (
+                "deutan",
+                new double[,]
+                {
+                    { 0.367322, 0.860646, -0.227968 },
+                    { 0.280085, 0.672501, 0.047413 },
+                    { -0.011820, 0.042940, 0.968881 },
+                }
+            ),
+            (
+                "tritan",
+                new double[,]
+                {
+                    { 1.255528, -0.076749, -0.178779 },
+                    { -0.078411, 0.930809, 0.147602 },
+                    { 0.004733, 0.691367, 0.303900 },
+                }
+            ),
         };
 
-        private static IEnumerable<TestCaseData> ContrastCases()
+        private static Dictionary<string, Dictionary<string, Rgb>> LoadThemes()
         {
-            // Unity's assembly filter can run NUnit explicit cases during a full suite.
-            bool strict = string.Equals(Environment.GetEnvironmentVariable("DXT_STRICT_PROPOSED_THEME_CONTRAST"), "1", StringComparison.Ordinal);
-            foreach (string theme in Themes.Keys)
+#if UNITY_EDITOR
+            PackageInfo package = PackageInfo.FindForAssetPath(PackageRoot + ThemeSheet);
+            string sheet = File.ReadAllText(Path.Combine(package.resolvedPath, ThemeSheet));
+#else
+            using StreamReader reader = new(typeof(ThemeContrastTests).Assembly.GetManifestResourceStream(ThemeSheet));
+            string sheet = reader.ReadToEnd();
+#endif
+            sheet = Regex.Replace(sheet, @"/\*[\s\S]*?\*/", string.Empty);
+            Dictionary<string, Dictionary<string, Rgb>> themes = new(StringComparer.Ordinal);
+            foreach (Match block in Regex.Matches(sheet, @"^\.([a-z-]+)\s*\{([^}]*)\}", RegexOptions.Multiline))
             {
-                foreach ((string foreground, string background, double minimum) in Pairs)
+                string themeClass = block.Groups[1].Value;
+                Dictionary<string, Rgb> roles = new(StringComparer.Ordinal);
+                foreach (string declaration in block.Groups[2].Value.Split(';'))
                 {
-                    if (!strict && ProposedFailures.ContainsKey((theme, foreground, background)))
+                    if (string.IsNullOrWhiteSpace(declaration))
                     {
                         continue;
                     }
 
-                    yield return new TestCaseData(theme, foreground, background, minimum);
+                    Match literal = Regex.Match(declaration.Trim(), @"^--([a-z-]+):\s*rgba\(([^)]*)\)$");
+                    Assert.That(literal.Success, Is.True, $"{themeClass}: {declaration}");
+                    string token = literal.Groups[1].Value;
+                    string[] components = literal.Groups[2].Value.Split(',');
+                    Assert.That(components.Length, Is.EqualTo(4), $"{themeClass} --{token}");
+                    double alpha = double.Parse(components[3], CultureInfo.InvariantCulture);
+                    Assert.That(alpha, Is.InRange(0.0, 1.0), $"{themeClass} --{token} alpha");
+                    roles.Add(
+                        token,
+                        new Rgb(
+                            byte.Parse(components[0], CultureInfo.InvariantCulture) / 255.0,
+                            byte.Parse(components[1], CultureInfo.InvariantCulture) / 255.0,
+                            byte.Parse(components[2], CultureInfo.InvariantCulture) / 255.0,
+                            alpha
+                        )
+                    );
                 }
+
+                themes.Add(themeClass, roles);
             }
+
+            Assert.That(themes.Keys, Is.EquivalentTo(ThemeClasses));
+            return themes;
         }
 
-        private static IEnumerable<TestCaseData> ProposedFailureCases()
+        private static IEnumerable<TestCaseData> ContrastCases()
         {
-            foreach (KeyValuePair<(string Theme, string Foreground, string Background), (string Backdrop, double Ratio)> failure in ProposedFailures)
+            foreach (string theme in ThemeClasses)
             {
-                yield return new TestCaseData(failure.Key.Theme, failure.Key.Foreground, failure.Key.Background, failure.Value.Backdrop, failure.Value.Ratio);
+                foreach ((string foreground, string background, double minimum) in Pairs)
+                {
+                    yield return new TestCaseData(theme, foreground, background, minimum);
+                }
             }
         }
 
@@ -154,18 +183,18 @@
             return -0.1 < darkerBackground ? 0.0 : (darkerBackground + 0.027) * 100;
         }
 
-        private static (double Ratio, string Backdrop, string Result) MeasureContrast(string theme, string foregroundRole, string backgroundRole)
+        private static (double Ratio, string Result) MeasureContrast(string theme, string foregroundRole, string backgroundRole)
         {
-            Dictionary<string, Rgb> colors = Themes[theme];
+            Dictionary<string, Rgb> colors = Themes.Value[theme];
             double worstRatio = double.PositiveInfinity;
             string worstBackdrop = string.Empty;
             double weakestLc = double.PositiveInfinity;
             string weakestBackdrop = string.Empty;
             foreach ((string backdrop, Rgb game) in Backdrops)
             {
-                Rgb surface = colors["surface"].Over(game);
-                Rgb background = string.Equals(backgroundRole, "surface", StringComparison.Ordinal) ? surface : colors[backgroundRole].Over(surface);
-                Rgb foreground = colors[foregroundRole].Over(background);
+                Rgb surface = colors["dxt-surface"].Over(game);
+                Rgb background = string.Equals(backgroundRole, "surface", StringComparison.Ordinal) ? surface : colors["dxt-" + backgroundRole].Over(surface);
+                Rgb foreground = colors["dxt-" + foregroundRole].Over(background);
                 double ratio = Contrast(foreground, background);
                 if (ratio < worstRatio)
                 {
@@ -185,23 +214,116 @@
             TestContext.WriteLine(FormattableString.Invariant($"{pair} on {weakestBackdrop}: APCA Lc {weakestLc:F1} (advisory)"));
             string result = FormattableString.Invariant($"{pair} on {worstBackdrop}: {worstRatio:F2}:1");
             TestContext.WriteLine(result);
-            return (worstRatio, worstBackdrop, result);
+            return (worstRatio, result);
         }
 
         [TestCaseSource(nameof(ContrastCases))]
         public void RolesMeetContrastMinimum(string theme, string foregroundRole, string backgroundRole, double minimum)
         {
-            (double ratio, _, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
+            (double ratio, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
             Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum), result);
         }
 
-        [TestCaseSource(nameof(ProposedFailureCases))]
-        public void ProposedFailuresMatchHandoff(string theme, string foregroundRole, string backgroundRole, string expectedBackdrop, double expectedRatio)
+        [TestCase("dx-dark-theme")]
+        [TestCase("dx-paper-theme")]
+        [TestCase("phosphor-theme")]
+        public void WidgetVariablesMatchSemanticRoles(string theme)
         {
-            (double ratio, string backdrop, string result) = MeasureContrast(theme, foregroundRole, backgroundRole);
-            Assert.That(backdrop, Is.EqualTo(expectedBackdrop), result);
-            Assert.That(ratio, Is.EqualTo(expectedRatio).Within(0.000001), result);
+            Dictionary<string, Rgb> colors = Themes.Value[theme];
+            (string Widget, string Role)[] mappings =
+            {
+                ("terminal-bg", "surface"),
+                ("button-bg", "surface-raised"),
+                ("input-field-bg", "input"),
+                ("button-selected-bg", "selection"),
+                ("button-hover-bg", "hover"),
+                ("scroll-bg", "surface"),
+                ("scroll-color", "ink-muted"),
+                ("scroll-inverse-bg", "ink-muted"),
+                ("scroll-active-bg", "ink-body"),
+                ("button-text", "ink-body"),
+                ("button-selected-text", "ink"),
+                ("button-hover-text", "ink"),
+                ("input-text-color", "ink"),
+                ("text-message", "ink-body"),
+                ("text-warning", "warning"),
+                ("text-input-echo", "accent-soft"),
+                ("text-shell", "ink-muted"),
+                ("text-error", "error-text"),
+                ("caret-color", "accent"),
+            };
+            foreach ((string widget, string role) in mappings)
+            {
+                Assert.That(colors[widget], Is.EqualTo(colors["dxt-" + role]), $"{theme} --{widget}");
+            }
+
+            Assert.That(colors.ContainsKey("dxt-line"), Is.True, $"{theme} needs a separator color");
         }
+
+        [TestCase("dx-dark-theme", "syn-number", "syn-string", false)]
+        [TestCase("dx-dark-theme", "syn-number", "syn-choice", false)]
+        [TestCase("dx-dark-theme", "syn-number", "error-text", false)]
+        [TestCase("dx-dark-theme", "syn-string", "syn-choice", false)]
+        [TestCase("dx-dark-theme", "syn-string", "error-text", false)]
+        [TestCase("dx-dark-theme", "syn-choice", "error-text", false)]
+        [TestCase("dx-paper-theme", "syn-number", "syn-string", false)]
+        [TestCase("dx-paper-theme", "syn-number", "syn-choice", false)]
+        [TestCase("dx-paper-theme", "syn-string", "syn-choice", false)]
+        [TestCase("dx-paper-theme", "syn-choice", "error-text", false)]
+        [TestCase("dx-paper-theme", "syn-number", "error-text", false)]
+        // The Paper error keeps its glyph and underline below the usual CVD minimum.
+        [TestCase("dx-paper-theme", "syn-string", "error-text", true)]
+        [TestCase("phosphor-theme", "syn-number", "error-text", false)]
+        [TestCase("phosphor-theme", "syn-choice", "error-text", false)]
+        public void SyntaxHuesMeetDistanceMinimum(string theme, string first, string second, bool errorUnderline)
+        {
+            Dictionary<string, Rgb> colors = Themes.Value[theme];
+            foreach ((string backdrop, Rgb game) in Backdrops)
+            {
+                Rgb surface = colors["dxt-surface"].Over(game);
+                Rgb input = colors["dxt-input"].Over(surface);
+                foreach ((string background, Rgb color) in new[] { ("input", input), ("surface", surface) })
+                {
+                    Rgb firstColor = colors["dxt-" + first].Over(color);
+                    Rgb secondColor = colors["dxt-" + second].Over(color);
+                    foreach ((string mode, double[,] matrix) in VisionModels)
+                    {
+                        double minimum =
+                            string.Equals(mode, "normal", StringComparison.Ordinal) ? 15.0
+                            : errorUnderline ? 6.0
+                            : 8.0;
+                        double distance = firstColor.OkLabDistance(secondColor, matrix);
+                        string result = FormattableString.Invariant($"{theme} {first}/{second} on {background} over {backdrop}, {mode}: {distance:F2}");
+                        TestContext.WriteLine(result);
+                        Assert.That(distance, Is.GreaterThanOrEqualTo(minimum), result);
+                    }
+                }
+            }
+        }
+
+        // The renderer milestones own the weight and italic cues.
+        [TestCase("dx-paper-theme", "syn-choice", "ink")]
+        [TestCase("phosphor-theme", "syn-choice", "ink")]
+        [TestCase("phosphor-theme", "syn-number", "ink-body")]
+        [TestCase("phosphor-theme", "syn-string", "ink-body")]
+        public void CueBasedSyntaxUsesTheSharedInk(string theme, string syntax, string ink)
+        {
+            Dictionary<string, Rgb> colors = Themes.Value[theme];
+            Assert.That(colors["dxt-" + syntax], Is.EqualTo(colors["dxt-" + ink]));
+        }
+
+#if UNITY_EDITOR
+        [Test]
+        public void DxPackReferencesTheMeasuredStylesheet()
+        {
+            TerminalThemePack pack = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(PackageRoot + "Packs/Themes/Dx.asset");
+            StyleSheet sheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(PackageRoot + ThemeSheet);
+            Assert.That(pack != null, Is.True);
+            Assert.That(sheet != null, Is.True);
+            Assert.That(pack._themes, Is.EqualTo(new[] { sheet }));
+            Assert.That(pack._themeNames, Is.EqualTo(ThemeClasses));
+        }
+#endif
 
         private readonly struct Rgb
         {
@@ -213,7 +335,7 @@
             public Rgb(int hex, double alpha = 1)
                 : this((hex >> 16) / 255.0, ((hex >> 8) & 255) / 255.0, (hex & 255) / 255.0, alpha) { }
 
-            private Rgb(double red, double green, double blue, double alpha)
+            public Rgb(double red, double green, double blue, double alpha)
             {
                 _red = red;
                 _green = green;
@@ -224,6 +346,11 @@
             private static double Linearize(double channel)
             {
                 return channel <= 0.04045 ? channel / 12.92 : Math.Pow((channel + 0.055) / 1.055, 2.4);
+            }
+
+            private static double SimulateChannel(double[,] matrix, int row, double red, double green, double blue)
+            {
+                return Math.Clamp(matrix[row, 0] * red + matrix[row, 1] * green + matrix[row, 2] * blue, 0, 1);
             }
 
             public Rgb Over(Rgb opaqueBackground)
@@ -237,6 +364,16 @@
                 );
             }
 
+            public double OkLabDistance(Rgb other, double[,] matrix)
+            {
+                (double firstL, double firstA, double firstB) = ToOkLab(matrix);
+                (double secondL, double secondA, double secondB) = other.ToOkLab(matrix);
+                double deltaL = firstL - secondL;
+                double deltaA = firstA - secondA;
+                double deltaB = firstB - secondB;
+                return 100 * Math.Sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
+            }
+
             public double RelativeLuminance()
             {
                 return 0.2126 * Linearize(_red) + 0.7152 * Linearize(_green) + 0.0722 * Linearize(_blue);
@@ -246,6 +383,25 @@
             {
                 double luminance = 0.2126729 * Math.Pow(_red, 2.4) + 0.7151522 * Math.Pow(_green, 2.4) + 0.0721750 * Math.Pow(_blue, 2.4);
                 return luminance < 0.022 ? luminance + Math.Pow(0.022 - luminance, 1.414) : luminance;
+            }
+
+            // Linear sRGB to Oklab, https://bottosson.github.io/posts/oklab/
+            private (double L, double A, double B) ToOkLab(double[,] matrix)
+            {
+                double linearRed = Linearize(_red);
+                double linearGreen = Linearize(_green);
+                double linearBlue = Linearize(_blue);
+                double red = SimulateChannel(matrix, 0, linearRed, linearGreen, linearBlue);
+                double green = SimulateChannel(matrix, 1, linearRed, linearGreen, linearBlue);
+                double blue = SimulateChannel(matrix, 2, linearRed, linearGreen, linearBlue);
+                double l = Math.Pow(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue, 1.0 / 3.0);
+                double m = Math.Pow(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue, 1.0 / 3.0);
+                double s = Math.Pow(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue, 1.0 / 3.0);
+                return (
+                    0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+                    1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+                    0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+                );
             }
         }
     }

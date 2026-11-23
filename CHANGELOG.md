@@ -12,6 +12,8 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 
 ### Added
 
+- Add the Dx theme pack with Dx Dark, Dx Paper, and Phosphor ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
+
 - Add serialized PlayerInput action names and custom-map routing through C# events ([#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
 
 - Add gamepad control navigation, submit, cancel, and visible header focus ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241),
