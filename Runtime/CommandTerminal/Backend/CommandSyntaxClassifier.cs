@@ -2,6 +2,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using UnityEngine;
     using BigInteger = System.Numerics.BigInteger;
 
@@ -15,6 +16,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private readonly List<Type> _doNotCleanTypes = new();
         private readonly List<string> _variableNames = new();
         private readonly List<Validation> _validations = new();
+        private CultureInfo _validationCulture;
         private string _tokenizedLine;
         private string _commandName;
         private string _normalizedName;
@@ -97,7 +99,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 char character = contents[index - token.Start];
                 bool isSurrogate = char.IsSurrogate(character);
-                bool isPunctuation = character is '(' or ')' or '[' or ']' or '{' or '}' || CommandArg.Delimiters.Contains(character);
+                bool isPunctuation = character is '(' or ')' or '[' or ']' or '{' or '}' or '<' or '>' || CommandArg.Delimiters.Contains(character);
                 if (isSurrogate || !isPunctuation)
                 {
                     continue;
@@ -152,7 +154,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             bool ignoredTextChanged = UpdateSettings(CommandArg.IgnoredValuesForCleanedTypes, _ignoredForCleanedTypes, StringComparer.Ordinal);
             bool ignoredComponentsChanged = UpdateSettings(CommandArg.IgnoredValuesForComplexTypes, _ignoredForComplexTypes, StringComparer.Ordinal);
             bool rawTypesChanged = UpdateSettings(CommandArg.DoNotCleanTypes, _doNotCleanTypes, EqualityComparer<Type>.Default);
-            if (delimitersChanged || ignoredTextChanged || ignoredComponentsChanged || rawTypesChanged)
+            CultureInfo culture = CultureInfo.CurrentCulture;
+            bool cultureChanged = !ReferenceEquals(_validationCulture, culture);
+            _validationCulture = culture;
+            if (delimitersChanged || ignoredTextChanged || ignoredComponentsChanged || rawTypesChanged || cultureChanged)
             {
                 ResetValidationCache();
             }
@@ -168,6 +173,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 CommandToken token = _tokens[index];
                 string variableName = _variableNames[index];
+                bool hasVariableName = !string.IsNullOrWhiteSpace(variableName);
                 if (token.StartQuote != null)
                 {
                     AddSpan(results, token.Start - 1, token.Start, CommandSyntaxRole.Punctuation);
@@ -200,9 +206,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 else if (route is { IsRouter: true })
                 {
                     bool foundRoute = route.Lookup.TryGetValue(argument.contents ?? string.Empty, out route);
-                    role = foundRoute ? CommandSyntaxRole.Choice : CommandSyntaxRole.Invalid;
+                    role = CommandSyntaxRole.Invalid;
                     if (foundRoute)
                     {
+                        role = hasVariableName ? CommandSyntaxRole.Variable : CommandSyntaxRole.Choice;
                         maxArguments = route.IsRouter || route.HasRemaining ? null : route.Specs.Length;
                     }
                 }
@@ -219,7 +226,6 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                         role = GetArgumentRole(index, spec, argument);
                     }
 
-                    bool hasVariableName = !string.IsNullOrWhiteSpace(variableName);
                     if (role != CommandSyntaxRole.Invalid && hasVariableName)
                     {
                         role = CommandSyntaxRole.Variable;

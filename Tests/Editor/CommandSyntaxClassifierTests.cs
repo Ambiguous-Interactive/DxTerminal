@@ -2,6 +2,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Text;
     using Backend;
     using NUnit.Framework;
@@ -41,6 +42,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             "Command:point|Punctuation:\"|Punctuation:(|Number:1|Punctuation:,|Number: 2|Punctuation:,|Number:-3|Punctuation:)|Punctuation:\"",
             "(1, 2,-3)"
         )]
+        [TestCase("point \"<1,2,3>\"", "Command:point|Punctuation:\"|Punctuation:<|Number:1|Punctuation:,|Number:2|Punctuation:,|Number:3|Punctuation:>|Punctuation:\"", "<1,2,3>")]
+        [TestCase("tool $action 2", "Command:tool|Variable:$action|Number:2", "2")]
+        [TestCase("tool $missing 2", "Command:tool|Invalid:$missing|String:2", null)]
         [TestCase("tool set 2 3", "Command:tool|Choice:set|Number:2|Number:3", "2;3")]
         [TestCase("tool set 2 wrong", "Command:tool|Choice:set|Number:2|Invalid:wrong", null)]
         [TestCase("tool wrong 2", "Command:tool|Invalid:wrong|String:2", null)]
@@ -85,6 +89,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 )
             );
             Assert.IsTrue(shell.SetVariable("current", "7"));
+            Assert.IsTrue(shell.SetVariable("action", "set"));
 
             if (0 < caret)
             {
@@ -156,6 +161,51 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             classifier.Classify(line, shell, spans);
             Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+        }
+
+        [Test]
+        public void WarmStringRangeUsesCurrentCulture()
+        {
+            CultureInfo original = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+                bool invoked = false;
+                CommandShell shell = new(new CommandHistory(16));
+                CommandBuilder command = CommandBuilder
+                    .Create("label")
+                    .Contexts(CommandExecutionContextSets.All)
+                    .Arg<string>("text", spec =>
+                    {
+                        return spec.Required().Range("a", "z");
+                    })
+                    .Handler(
+                        (_, _) =>
+                        {
+                            invoked = true;
+                        }
+                    );
+                Assert.IsTrue(shell.AddCommand(command, out _));
+
+                CommandSyntaxClassifier classifier = new();
+                List<CommandSyntaxSpan> spans = new();
+                const string line = "label ä";
+                classifier.Classify(line, shell, spans);
+                shell.RunCommand(line);
+                Assert.IsTrue(invoked);
+                Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.String));
+
+                invoked = false;
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("sv-SE");
+                classifier.Classify(line, shell, spans);
+                shell.RunCommand(line);
+                Assert.IsFalse(invoked);
+                Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = original;
+            }
         }
 
         [Test]
