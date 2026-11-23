@@ -347,14 +347,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             }
 
             Type panelType = panel.GetType();
-            MethodInfo repaintMethod = panelType.GetMethod("Repaint", InheritedInstanceMembers, binder: null, new[] { typeof(Event) }, modifiers: null);
-#if UNITY_2022_3
-            bool supported = repaintMethod != null;
-#else
             MethodInfo renderMethod = panelType.GetMethod("Render", InheritedInstanceMembers, binder: null, Type.EmptyTypes, modifiers: null);
-            bool supported = repaintMethod != null && renderMethod != null;
-#endif
-            if (!supported)
+            MethodInfo repaintMethod = panelType.GetMethod("Repaint", InheritedInstanceMembers, binder: null, new[] { typeof(Event) }, modifiers: null);
+            if (renderMethod == null || repaintMethod == null)
             {
                 throw new InvalidOperationException(
                     $"Panel type {panelType.FullName} exposes no inherited Repaint(Event)/Render() "
@@ -366,9 +361,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             for (int pass = 0; pass < passes; ++pass)
             {
                 repaintMethod.Invoke(panel, new object[] { new Event { type = EventType.Repaint } });
-#if !UNITY_2022_3
                 renderMethod.Invoke(panel, Array.Empty<object>());
-#endif
             }
         }
 

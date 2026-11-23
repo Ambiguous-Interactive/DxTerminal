@@ -303,12 +303,6 @@ def main() -> int:
             package = create_project(project, args.version, revision)
             shutil.copyfile(project / "Packages/manifest.json", out / "package-manifest.json")
             package_suites(unity, project, raw, out, args.graphics, report)
-            if args.version == "2022.3.45f1" and not args.graphics:
-                graphics_probe: dict[str, Any] = {"suites": {}, "errors": []}
-                report["graphicsProbe"] = graphics_probe
-                probe_raw = raw / "graphics-probe"
-                probe_raw.mkdir()
-                package_suites(unity, project, probe_raw, out / probe_raw.name, True, graphics_probe)
             copy_text(project / "Packages/packages-lock.json", out / "packages-lock.json")
             if args.graphics:
                 try:

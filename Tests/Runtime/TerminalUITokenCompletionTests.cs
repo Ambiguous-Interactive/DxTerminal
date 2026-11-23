@@ -294,9 +294,15 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 #if UNITY_2022_3
             field.SelectRange(caretIndex, caretIndex);
             int initial = field.cursorIndex;
-            TerminalSurfaceCapture.ForcePanelRender(field, 1);
+            TextElement element = field.Q<TextElement>();
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            object handle = typeof(TextElement).GetProperty("uitkTextHandle", flags).GetValue(element);
+            object info = handle.GetType().GetMethod("Update", Type.EmptyTypes).Invoke(handle, Array.Empty<object>());
             field.SelectRange(caretIndex, caretIndex);
-            TestContext.WriteLine($"Repaint probe reached {field.cursorIndex} from {initial} for requested caret {caretIndex}");
+            TestContext.WriteLine(
+                $"Text generation probe: value='{field.value}', text='{element.text}', bounds={element.worldBound}, font={element.resolvedStyle.unityFontDefinition.font}, "
+                    + $"info={info.GetType().GetField("characterCount").GetValue(info)}, caret={field.cursorIndex} from {initial}, requested={caretIndex}"
+            );
 #endif
 
             for (int attempt = 0; attempt < 3; ++attempt)
