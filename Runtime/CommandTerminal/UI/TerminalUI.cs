@@ -416,7 +416,6 @@
 #if UNITY_EDITOR
         private readonly EditorApplication.CallbackFunction _checkForChanges;
 #endif
-
         /*
             Caret to restore on the next focus pass; negative keeps the
             focus-at-end behavior. Token completions set it. Internal for
@@ -2937,10 +2936,16 @@
                         return;
                     }
 
-                    if (context._commandIssuedThisFrame || Array.Exists(context._inputHandlers, handler =>
-                        {
-                            return handler.ShouldHandleInputThisFrame;
-                        }))
+                    if (
+                        context._commandIssuedThisFrame
+                        || Array.Exists(
+                            context._inputHandlers,
+                            handler =>
+                            {
+                                return handler.ShouldHandleInputThisFrame;
+                            }
+                        )
+                    )
                     {
                         if (!string.Equals(context._commandInput.value, context._input.CommandText))
                         {
@@ -3115,15 +3120,25 @@
             Label title = new("DxTerminal");
             title.AddToClassList("terminal-header-title");
             header.Add(title);
-            _sizeButton = AddToolbarButton(header, "TerminalSizeButton", "Full", () =>
-            {
-                SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull);
-            });
-            _sizeButton.AddToClassList("terminal-header-size");
-            AddToolbarButton(header, "TerminalCloseButton", "Close", () =>
+            _sizeButton = AddToolbarButton(
+                header,
+                "TerminalSizeButton",
+                "Full",
+                () =>
                 {
-                    SetState(TerminalState.Closed);
-                })
+                    SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull);
+                }
+            );
+            _sizeButton.AddToClassList("terminal-header-size");
+            AddToolbarButton(
+                    header,
+                    "TerminalCloseButton",
+                    "Close",
+                    () =>
+                    {
+                        SetState(TerminalState.Closed);
+                    }
+                )
                 .AddToClassList("terminal-header-close");
             VisualElement search = new() { name = "LogSearch" };
             search.AddToClassList("terminal-search");
@@ -3166,40 +3181,65 @@
             _logSearchCount = new Label { name = "LogSearchCount", tooltip = "Matching lines of searchable lines (current match / matching lines)." };
             _logSearchCount.AddToClassList("terminal-search-count");
             search.Add(_logSearchCount);
-            _logSearchPrevious = AddToolbarButton(search, "LogSearchPrevious", "Prev", () =>
-            {
-                StepLogSearch(false);
-            });
-            _logSearchNext = AddToolbarButton(search, "LogSearchNext", "Next", () =>
-            {
-                StepLogSearch(true);
-            });
-            _logSearchClear = AddToolbarButton(search, "LogSearchClear", "Clear", () =>
-            {
-                ClearLogFilter(false);
-            });
+            _logSearchPrevious = AddToolbarButton(
+                search,
+                "LogSearchPrevious",
+                "Prev",
+                () =>
+                {
+                    StepLogSearch(false);
+                }
+            );
+            _logSearchNext = AddToolbarButton(
+                search,
+                "LogSearchNext",
+                "Next",
+                () =>
+                {
+                    StepLogSearch(true);
+                }
+            );
+            _logSearchClear = AddToolbarButton(
+                search,
+                "LogSearchClear",
+                "Clear",
+                () =>
+                {
+                    ClearLogFilter(false);
+                }
+            );
             VisualElement types = new() { name = "LogSeverities" };
             types.AddToClassList("terminal-severities");
             _logToolbar.Add(types);
             AddSeverityButton(types, 0, TerminalLogType.Message, "LogMessages");
             AddSeverityButton(types, 1, TerminalLogType.Warning, "LogWarnings");
             AddSeverityButton(types, 2, TerminalLogType.Error, "LogErrors");
-            _collapseButton = AddToolbarButton(types, "LogCollapse", "Collapse", () =>
-            {
-                _collapseLogs = !_collapseLogs;
-                DropFindScroll();
-            });
+            _collapseButton = AddToolbarButton(
+                types,
+                "LogCollapse",
+                "Collapse",
+                () =>
+                {
+                    _collapseLogs = !_collapseLogs;
+                    DropFindScroll();
+                }
+            );
             _collapseButton.AddToClassList("terminal-type-chip");
             _collapseButton.tooltip = "Group consecutive entries with the same message, type, and trace.";
         }
 
         private void AddSeverityButton(VisualElement parent, int index, TerminalLogType severity, string name)
         {
-            Button button = AddToolbarButton(parent, name, string.Empty, () =>
-            {
-                _logFilter.ToggleSeverity(severity);
-                DropFindScroll();
-            });
+            Button button = AddToolbarButton(
+                parent,
+                name,
+                string.Empty,
+                () =>
+                {
+                    _logFilter.ToggleSeverity(severity);
+                    DropFindScroll();
+                }
+            );
             button.AddToClassList("terminal-type-chip");
             button.tooltip = severity switch
             {

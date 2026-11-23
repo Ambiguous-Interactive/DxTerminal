@@ -140,13 +140,16 @@
                     {
                         Name = "spawnitem",
                         Handler = (context, arguments) => { },
-                        CompletionProvider = CommandCompletionProviders.Staged(InventoryStage(), (in CommandCompletionContext context, List<CommandCompletion> results) =>
-                        {
-                            foreach (string count in new[] { "1", "2", "3" })
+                        CompletionProvider = CommandCompletionProviders.Staged(
+                            InventoryStage(),
+                            (in CommandCompletionContext context, List<CommandCompletion> results) =>
                             {
-                                results.Add(new CommandCompletion(count));
+                                foreach (string count in new[] { "1", "2", "3" })
+                                {
+                                    results.Add(new CommandCompletion(count));
+                                }
                             }
-                        }),
+                        ),
                     }
                 )
             );

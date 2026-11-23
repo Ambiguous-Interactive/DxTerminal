@@ -364,10 +364,14 @@
         public IEnumerator LogRowsExposeUtcTimeAndSeverityWithoutChangingMessageText()
         {
             yield return SpawnOpenTerminal();
-            TerminalSession.Current.Buffer = new CommandLog(16, null, static () =>
-            {
-                return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
-            });
+            TerminalSession.Current.Buffer = new CommandLog(
+                16,
+                null,
+                static () =>
+                {
+                    return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+                }
+            );
             TerminalLogType[] types =
             {
                 TerminalLogType.Error,
