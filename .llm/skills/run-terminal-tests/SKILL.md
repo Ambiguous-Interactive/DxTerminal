@@ -161,6 +161,14 @@ under session sequences (issue #56). Rules:
   `CommandPaletteTests.PendingCaretConsumesOnlyAfterStablePasses`). Synchronous caret reads one frame after a value write are clamped too
   (`PendingCaretWritesAndKeepsMarkerWhileUnfocused` readiness-polls its applied positions).
 
+## Investigating red checks
+
+- Preserve the first failing report and logs, tested revision, execution environment, and reproduction command. Account for each failed case. Group cases only when evidence shows
+  they share a cause. A rerun can test a hypothesis and the original failure stays open until explained.
+- Isolate the smallest reproducer and compare with the original suite or CI job. For an intermittent case, vary one relevant condition at a time and capture state at the failure.
+- Record the root-cause analysis and fix the responsible product code, fixture, harness, or infrastructure. Preserve meaningful assertions. Verify the reproducer and original scope
+  after the fix in the affected environment. Keep unresolved cases and missing verification open with evidence and an owner.
+
 ## Debugging failures
 
 - Focus assertions must accept the TextField or anything it contains: the focus controller reports either the field or its inner `unity-text-input` element (the palette suite's

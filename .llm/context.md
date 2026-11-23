@@ -214,6 +214,9 @@ and wait for wallstop. Review feedback lags the head (Bugbot names the commit it
 
 ## Testing
 
+- **Zero flaky tests.** Fully investigate every red check and failed test, including intermittent failures and failures that pass on rerun. Preserve the first failure evidence and
+  record the root cause, the durable fix, and verification against the affected environment. Keep unresolved failures open with evidence and an owning task. A retry, skip, or
+  quarantine alone cannot close an investigation. Follow the [failure investigation procedure](./skills/run-terminal-tests/SKILL.md#investigating-red-checks).
 - Pure-logic suites are EditMode tests under `Tests/Editor/`; UI/allocation/player-adjacent suites stay PlayMode under `Tests/Runtime/`. Command-behavior tests are data-driven over
   the facades. House style and the EditMode-safe screen: [run-terminal-tests](./skills/run-terminal-tests/SKILL.md).
 
