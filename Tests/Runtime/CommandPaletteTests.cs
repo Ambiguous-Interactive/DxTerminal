@@ -63,7 +63,7 @@
         private readonly List<ScriptableObject> _spawnedAssets = new();
 
         private static T LoadPack<T>(string relativePath)
-            where T : ScriptableObject
+            where T : UnityEngine.Object
         {
 #if UNITY_EDITOR
             return UnityEditor.AssetDatabase.LoadAssetAtPath<T>($"{PackageRoot}/{relativePath}");
@@ -818,7 +818,7 @@
         [UnityTest]
         public IEnumerator CtrlVPasteReranksAgainstTheCaretThePasteLeft()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             RegisterSpawnItemCommand();
 
             string originalClipboard = GUIUtility.systemCopyBuffer;
@@ -868,7 +868,7 @@
         [UnityTest]
         public IEnumerator CtrlXCutsTheSelectedSpanAndReranksTheBar()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             RegisterSpawnItemCommand();
 
             string originalClipboard = GUIUtility.systemCopyBuffer;
@@ -1369,7 +1369,7 @@
         [UnityTest]
         public IEnumerator TabCaretSurvivesPanelReclamp()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             RegisterInventoryCommand();
 
             _palette.Open();
@@ -1381,6 +1381,7 @@
             yield return SendKeyDown(KeyCode.Tab);
             yield return WaitForCaret(14, "The caret lands after the applied candidate");
 
+            TextSelectionFixture.PrepareCaret(_palette._input);
             _palette._input.SelectRange(9, 9);
 
             yield return WaitForCaret(14, "The queued caret re-asserts after a panel-driven re-clamp");
@@ -1409,12 +1410,13 @@
         [UnityTest]
         public IEnumerator PendingCaretConsumesOnlyAfterStablePasses()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             _palette.Open();
             yield return null;
 
             _palette._input.SetValueWithoutNotify("pickitem torch");
             yield return null;
+            TextSelectionFixture.PrepareCaret(_palette._input);
 
             /*
                 The field's caret model clamps to its last laid-out text
@@ -1779,7 +1781,7 @@
             );
         }
 
-        private IEnumerator SpawnPalette()
+        private IEnumerator SpawnPalette(bool withFont = false)
         {
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             _paletteObject = new GameObject("CommandPalette");
@@ -1788,6 +1790,16 @@
             document.panelSettings = _panelSettings;
             _palette = _paletteObject.AddComponent<CommandPaletteUI>();
             _palette._uiDocument = document;
+#if UNITY_EDITOR
+            if (withFont)
+            {
+                Font font = LoadPack<Font>("Fonts/Fira_Mono/FiraMono-Regular.ttf");
+                Assert.That(font != null, "The palette selection fixture has a packaged font");
+                using UnityEditor.SerializedObject paletteSettings = new(_palette);
+                paletteSettings.FindProperty("_font").objectReferenceValue = font;
+                paletteSettings.ApplyModifiedPropertiesWithoutUndo();
+            }
+#endif
             _paletteObject.SetActive(true);
             yield return null;
         }
@@ -1930,6 +1942,7 @@
         {
             _palette._input.value = text;
             yield return null;
+            TextSelectionFixture.PrepareCaret(_palette._input);
 
             int frameBudget = FrameBudget;
             int heldPasses = 0;

@@ -160,12 +160,16 @@
             yield return WaitForDrawnCount(2, "Both search candidates are drawn");
             _terminal.SetLogFilter("alpha", false);
             _terminal.RefreshUI();
+            yield return Settle();
             TextField first = (TextField)LogContent()[0];
             TextField second = (TextField)LogContent()[1];
             Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.True);
             Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.False);
             first.Focus();
+            TextSelectionFixture.PrepareCaret(first);
             first.SelectRange(1, 4);
+            Assert.That(first.cursorIndex, Is.EqualTo(1), "The selection arrange holds before navigation");
+            Assert.That(first.selectIndex, Is.EqualTo(4));
             _terminal.StepLogFilter(true, false);
             _terminal.RefreshUI();
             Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.False);
@@ -333,6 +337,7 @@
                 Assert.That(row.labelElement.layout.width + 0.5f, Is.GreaterThanOrEqualTo(textSize.x), "The repeat badge fits beside the message");
             }
             row.Focus();
+            TextSelectionFixture.PrepareCaret(row);
             row.SelectRange(1, 4);
             Assert.That(row.cursorIndex, Is.EqualTo(1), "The selection arrange holds before refresh");
             Assert.That(row.selectIndex, Is.EqualTo(4));
@@ -544,14 +549,16 @@
             Submit(root.Q<Button>("LogSearchNext"));
             yield return Settle();
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"), "Navigation wraps to the first match");
+            VisualElement searchInput = search.Q("unity-text-input");
             KeyCode[] keys = { KeyCode.Return, KeyCode.F6, KeyCode.F7, KeyCode.KeypadEnter };
             foreach (KeyCode keyCode in keys)
             {
+                searchInput.Focus();
+                Assert.That(_terminal.SearchOwnsFocus, Is.True, $"The search field must hold focus before {keyCode}");
                 using (KeyDownEvent evt = KeyDownEvent.GetPooled('\0', keyCode, EventModifiers.None))
                 {
-                    evt.target = search;
-                    search.SendEvent(evt);
-                    Assert.That(evt.isPropagationStopped, Is.True);
+                    root.SendEvent(evt);
+                    Assert.That(evt.isPropagationStopped, Is.True, $"Search handles {keyCode}");
                 }
             }
 

@@ -30,6 +30,8 @@ files.
 - Each task states the remaining action and acceptance; include a blocker only when it changes execution.
 - Preserve issue/task IDs and unresolved requirements. Merge duplicate actions; do not silently cancel scope.
 - Keep open gates with their owning tasks. Put target definitions in context and measured outcomes in session logs.
+- Keep each unresolved red item linked to its investigation and owning task until the root cause, durable fix, and verification are recorded. Apply the
+  [zero-flaky-test policy](../../context.md#testing) when a red check later passes.
 - Delete completed tasks immediately. Do not keep checked boxes, MET rows, landed PRs, or session summaries.
 - Omit standing constraints, measurement methods, command catalogs, archival headers, and repeated status/order sections.
 - Do not copy an issue, runbook, or skill into the plan. Link the authoritative source.

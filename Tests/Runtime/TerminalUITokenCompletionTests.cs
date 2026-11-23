@@ -289,6 +289,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             _terminal._commandInput.value = text;
             yield return null;
+            TextSelectionFixture.PrepareCaret(_terminal._commandInput);
 
             for (int attempt = 0; attempt < 3; ++attempt)
             {

@@ -90,12 +90,14 @@ function packagedList(packageRoot) {
     maxBuffer: 64 * 1024 * 1024,
     ...NPM_SPAWN_OPTIONS
   });
-  const reports = JSON.parse(stdout);
-  if (!Array.isArray(reports) || reports.length !== 1) {
+  const packOutput = JSON.parse(stdout);
+  // npm 12 keys the reports by package name. Earlier versions use an array.
+  const reports = packOutput !== null && typeof packOutput === "object" ? Object.values(packOutput) : [];
+  if (reports.length !== 1) {
     throw new Error("npm pack --dry-run --json did not report exactly one package");
   }
   const report = reports[0];
-  if (!Array.isArray(report.files)) {
+  if (!Array.isArray(report?.files)) {
     throw new Error("npm pack report carries no file list");
   }
   const result = {

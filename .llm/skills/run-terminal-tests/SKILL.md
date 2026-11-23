@@ -148,7 +148,7 @@ under session sequences (issue #56). Rules:
   (Bugbot catch on PR #114; sweep: compare each `while` budget loop against its trailing assert). A caret rule that needs the marker to drain is pinned synchronously by driving
   `ApplyPendingCaret` against a position the field holds (see `PendingCaretConsumesOnlyAfterStablePasses`).
 - One failure mode survives the deterministic polls: long agent sessions can leave the editor in a state where panel events stop processing entirely (writes re-clamp or never land,
-  for 30+ frames). See the first Debugging failures bullet for the verify-then-refresh recipe.
+  for 30+ frames). See Debugging failures for the domain reload check.
 - Palette caret flakes: `CommandPaletteUI._logCaretPasses = true` (editor eval or a test) logs every pending-caret pass with frame, pending, cursor/select, and focus owner, so a
   #74-class re-clamp shows which pass moved the caret. The caret is parked only after it holds for two passes (`CaretStickPasses`), and a field change cancels the queued caret
   (`_pendingCaretIndex` is `int?`; null = none).
@@ -160,6 +160,18 @@ under session sequences (issue #56). Rules:
   `TerminalUITokenCompletionTests.SetInput`'s retry loop), or pin position-independent rules against a probed holdable position (see
   `CommandPaletteTests.PendingCaretConsumesOnlyAfterStablePasses`). Synchronous caret reads one frame after a value write are clamped too
   (`PendingCaretWritesAndKeepsMarkerWhileUnfocused` readiness-polls its applied positions).
+
+On Unity 2022.3 in batch mode, a nonempty field can have zero generated TextCore characters. The caret reads as zero, even after a panel repaint. Use
+`TextSelectionFixture.PrepareCaret(field)` after arranging field text and before setting the test selection. It prepares the native text data. Assert the intended selection before
+exercising the behavior.
+
+## Investigating red checks
+
+- Preserve the first failing report and logs, tested revision, execution environment, and reproduction command. Account for each failed case. Group cases only when evidence shows
+  they share a cause. A rerun can test a hypothesis and the original failure stays open until explained.
+- Isolate the smallest reproducer and compare with the original suite or CI job. For an intermittent case, vary one relevant condition at a time and capture state at the failure.
+- Record the root-cause analysis and fix the responsible product code, fixture, harness, or infrastructure. Preserve meaningful assertions. Verify the reproducer and original scope
+  after the fix in the affected environment. Keep unresolved cases and missing verification open with evidence and an owner.
 
 ## Debugging failures
 
@@ -184,9 +196,9 @@ under session sequences (issue #56). Rules:
 - Teardown pairs with setup: when `[UnitySetUp]` can exit early (`Assert.Ignore` for -nographics or missing assets), a teardown assert that reads setup state must guard on that
   state existing (nullable field + `HasValue`, or the same skip condition). NUnit runs `[UnityTearDown]` after a SetUp ignore, so an unguarded baseline - a RenderTexture count,
   say - turns an intended skip into a failure on a machine with pre-existing objects.
-- A test failing ISOLATED that passed isolated earlier in the same session is the poisoned-panel state below, not a code change - but verify with a real domain reload first:
-  Assets > Refresh (or any script edit that recompiles). A no-op `recompile` ("up_to_date") does NOT reload the domain and does not clear it; Assets > Refresh does (session-023:
-  the palette auto-load caret stuck at 9/1 for whole budgets, cleared after refresh).
+- If an isolated test changes result on the same revision, test whether panel state survives between runs. Recompile a temporary script edit and confirm the domain reload in the
+  Editor log before comparing results. In session-023 a reload cleared a stuck palette caret. Record what the reload changes and keep the investigation open until the failure has a
+  durable fix.
 
 - Errors are queued on the terminal (not only the last one) - assert on the full error set where relevant.
 - Static state leaks between tests (`Terminal.Shell`, registered parsers, control sets on `CommandArg`) - reset or isolate when a test mutates global state, see

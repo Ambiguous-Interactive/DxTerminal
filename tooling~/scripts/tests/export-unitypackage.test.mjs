@@ -16,7 +16,9 @@
 */
 import test from "node:test";
 import assert from "node:assert";
+import childProcess from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -26,7 +28,7 @@ import { entryMap, readArtifact } from "./support/unitypackage-artifact.mjs";
 // package root is one level above it.
 const toolingRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const exporterPath = path.join(toolingRoot, "scripts", "release", "export-unitypackage.mjs");
-const { collectAssets, exportUnityPackage } = await import(
+const { collectAssets, exportUnityPackage, packagedList } = await import(
   pathToFileURL(exporterPath).href
 );
 
@@ -102,6 +104,24 @@ function sharedFixture() {
   }
   return sharedRoot;
 }
+
+test("npm 12 reports packed files under the package name", (context) => {
+  const output = {
+    "test.pkg": { name: "test.pkg", version: "0.1.0", files: [{ path: "Runtime/Foo.cs" }, { path: "README.md" }] }
+  };
+  const pack = context.mock.method(childProcess, "execFileSync", () => JSON.stringify(output));
+  syncBuiltinESMExports();
+  try {
+    assert.deepEqual(packagedList(tempRoot("npm12")), {
+      name: "test.pkg",
+      version: "0.1.0",
+      files: ["README.md", "Runtime/Foo.cs"]
+    });
+  } finally {
+    pack.mock.restore();
+    syncBuiltinESMExports();
+  }
+});
 
 test("exported artifact carries every fixture asset under the import root", () => {
   const root = sharedFixture();
