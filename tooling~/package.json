@@ -51,9 +51,11 @@
     "ai:backends": "bash ../.devcontainer/ai-backends.sh"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/node": "2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "jsonc-parser": "3.3.1",
-    "prettier": "3.9.10",
-    "smol-toml": "1.9.0"
+    "prettier": "3.10.1",
+    "smol-toml": "1.9.1"
   }
 }

@@ -90,12 +90,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.12"
+          python-version: "3.15"
 
       - name: Cache tooling node_modules
         id: tooling-modules
@@ -182,7 +182,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Lint comparison direction
         run: node tooling~/scripts/lint-comparison-direction.mjs
@@ -292,7 +292,7 @@ jobs:
         if: steps.grammar-inputs.outputs.changed == 'true'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 26
 
       # Matches the generator-tests job: the same pinned SDK, so a language or
       # analyzer difference cannot make one gate red and the other green.
@@ -302,7 +302,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      # net8.0 under a newer SDK pulls its targeting and apphost packs from
+      # net10.0 under a newer SDK pulls its targeting and apphost packs from
       # nuget.org, so the shared cold cost is cached here too.
       - name: Cache NuGet packages
         if: steps.grammar-inputs.outputs.changed == 'true'

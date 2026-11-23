@@ -5,7 +5,6 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators.Tests
     using System.Text;
     using Microsoft.CodeAnalysis.CSharp;
     using Xunit;
-    using Xunit.Abstractions;
 
     /*
         The PLAN.md T05 generator timing gate: p95 < 25 ms of generator

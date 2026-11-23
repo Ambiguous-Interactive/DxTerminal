@@ -298,7 +298,7 @@ test("matrix manifests record complete identity and reject stale reports", async
         assert.equal(fs.existsSync(path.join(fixture, "EditorCompatibilityProbe.cs")), false);
       }
       const manifest = JSON.parse(fs.readFileSync(path.join(project, "Packages", "manifest.json"), "utf8"));
-      assert.equal(manifest.dependencies["com.unity.test-framework"], "1.1.33");
+      assert.equal(manifest.dependencies["com.unity.test-framework"], "1.7.0");
       for (const name of ["DxTerminalStateCapture", "DxTerminalTestRunReporter"]) {
         assert.deepStrictEqual(
           fs.readFileSync(path.join(project, "Assets", "Editor", `${name}.cs`)),

@@ -99,21 +99,26 @@ test("phase plan pairs every control with its edit and quits batch phases", () =
   assert.notEqual(controlLog, editLog, "paired runs must not share a log file");
 });
 
-test("scaffold pins the editor version, upm floors, and settle driver; refuses reuse", () => {
+test("scaffold pins the editor version, fixture packages, and settle driver; refuses reuse", () => {
   const root = scratch();
   const project = path.join(root, "project");
-  scaffoldProject(project, "6000.4.6f1", SETTLE_DRIVER_SOURCE);
-  assert.equal(
-    fs.readFileSync(path.join(project, "ProjectSettings", "ProjectVersion.txt"), "utf8"),
-    "m_EditorVersion: 6000.4.6f1\n"
-  );
-  const manifest = JSON.parse(fs.readFileSync(path.join(project, "Packages", "manifest.json"), "utf8"));
-  assert.equal(manifest.dependencies["com.unity.inputsystem"], "1.7.0");
-  assert.equal(manifest.dependencies["com.unity.test-framework"], "1.1.33");
-  const driver = fs.readFileSync(path.join(project, "Assets", "Editor", "DxT7ConsumerSettle.cs"), "utf8");
+  const versions = [
+    ["2021.3.45f1", "1.15.0", "1.4.6"],
+    ["2022.3.45f1", "1.19.0", "1.4.6"],
+    ["6000.4.6f1", "1.20.1", "1.4.6"],
+    ["6000.5.2f1", "1.20.1", "1.7.0"]
+  ];
+  for (const [editor, inputSystem, framework] of versions) {
+    const target = path.join(project, editor);
+    scaffoldProject(target, editor, SETTLE_DRIVER_SOURCE);
+    assert.equal(fs.readFileSync(path.join(target, "ProjectSettings/ProjectVersion.txt"), "utf8"), `m_EditorVersion: ${editor}\n`);
+    const manifest = JSON.parse(fs.readFileSync(path.join(target, "Packages/manifest.json"), "utf8"));
+    assert.deepEqual(manifest.dependencies, { "com.unity.inputsystem": inputSystem, "com.unity.test-framework": framework });
+  }
+  const driver = fs.readFileSync(path.join(project, "6000.5.2f1", "Assets", "Editor", "DxT7ConsumerSettle.cs"), "utf8");
   assert.ok(driver.includes("EditorApplication.Exit(0)"));
   assert.ok(driver.includes("isCompiling || EditorApplication.isUpdating"));
-  assert.throws(() => scaffoldProject(project, "6000.4.6f1", SETTLE_DRIVER_SOURCE), /empty or missing/);
+  assert.throws(() => scaffoldProject(path.join(project, "6000.5.2f1"), "6000.5.2f1", SETTLE_DRIVER_SOURCE), /empty or missing/);
 });
 
 test("scaffold rejects implausible editor versions", () => {

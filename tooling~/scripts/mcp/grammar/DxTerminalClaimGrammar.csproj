@@ -25,16 +25,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <LangVersion>9.0</LangVersion>
         <Nullable>disable</Nullable>
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <!-- No PackageReference on purpose, so nothing here can break because a
-         package moved. The restore is not free: building net8.0 under a newer
-         SDK pulls the 8.0 targeting and apphost packs from nuget.org, which is
+         package moved. The restore is not free: building net10.0 under a newer
+         SDK pulls the 10.0 targeting and apphost packs from nuget.org, which is
          why the CI job caches ~/.nuget/packages. -->
         <InvariantGlobalization>true</InvariantGlobalization>
-        <!-- Built against the oldest runtime this gate can be built on, run on
+        <!-- Built against the oldest supported LTS runtime, run on
          whatever the machine has. A contributor with only a newer SDK installed
          must not have to install a second runtime to run the gate. -->
         <RollForward>LatestMajor</RollForward>

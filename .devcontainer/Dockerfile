@@ -1,14 +1,13 @@
-# syntax=docker/dockerfile:1.4
+# syntax=docker/dockerfile:1
 
 # =============================================================================
 # DxCommandTerminal Development Container
 # =============================================================================
-# Base: .NET 9.0 on Debian Bookworm (Unity UPM package development; the Unity
-# Editor itself stays on the host and is driven through the unity-mcp bridge).
+# Base: .NET 11 on Ubuntu Resolute for standalone Unity package development.
 # Design goals: fast reliable opens, zero sudo for the container user, MCP
 # dependencies baked into the image so agent configuration works offline.
 # =============================================================================
-FROM mcr.microsoft.com/devcontainers/dotnet:1-9.0-bookworm
+FROM mcr.microsoft.com/devcontainers/dotnet:3-11.0-resolute
 
 # BuildKit's automatic target architecture (amd64 or arm64). No default: it
 # would shadow the native target on ARM64.
@@ -22,6 +21,7 @@ LABEL unity.note="Unity runs on the host; the container drives it via the unity-
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
 ENV DOTNET_NOLOGO=1
+ENV VSTEST_ARTIFACTS_BASE_DIRECTORY=/tmp
 
 # ------------------------------------------------------------------------------
 # APT: fix expired Yarn key, then install essentials (lean for fast builds)
@@ -64,20 +64,24 @@ RUN --mount=type=bind,source=global.json,target=/tmp/dxt-global.json,readonly \
     curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh \
     && repo_sdk_version="$(jq -er '.sdk.version' /tmp/dxt-global.json)" \
     && bash /tmp/dotnet-install.sh --version "$repo_sdk_version" --install-dir /usr/share/dotnet \
-    && bash /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet \
+    && bash /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet --skip-non-versioned-files \
     && rm /tmp/dotnet-install.sh
 
 # ------------------------------------------------------------------------------
 # PowerShell: the repository's lint/skill scripts are PowerShell.
 # ------------------------------------------------------------------------------
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -O /tmp/packages-microsoft-prod.deb \
-    && dpkg -i /tmp/packages-microsoft-prod.deb \
-    && rm /tmp/packages-microsoft-prod.deb \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends powershell \
-    && apt-get autoremove -y \
+RUN case "$TARGETARCH" in \
+        amd64) pwsh_arch=x64; pwsh_sha=c89d9c682d2c403dfe726f3df948e359675235a5bd6fab535776de69729ca0cb ;; \
+        arm64) pwsh_arch=arm64; pwsh_sha=e59c89776eaa59790d44b3edd14277435225ab08b6e7603763101b89de83d935 ;; \
+        *) exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v7.7.0/powershell-7.7.0-linux-${pwsh_arch}.tar.gz" -o /tmp/pwsh.tar.gz \
+    && echo "$pwsh_sha  /tmp/pwsh.tar.gz" | sha256sum -c - \
+    && mkdir -p /opt/microsoft/powershell \
+    && tar -xzf /tmp/pwsh.tar.gz -C /opt/microsoft/powershell \
+    && chmod +x /opt/microsoft/powershell/pwsh \
+    && rm /tmp/pwsh.tar.gz \
+    && ln -sf /opt/microsoft/powershell/pwsh /usr/local/bin/pwsh \
     && pwsh --version
 
 # ------------------------------------------------------------------------------
@@ -96,9 +100,13 @@ RUN git config --system core.longpaths true \
 # ------------------------------------------------------------------------------
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get autoremove -y \
+    && mkdir -p /opt/dxt-node/bin \
+    && ln -sf /usr/bin/node /usr/bin/npm /usr/bin/npx /opt/dxt-node/bin/
+ENV PATH="/opt/dxt-node/bin:${PATH}"
+RUN test "$(node -p 'process.versions.node.split(".")[0]')" = 26 \
     && node --version \
     && npm --version
 
@@ -130,8 +138,8 @@ RUN npm install --global --prefix /usr/local \
 # fails the build when the manifest drops a required package.
 COPY tooling~/package.json /tmp/dxt-tooling-package.json
 RUN mkdir -p /opt/dxt-mcp \
-    && jq '{private: true, dependencies: (.devDependencies | with_entries(select(.key as $k | ["@modelcontextprotocol/sdk", "smol-toml", "jsonc-parser"] | index($k))))}' /tmp/dxt-tooling-package.json > /opt/dxt-mcp/package.json \
-    && test "$(jq '.dependencies | length' /opt/dxt-mcp/package.json)" -eq 3 \
+    && jq '{private: true, dependencies: (.devDependencies | with_entries(select(.key as $k | ["@modelcontextprotocol/client", "@modelcontextprotocol/server", "@modelcontextprotocol/node", "smol-toml", "jsonc-parser"] | index($k))))}' /tmp/dxt-tooling-package.json > /opt/dxt-mcp/package.json \
+    && test "$(jq '.dependencies | length' /opt/dxt-mcp/package.json)" -eq 5 \
     && npm install --prefix /opt/dxt-mcp --no-fund --no-audit \
     && rm /tmp/dxt-tooling-package.json
 
@@ -148,12 +156,13 @@ ENV NPM_CONFIG_FUND=false \
 # servers via uv. The MCP executables land in /usr/local/bin so MCP startup
 # never needs to download anything.
 # ------------------------------------------------------------------------------
-RUN pip3 install --no-cache-dir --break-system-packages pre-commit yamllint \
+RUN python3 -m venv /opt/dxt-python-tools \
+    && /opt/dxt-python-tools/bin/pip install --no-cache-dir pre-commit==4.7.0 yamllint==1.38.0 uv==0.13.9 \
+    && ln -sf /opt/dxt-python-tools/bin/pre-commit /opt/dxt-python-tools/bin/yamllint /opt/dxt-python-tools/bin/uv /usr/local/bin/ \
     && pre-commit --version \
     && yamllint --version
-RUN pip3 install --no-cache-dir --break-system-packages uv \
-    && UV_TOOL_DIR=/opt/dxt-mcp/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mcp-server-git \
-    && UV_TOOL_DIR=/opt/dxt-mcp/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mcp-server-fetch \
+RUN UV_TOOL_DIR=/opt/dxt-mcp/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mcp-server-git==2026.11.18 \
+    && UV_TOOL_DIR=/opt/dxt-mcp/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mcp-server-fetch==2026.11.18 \
     && mcp-server-git --help >/dev/null \
     && mcp-server-fetch --help >/dev/null
 
@@ -200,7 +209,8 @@ EOF
 # CSharpier for the vscode user (matches .config/dotnet-tools.json).
 # ------------------------------------------------------------------------------
 USER vscode
-RUN dotnet tool install --global CSharpier --version 1.1.2
+RUN --mount=type=bind,source=.config/dotnet-tools.json,target=/tmp/dxt-dotnet-tools.json,readonly \
+    dotnet tool install --global CSharpier --version "$(jq -er '.tools.CSharpier.version' /tmp/dxt-dotnet-tools.json)"
 ENV PATH="${PATH}:/home/vscode/.dotnet/tools"
 
 # ------------------------------------------------------------------------------
@@ -218,7 +228,9 @@ RUN echo "=== Environment Verification ===" \
     && command -v zai-mcp-server && command -v mcp-remote \
     && command -v context7-mcp \
     && echo "--- MCP script dependencies ---" \
-    && test -d /opt/dxt-mcp/node_modules/@modelcontextprotocol/sdk \
+    && test -d /opt/dxt-mcp/node_modules/@modelcontextprotocol/client \
+    && test -d /opt/dxt-mcp/node_modules/@modelcontextprotocol/server \
+    && test -d /opt/dxt-mcp/node_modules/@modelcontextprotocol/node \
     && test -d /opt/dxt-mcp/node_modules/smol-toml \
     && test -d /opt/dxt-mcp/node_modules/jsonc-parser \
     && echo "--- Repo tooling ---" \

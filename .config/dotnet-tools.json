@@ -3,11 +3,11 @@
   "isRoot": true,
   "tools": {
     "CSharpier": {
-      "version": "1.1.2",
+      "version": "1.4.1",
       "commands": ["csharpier"]
     },
     "docfx": {
-      "version": "2.80.1",
+      "version": "2.81.0",
       "commands": ["docfx"]
     }
   }

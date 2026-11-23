@@ -26,11 +26,9 @@ let mcpDependencies;
 try {
   mcpDependencies = await Promise.all(
     [
-      "@modelcontextprotocol/sdk/client/index.js",
-      "@modelcontextprotocol/sdk/client/streamableHttp.js",
-      "@modelcontextprotocol/sdk/server/index.js",
-      "@modelcontextprotocol/sdk/server/streamableHttp.js",
-      "@modelcontextprotocol/sdk/types.js",
+      "@modelcontextprotocol/client",
+      "@modelcontextprotocol/server",
+      "@modelcontextprotocol/node",
       "smol-toml",
       "jsonc-parser"
     ].map(dependency)
@@ -48,11 +46,9 @@ try {
   throw error;
 }
 const [
-  { Client },
-  { StreamableHTTPClientTransport, StreamableHTTPError },
-  { Server },
-  { StreamableHTTPServerTransport },
-  { isInitializeRequest, McpError },
+  { Client, StreamableHTTPClientTransport, SdkHttpError, ProtocolError },
+  { Server, isInitializeRequest },
+  { NodeStreamableHTTPServerTransport },
   { parse: parseToml, stringify: stringifyToml },
   { parse: parseJsonc }
 ] = mcpDependencies;
@@ -595,15 +591,13 @@ export async function probeEndpoint(candidate, options, fetchImpl = fetch, readi
   const failure = (error, operation) => {
     const message = error?.message ?? String(error);
     if (error?.probeStatus) return classify(error.probeStatus, message);
-    if (error instanceof StreamableHTTPError) {
-      const status = [401, 403].includes(error.code)
+    if (error instanceof SdkHttpError) {
+      const status = [401, 403].includes(error.status)
         ? "unauthorized"
-        : error.code === -1
-          ? "malformed"
-          : "http-error";
-      return classify(status, `${operation}: HTTP ${error.code}: ${message}`);
+        : "http-error";
+      return classify(status, `${operation}: HTTP ${error.status}: ${message}`);
     }
-    if (error instanceof McpError) {
+    if (error instanceof ProtocolError) {
       const status = lifecycleSignal.aborted ? "transport-error" : "jsonrpc-error";
       return classify(status, `${operation}: ${message}`);
     }
@@ -748,7 +742,7 @@ export async function probeEndpoint(candidate, options, fetchImpl = fetch, readi
         }
       }
     } catch (error) {
-      const expired = error instanceof StreamableHTTPError && error.code === 404;
+      const expired = error instanceof SdkHttpError && error.status === 404;
       const capped = isSessionCapError(error?.message);
       retry = attempt + 1 < attempts && (capped || (attempt === 0 && Boolean(sessionId) && expired));
       if (capped && retry) {
@@ -1566,7 +1560,7 @@ export async function startBridge(inputOptions, runtime = {}) {
 
   const createSession = async () => {
     let sessionId;
-    const transport = new StreamableHTTPServerTransport({
+    const transport = new NodeStreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
       onsessioninitialized: (id) => {
@@ -1580,7 +1574,7 @@ export async function startBridge(inputOptions, runtime = {}) {
     });
     const server = new Server(
       { name: "dxcommandterminal-unity-mcp-bridge", version: "1.0.0" },
-      { capabilities: {} }
+      { capabilities: {}, supportedProtocolVersions: [options.protocolVersion ?? DEFAULTS.protocolVersion] }
     );
     await server.connect(transport);
     const cliArgs = ["mcp", "--project-path", projectPath];

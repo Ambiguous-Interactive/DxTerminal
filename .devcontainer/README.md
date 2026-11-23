@@ -43,13 +43,13 @@ The old `sst-dev.opencode` extension is not installed: it launches the removed v
 
 ## What the image bakes in
 
-| Layer        | Contents                                                                                                                                                                                                                         |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base         | `mcr.microsoft.com/devcontainers/dotnet:1-9.0-bookworm` + SDK from `global.json` + .NET 10 (C# Dev Kit)                                                                                                                          |
-| Repo tooling | PowerShell (lint scripts), CSharpier 1.1.2, pre-commit, yamllint, git-lfs                                                                                                                                                        |
-| Node LTS     | NodeSource LTS; user-global npm prefix is `~/.local` (no sudo, ever)                                                                                                                                                             |
-| Agent CLIs   | `@anthropic-ai/claude-code`, `@openai/codex`, `@opencode/cli` v2, `@nanocollective/nanocoder` (configured npm lines; refreshed on every start)                                                                                   |
-| MCP servers  | `mcp-server-git`, `mcp-server-fetch` (uv), `@z_ai/mcp-server` (vision), `@upstash/context7-mcp` (docs), `mcp-remote` (Z.AI↔Codex adapter), baked `@modelcontextprotocol/sdk` + `smol-toml` + `jsonc-parser` under `/opt/dxt-mcp` |
+| Layer        | Contents                                                                                                                                                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base         | `mcr.microsoft.com/devcontainers/dotnet:3-11.0-resolute` + SDK from `global.json` + .NET 10 (C# Dev Kit)                                                                                                                     |
+| Repo tooling | PowerShell (lint scripts), CSharpier, pre-commit, yamllint, git-lfs                                                                                                                                                          |
+| Node LTS     | NodeSource LTS; user-global npm prefix is `~/.local` (no sudo, ever)                                                                                                                                                         |
+| Agent CLIs   | `@anthropic-ai/claude-code`, `@openai/codex`, `@opencode/cli` v2, `@nanocollective/nanocoder` (configured npm lines; refreshed on every start)                                                                               |
+| MCP servers  | `mcp-server-git`, `mcp-server-fetch` (uv), `@z_ai/mcp-server` (vision), `@upstash/context7-mcp` (docs), `mcp-remote` (Z.AI↔Codex adapter), baked MCP TypeScript SDK v2, `smol-toml`, and `jsonc-parser` under `/opt/dxt-mcp` |
 
 Offline launches keep working: configure uses the baked dependencies, and the image copies of the CLIs remain until a refresh succeeds.
 

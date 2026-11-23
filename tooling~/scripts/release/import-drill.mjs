@@ -64,18 +64,28 @@ const LOG_ERROR_PATTERNS = [
 ];
 export const SETTLE_PHASE_ENV = { DX_IMPORT_DRILL_SETTLE: "1" };
 
-/*
-    UPM packages the scratch project needs so every shipped asmdef compiles.
-    `provides` lists the assembly names those packages contribute; validation
-    fails closed when an artifact asmdef references an assembly neither in the
-    artifact itself nor provided by one of these packages. Versions are
-    2021.3-compatible floors; the registry resolves them at drill time.
-*/
+const fixtureProfiles = JSON.parse(fs.readFileSync(new URL("../../compat/fixture-packages.json", import.meta.url), "utf8"));
+
+export function fixtureDependencies(editorVersion, required) {
+  const [major, minor] = editorVersion.split(".").map(Number);
+  const profile = fixtureProfiles.find(({ minimumEditor: [firstMajor, firstMinor] }) =>
+    major > firstMajor || (major === firstMajor && minor >= firstMinor)
+  );
+  if (!profile) throw new Error(`No fixture package versions for Unity ${editorVersion}`);
+  if (required === undefined) return { ...profile.dependencies };
+  const dependencies = {};
+  for (const id of required) {
+    if (!Object.hasOwn(profile.dependencies, id)) throw new Error(`No ${id} fixture version for Unity ${editorVersion}`);
+    dependencies[id] = profile.dependencies[id];
+  }
+  return dependencies;
+}
+
+// Assembly names used to select UPM dependencies from the shipped asmdefs.
 const SCRATCH_UPM_PACKAGES = [
-  { id: "com.unity.inputsystem", version: "1.7.0", provides: ["Unity.InputSystem"] },
+  { id: "com.unity.inputsystem", provides: ["Unity.InputSystem"] },
   {
     id: "com.unity.test-framework",
-    version: "1.1.33",
     provides: ["UnityEngine.TestRunner", "UnityEditor.TestRunner"]
   }
 ];
@@ -314,6 +324,7 @@ function scratchDependencies(artifact) {
     }
   }
   const localAssemblies = new Set(asmdefs.map((asmdef) => asmdef.name).filter((name) => typeof name === "string"));
+  const versions = fixtureDependencies("2021.3");
   const dependencies = {};
   const providerFor = (assemblyName) =>
     SCRATCH_UPM_PACKAGES.find((entry) => entry.provides.includes(assemblyName));
@@ -333,11 +344,11 @@ function scratchDependencies(artifact) {
         violations.push(`asmdef ${asmdef.name ?? "?"} references unknown assembly ${reference}`);
         continue;
       }
-      dependencies[provider.id] = provider.version;
+      dependencies[provider.id] = versions[provider.id];
     }
     if ((asmdef.defineConstraints ?? []).includes("UNITY_INCLUDE_TESTS")) {
       const provider = SCRATCH_UPM_PACKAGES.find((entry) => entry.id === "com.unity.test-framework");
-      dependencies[provider.id] = provider.version;
+      dependencies[provider.id] = versions[provider.id];
     }
   }
   if (violations.length > 0) {
@@ -456,10 +467,6 @@ export function settleUnityArgs(projectDir, logPath) {
 export function scaffoldProject(projectDir, editorVersion, dependencies) {
   if (!/^[0-9a-zA-Z][0-9a-zA-Z.\-_]*$/u.test(editorVersion)) {
     throw new Error(`implausible editor version: ${editorVersion}`);
-  }
-  // Input System 1.7.0 references Editor APIs removed in Unity 6.5.
-  if (editorVersion.startsWith("6000.5.") && dependencies["com.unity.inputsystem"] === "1.7.0") {
-    dependencies = { ...dependencies, "com.unity.inputsystem": "1.20.1" };
   }
   fs.mkdirSync(path.join(projectDir, "ProjectSettings"), { recursive: true });
   fs.mkdirSync(path.join(projectDir, "Packages"), { recursive: true });
@@ -737,12 +744,13 @@ export async function runImportDrill(options, probes = {}) {
     throw new Error(`--project must name an empty or missing directory: ${projectDir}`);
   }
   const editorVersion = probeVersion(options.unity);
+  const dependencies = fixtureDependencies(editorVersion, Object.keys(artifact.scratchDependencies));
   const dependencyText =
-    Object.keys(artifact.scratchDependencies).length > 0
-      ? `upm deps: ${Object.entries(artifact.scratchDependencies).map(([id, version]) => `${id}@${version}`).join(", ")}`
+    Object.keys(dependencies).length > 0
+      ? `upm deps: ${Object.entries(dependencies).map(([id, version]) => `${id}@${version}`).join(", ")}`
       : "no upm deps";
   console.log(`[import-drill] editor ${editorVersion}; ${dependencyText}; project ${projectDir}`);
-  scaffoldProject(projectDir, editorVersion, artifact.scratchDependencies);
+  scaffoldProject(projectDir, editorVersion, dependencies);
 
   const started = Date.now();
   const totalBudgetMs = options.timeoutMinutes * 60_000;
@@ -789,7 +797,7 @@ export async function runImportDrill(options, probes = {}) {
     artifactSha256: sha256(artifactBuffer),
     entries: artifact.assets.length,
     importRoot: artifact.root,
-    upmDependencies: artifact.scratchDependencies,
+    upmDependencies: dependencies,
     unity: options.unity,
     editorVersion,
     project: projectDir,

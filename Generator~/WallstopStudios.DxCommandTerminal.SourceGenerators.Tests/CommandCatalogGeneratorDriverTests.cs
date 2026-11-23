@@ -675,7 +675,7 @@ namespace Fixtures
                 TestCompilationFactory.CreateCompilation("ConstructionTables", fixture.ToString())
             );
             List<VariableDeclaratorSyntax> tables = generated
-                .GetRoot()
+                .GetRoot(TestContext.Current.CancellationToken)
                 .DescendantNodes()
                 .OfType<VariableDeclaratorSyntax>()
                 .Where(variable =>
@@ -692,30 +692,27 @@ namespace Fixtures
             Assert.Equal("table0015", fields[0][0]);
             Assert.Equal("table0048", fields[1][0]);
             Assert.Equal("table0064", fields[2][0]);
-            Assert.All(
-                tables,
-                table =>
+            Assert.All(tables, table =>
+            {
+                BlockSyntax block = table.Ancestors().OfType<BlockSyntax>().First();
+                ForStatementSyntax loop = Assert.Single(block.Statements.OfType<ForStatementSyntax>());
+                InvocationExpressionSyntax create = Assert.Single(loop.DescendantNodes().OfType<InvocationExpressionSyntax>(), call =>
+                    call.Expression.ToString().StartsWith("CreateEntry", StringComparison.Ordinal)
+                );
+                Assert.True(create.ArgumentList.Arguments[2].Expression.IsKind(SyntaxKind.NullLiteralExpression));
+                Assert.True(create.ArgumentList.Arguments[3].Expression.IsKind(SyntaxKind.NullLiteralExpression));
+                string[] values = ((LiteralExpressionSyntax)table.Initializer.Value).Token.ValueText.Split('\0');
+                BinaryExpressionSyntax condition = Assert.IsType<BinaryExpressionSyntax>(loop.Condition);
+                Assert.Equal(values.Length / 2, (int)((LiteralExpressionSyntax)condition.Right).Token.Value);
+                for (int offset = 0; offset < values.Length; offset += 2)
                 {
-                    BlockSyntax block = table.Ancestors().OfType<BlockSyntax>().First();
-                    ForStatementSyntax loop = Assert.Single(block.Statements.OfType<ForStatementSyntax>());
-                    InvocationExpressionSyntax create = Assert.Single(
-                        loop.DescendantNodes().OfType<InvocationExpressionSyntax>().Where(call => call.Expression.ToString().StartsWith("CreateEntry", StringComparison.Ordinal))
-                    );
-                    Assert.True(create.ArgumentList.Arguments[2].Expression.IsKind(SyntaxKind.NullLiteralExpression));
-                    Assert.True(create.ArgumentList.Arguments[3].Expression.IsKind(SyntaxKind.NullLiteralExpression));
-                    string[] values = ((LiteralExpressionSyntax)table.Initializer.Value).Token.ValueText.Split('\0');
-                    BinaryExpressionSyntax condition = Assert.IsType<BinaryExpressionSyntax>(loop.Condition);
-                    Assert.Equal(values.Length / 2, (int)((LiteralExpressionSyntax)condition.Right).Token.Value);
-                    for (int offset = 0; offset < values.Length; offset += 2)
-                    {
-                        Assert.Equal(string.Concat("Command", values[offset].AsSpan("table".Length)), values[offset + 1]);
-                    }
+                    Assert.Equal(string.Concat("Command", values[offset].AsSpan("table".Length)), values[offset + 1]);
                 }
-            );
+            });
             Assert.Equal(
                 35,
                 generated
-                    .GetRoot()
+                    .GetRoot(TestContext.Current.CancellationToken)
                     .DescendantNodes()
                     .OfType<InvocationExpressionSyntax>()
                     .Count(call => string.Equals(call.Expression.ToString(), "entries.Add", StringComparison.Ordinal))
@@ -798,7 +795,7 @@ namespace Fixtures
                 TestCompilationFactory.CreateCompilation("PackedConstructionEdges", fixture.ToString())
             );
             List<VariableDeclaratorSyntax> tables = generated
-                .GetRoot()
+                .GetRoot(TestContext.Current.CancellationToken)
                 .DescendantNodes()
                 .OfType<VariableDeclaratorSyntax>()
                 .Where(variable => string.Equals(variable.Identifier.ValueText, "metadata", StringComparison.Ordinal))
@@ -824,17 +821,13 @@ namespace Fixtures
                 Assert.Equal(expectedNames[index], fields[offset]);
                 Assert.Equal(expectedMethods[index], fields[offset + 1]);
             }
-            Assert.Single(
-                generated
-                    .GetRoot()
-                    .DescendantNodes()
-                    .OfType<MethodDeclarationSyntax>()
-                    .Where(method => string.Equals(method.Identifier.ValueText, "ReadPackedMetadata", StringComparison.Ordinal))
+            Assert.Single(generated.GetRoot(TestContext.Current.CancellationToken).DescendantNodes().OfType<MethodDeclarationSyntax>(), method =>
+                string.Equals(method.Identifier.ValueText, "ReadPackedMetadata", StringComparison.Ordinal)
             );
             Assert.Equal(
                 2,
                 generated
-                    .GetRoot()
+                    .GetRoot(TestContext.Current.CancellationToken)
                     .DescendantNodes()
                     .OfType<InvocationExpressionSyntax>()
                     .Count(call => string.Equals(call.Expression.ToString(), "entries.Add", StringComparison.Ordinal))
@@ -930,7 +923,7 @@ namespace Fixtures
                 TestCompilationFactory.CreateCompilation("Batch" + count, fixture.ToString(), defines)
             );
             List<int> constructionCounts = generated
-                .GetRoot()
+                .GetRoot(TestContext.Current.CancellationToken)
                 .DescendantNodes()
                 .OfType<MethodDeclarationSyntax>()
                 .Select(method =>
@@ -944,27 +937,24 @@ namespace Fixtures
             Assert.Equal(count, constructionCounts.Sum());
             Assert.All(constructionCounts, value => Assert.InRange(value, 1, 64));
             List<MethodDeclarationSyntax> binderGroups = generated
-                .GetRoot()
+                .GetRoot(TestContext.Current.CancellationToken)
                 .DescendantNodes()
                 .OfType<MethodDeclarationSyntax>()
                 .Where(method => method.Identifier.ValueText.StartsWith("BindGroup", StringComparison.Ordinal))
                 .ToList();
             Assert.Equal(64 < count, 0 < binderGroups.Count);
-            Assert.All(
-                binderGroups,
-                method =>
-                {
-                    Assert.InRange(method.DescendantNodes().OfType<CaseSwitchLabelSyntax>().Count(), 1, 64);
-                    IEnumerable<string> holders = method
-                        .DescendantNodes()
-                        .OfType<ObjectCreationExpressionSyntax>()
-                        .Select(creation => creation.ArgumentList.Arguments[0].Expression)
-                        .OfType<MemberAccessExpressionSyntax>()
-                        .Select(member => member.Expression.ToString())
-                        .Distinct(StringComparer.Ordinal);
-                    Assert.Single(holders);
-                }
-            );
+            Assert.All(binderGroups, method =>
+            {
+                Assert.InRange(method.DescendantNodes().OfType<CaseSwitchLabelSyntax>().Count(), 1, 64);
+                IEnumerable<string> holders = method
+                    .DescendantNodes()
+                    .OfType<ObjectCreationExpressionSyntax>()
+                    .Select(creation => creation.ArgumentList.Arguments[0].Expression)
+                    .OfType<MemberAccessExpressionSyntax>()
+                    .Select(member => member.Expression.ToString())
+                    .Distinct(StringComparer.Ordinal);
+                Assert.Single(holders);
+            });
             Assembly assembly = TestCompilationFactory.CompileAndLoad(output);
             CatalogView catalog = CatalogView.Load(assembly);
             Assert.Equal(count, catalog.Entries.Count);
@@ -1006,18 +996,11 @@ namespace Fixtures
                     Assert.True(slot.IsInitOnly);
                     int value = (int)slot.GetValue(factory.Target);
                     Assert.True(slots.Add(value));
-                    MethodDeclarationSyntax group = Assert.Single(
-                        binderGroups,
-                        method =>
-                            string.Equals(
-                                method.Identifier.ValueText,
-                                "BindGroup" + (value / 64).ToString(System.Globalization.CultureInfo.InvariantCulture),
-                                StringComparison.Ordinal
-                            )
+                    MethodDeclarationSyntax group = Assert.Single(binderGroups, method =>
+                        string.Equals(method.Identifier.ValueText, "BindGroup" + (value / 64).ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)
                     );
-                    Assert.Contains(
-                        group.DescendantNodes().OfType<CaseSwitchLabelSyntax>(),
-                        label => string.Equals(label.Value.ToString(), (value % 64).ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)
+                    Assert.Contains(group.DescendantNodes().OfType<CaseSwitchLabelSyntax>(), label =>
+                        string.Equals(label.Value.ToString(), (value % 64).ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal)
                     );
                 }
                 else
@@ -1069,18 +1052,18 @@ namespace Fixtures
             CSharpCompilation consumer = TestCompilationFactory.CreateCompilation("OptionalBindingIsolation" + excludedCount, fixture.ToString());
             CSharpCompilation dependency = CSharpCompilation.Create(
                 "OptionalCatalogDependency",
-                new[] { CSharpSyntaxTree.ParseText("namespace OptionalDependency { public class Base { } }") },
+                new[] { CSharpSyntaxTree.ParseText("namespace OptionalDependency { public class Base { } }", cancellationToken: TestContext.Current.CancellationToken) },
                 consumer.References,
                 new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
             );
             using MemoryStream dependencyStream = new MemoryStream();
-            Microsoft.CodeAnalysis.Emit.EmitResult emitted = dependency.Emit(dependencyStream);
+            Microsoft.CodeAnalysis.Emit.EmitResult emitted = dependency.Emit(dependencyStream, cancellationToken: TestContext.Current.CancellationToken);
             Assert.True(emitted.Success, string.Join(Environment.NewLine, emitted.Diagnostics));
             byte[] dependencyImage = dependencyStream.ToArray();
             consumer = consumer.AddReferences(MetadataReference.CreateFromImage(dependencyImage));
             (SyntaxTree generated, CSharpCompilation output) = TestCompilationFactory.RunGenerator(consumer);
             int[] groupSizes = generated
-                .GetRoot()
+                .GetRoot(TestContext.Current.CancellationToken)
                 .DescendantNodes()
                 .OfType<MethodDeclarationSyntax>()
                 .Where(method => method.Identifier.ValueText.StartsWith("BindGroup", StringComparison.Ordinal))
@@ -1297,14 +1280,19 @@ namespace Fixtures {
                 @"namespace Fixtures { public static class Values { public const string Prefix = ""one-""; public const string Help = ""first""; public const int Min = 1; public const int Contexts = 7; } }";
             CSharpCompilation baseCompilation = TestCompilationFactory.CreateCompilation("TreeReuseFirst", string.Empty);
             CSharpParseOptions options = (CSharpParseOptions)baseCompilation.SyntaxTrees.First().Options;
-            SyntaxTree firstTree = CSharpSyntaxTree.ParseText(template.Replace("HOLDER", "First", StringComparison.Ordinal), options, path: "Commands.cs");
+            SyntaxTree firstTree = CSharpSyntaxTree.ParseText(
+                template.Replace("HOLDER", "First", StringComparison.Ordinal),
+                options,
+                path: "Commands.cs",
+                cancellationToken: TestContext.Current.CancellationToken
+            );
             string secondSource = template
                 .Replace("HOLDER", "Second", StringComparison.Ordinal)
                 .Replace("using Mark = WallstopStudios.DxCommandTerminal.Attributes.RegisterCommandAttribute;", "using Mark = System.ObsoleteAttribute;", StringComparison.Ordinal)
                 .Replace("[Mark(", "[global::WallstopStudios.DxCommandTerminal.Attributes.RegisterCommand(", StringComparison.Ordinal)
                 .Replace("[Skip]", "[Mark]", StringComparison.Ordinal);
-            SyntaxTree secondTree = CSharpSyntaxTree.ParseText(secondSource, options, path: "Commands.cs");
-            SyntaxTree firstConstants = CSharpSyntaxTree.ParseText(constants, options, path: "Values.cs");
+            SyntaxTree secondTree = CSharpSyntaxTree.ParseText(secondSource, options, path: "Commands.cs", cancellationToken: TestContext.Current.CancellationToken);
+            SyntaxTree firstConstants = CSharpSyntaxTree.ParseText(constants, options, path: "Values.cs", cancellationToken: TestContext.Current.CancellationToken);
             SyntaxTree secondConstants = CSharpSyntaxTree.ParseText(
                 constants
                     .Replace("one-", "two-", StringComparison.Ordinal)
@@ -1312,7 +1300,8 @@ namespace Fixtures {
                     .Replace("= 1", "= 3", StringComparison.Ordinal)
                     .Replace("= 7", "= -17", StringComparison.Ordinal),
                 options,
-                path: "Values.cs"
+                path: "Values.cs",
+                cancellationToken: TestContext.Current.CancellationToken
             );
             CSharpCompilation firstCompilation = baseCompilation.AddSyntaxTrees(firstConstants, firstTree, secondTree);
             CSharpCompilation secondCompilation = firstCompilation
@@ -1326,7 +1315,8 @@ namespace Fixtures {
                 driver = driver.RunGeneratorsAndUpdateCompilation(
                     version == 0 ? firstCompilation : secondCompilation,
                     out Compilation output,
-                    out ImmutableArray<Diagnostic> diagnostics
+                    out ImmutableArray<Diagnostic> diagnostics,
+                    TestContext.Current.CancellationToken
                 );
                 Assert.Empty(diagnostics);
                 Assert.Empty(driver.GetRunResult().Diagnostics);
@@ -1770,7 +1760,7 @@ namespace Fixtures
     }
 }";
             CSharpCompilation compilation = TestCompilationFactory.CreateCompilation("MultidimensionalArrays" + accessibility + rank, fixture);
-            Assert.DoesNotContain(compilation.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.DoesNotContain(compilation.GetDiagnostics(TestContext.Current.CancellationToken), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
             (SyntaxTree generated, CSharpCompilation output) = TestCompilationFactory.RunGenerator(compilation);
             Assert.NotNull(generated);
@@ -1952,7 +1942,7 @@ namespace Fixtures
         public void FileLocalHoldersSkipTheCatalogForTheWholeAssembly()
         {
             CSharpCompilation compilation = TestCompilationFactory.CreateCompilation("FileLocalPartial", FileLocalPartialHolderFixture);
-            Assert.DoesNotContain(compilation.GetParseDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+            Assert.DoesNotContain(compilation.GetParseDiagnostics(TestContext.Current.CancellationToken), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
 
             (SyntaxTree generated, _) = TestCompilationFactory.RunGenerator(compilation);
             Assert.Null(generated);

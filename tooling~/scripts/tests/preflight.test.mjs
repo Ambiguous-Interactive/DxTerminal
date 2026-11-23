@@ -195,7 +195,8 @@ test("buildChecks: unique names, non-empty commands, expected canaries", () => {
     "tooling~/scripts/t13",
     "tooling~/scripts/unity",
     "tooling~/scripts/tests",
-    "tooling~/compat/player-smoke"
+    "tooling~/compat/player-smoke",
+    "tooling~/compat/fixture-packages.json"
   ]);
   const devcontainerContract = checks.find((check) => check.name === "devcontainer-contract");
   assert.equal(devcontainerContract.cache, undefined, "devcontainer-contract keys its suite bytes");
