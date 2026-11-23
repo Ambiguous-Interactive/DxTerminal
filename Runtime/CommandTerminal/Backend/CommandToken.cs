@@ -29,6 +29,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             End = end;
         }
 
+        public string GetVariableName()
+        {
+            bool canExpand = EndQuote == null && !string.IsNullOrWhiteSpace(Contents) && Contents.StartsWith('$');
+            return canExpand ? Contents[1..] : null;
+        }
+
         public CommandArg ToArgument()
         {
             return new CommandArg(Contents, StartQuote, EndQuote);

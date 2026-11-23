@@ -34,6 +34,29 @@ files.
 - Omit standing constraints, measurement methods, command catalogs, archival headers, and repeated status/order sections.
 - Do not copy an issue, runbook, or skill into the plan. Link the authoritative source.
 
+## Advance a milestone
+
+1. Check the default branch CI, dependencies, issues, and open or draft PRs. Resume relevant work. Select the first unblocked milestone in plan order.
+2. State the outcome and acceptance check. Reproduce the gap or record the baseline before implementing. Follow the
+   [measurement contract](../../modernization.md#measurement-contract) for measured claims.
+3. Run the smallest check again after the fix, then run the affected suites and required gates. Use the real entry point where integration matters. Record any pending host or
+   Editor evidence.
+4. Keep one unstacked PR per milestone. Aim for fewer than 1,000 changed lines across fewer than 18 files. Include
+   [visual review evidence](../simple-writing/SKILL.md#visual-review-evidence) for any visual change.
+5. Review compatibility and failure paths. Resolve substantive findings and verify required checks on the current PR head. Record checks, environment, evidence, and decisions in
+   the session log.
+
+## Merge during a CodeRabbit cooldown
+
+An authorized PR can merge during a confirmed CodeRabbit cooldown when acceptance and required checks pass on the current head and all review feedback is addressed. Verify the
+head, review threads, and cooldown. If a prior CodeRabbit change request is the sole remaining merge gate, dismiss that review with the evidence and use the normal merge path.
+Human review requirements and branch protections still apply.
+
+## When an Editor runner is unavailable
+
+Keep the goal active when a required Unity runner is unavailable. Record the pending check, the PR head, and the run link if one exists. Continue standalone checks and other
+independent work. Track the original run while it is queued. Verify the required Unity result on the current PR head when the runner is available.
+
 ## Audit and session close
 
 1. Read the whole plan and relevant session evidence. Do not infer completion from a partial pass.

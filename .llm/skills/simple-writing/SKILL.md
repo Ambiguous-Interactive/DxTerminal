@@ -24,22 +24,22 @@ reader should get the point in seconds.
 
 ## Structure by artifact
 
-| Artifact        | Structure                                                                                                                                                                                                                                            | Budget        |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| PR title        | Imperative, <= 72 chars. "Add X", "Fix Y".                                                                                                                                                                                                           | 1 line        |
-| PR description  | `**Why:**` the problem, one sentence, plus the `Closes #N` line. `**What:**` one-line bullets (3-6, <= 12 words each) - the how. Nothing else: test lists, CI results, measurements, and review narration go in the commit body or the linked issue. | <= ~10 lines  |
-| CHANGELOG entry | One sentence, <= 300 chars, in the unity-helpers style: verb first (`Add`, `Fix`, `Change`), the user-visible effect, issue reference at the end. A second sentence only to name what is preserved or refused. No root cause, no mechanism tour.     | 1-2 sentences |
-| Commit subject  | Imperative, <= 72 chars, no trailing period.                                                                                                                                                                                                         | 1 line        |
-| Commit body     | `Why` 1-2 sentences, then `What changed` one-line bullets (2-5). Optional one-line `How we know`. Wrap at ~72 chars.                                                                                                                                 | <= ~8 lines   |
-| Review comments | 1-3 sentences. Say what to change and why.                                                                                                                                                                                                           | 3 lines       |
-| Code comments   | Minimal. State only what the code cannot say (constraints, invariants, non-obvious why). No narration of the next line. Max ~4 lines per comment block.                                                                                              | 4 lines       |
-| Issues          | `Problem`, `Evidence`, `Fix` - one short paragraph each.                                                                                                                                                                                             | short         |
+| Artifact        | Structure                                                                                                                                                                                                                                                                                                        | Budget        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| PR title        | Imperative, <= 72 chars. "Add X", "Fix Y".                                                                                                                                                                                                                                                                       | 1 line        |
+| PR description  | `**Why:**` the problem, one sentence, plus the `Closes #N` line. `**What:**` one-line bullets (3-6, <= 12 words each) - the how. Use the evidence section below for visual changes. Test lists, CI results, measurements, and review narration go in the commit body or the linked issue.                        | <= ~10 lines  |
+| CHANGELOG entry | One sentence, <= 300 chars, in the unity-helpers style: verb first (`Add`, `Fix`, `Change`), the user-visible effect, issue reference at the end. Keep bullets in the same category together without blank lines. A second sentence only to name what is preserved or refused. No root cause, no mechanism tour. | 1-2 sentences |
+| Commit subject  | Imperative, <= 72 chars, no trailing period.                                                                                                                                                                                                                                                                     | 1 line        |
+| Commit body     | `Why` 1-2 sentences, then `What changed` one-line bullets (2-5). Optional one-line `How we know`. Wrap at ~72 chars.                                                                                                                                                                                             | <= ~8 lines   |
+| Review comments | 1-3 sentences. Say what to change and why.                                                                                                                                                                                                                                                                       | 3 lines       |
+| Code comments   | Minimal. State only what the code cannot say (constraints, invariants, non-obvious why). No narration of the next line. Max ~4 lines per comment block.                                                                                                                                                          | 4 lines       |
+| Issues          | `Problem`, `Evidence`, `Fix` - one short paragraph each.                                                                                                                                                                                                                                                         | short         |
 
 A few sentences is the ceiling, not the target. Two sentences that cover the point beat six that cover it plus context. No nested sub-bullets, no per-file tours, no process
 narration (review rounds, sub-agents, commits list), no restated context already in linked issues or PLAN. Numbers only as evidence lines. LLM-posted GitHub text keeps the
 `DISCLOSURE: LLM-GENERATED TEXT` first line (see llm-attribution); it does not count against the budget.
 
-The whole PR body, per the enforced lint - this shape, nothing added:
+Use this PR body shape. Add the evidence section for visual changes.
 
 ```
 DISCLOSURE: LLM-GENERATED TEXT
@@ -55,6 +55,12 @@ Closes #N
 ```
 
 Reference for these shapes: unity-helpers' `ship-changes` and `update-documentation` skills (MIT) - the pull request template and the one-sentence CHANGELOG rule.
+
+## Visual review evidence
+
+For any visual change, attach a labeled before and after pair to the PR description. Use PNGs for stills or animated WebP or GIF files at 45 fps or higher for motion. Embed the
+pair on two image lines in `**How we know:**` so it fits the PR copy check. Use matched conditions for both captures. For Unity captures, follow
+[capture-unity-state](../capture-unity-state/SKILL.md).
 
 ## Enforcement (PRs)
 

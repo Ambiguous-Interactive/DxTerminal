@@ -4,6 +4,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     using System.Collections.Generic;
     using System.Globalization;
     using System.Text;
+    using CommandSyntaxRole = CommandSyntaxClassifier.CommandSyntaxRole;
 
     /// <summary>
     ///     Fluent, immutable specification of one typed command argument.
@@ -14,6 +15,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     /// </summary>
     public sealed class CommandArgumentSpec<T> : CommandArgument
     {
+        private static readonly CommandSyntaxRole TypeSyntaxRole = CommandSyntaxClassifier.GetTypeRole(typeof(T));
+        private static readonly bool TypeHasSyntaxComponents = CommandSyntaxClassifier.HasComponents(typeof(T));
+        private static readonly bool TypeSupportsSyntaxCaching = TypeSyntaxRole is CommandSyntaxRole.Number or CommandSyntaxRole.Choice || typeof(T) == typeof(string);
+
         /*
             C# keyword aliases for usage text and errors. nameof cannot express
             these: it resolves to the type's name (nameof(Int32) is "Int32"),
@@ -46,6 +51,24 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         public override bool HasChoices => _staticChoices != null || _dynamicChoices != null;
 
         internal override Type DeclaredType => typeof(T);
+
+        internal override CommandSyntaxRole SyntaxRole => TypeSyntaxRole;
+
+        internal override bool HasSyntaxComponents => TypeHasSyntaxComponents;
+
+        internal override bool CanCacheSyntax
+        {
+            get
+            {
+                if (!TypeSupportsSyntaxCaching || _parserOverride != null || _validator != null)
+                {
+                    return false;
+                }
+
+                bool hasRegisteredParser = CommandArg.TryGetParser<T>(out _);
+                return !hasRegisteredParser;
+            }
+        }
 
         /// <summary>
         ///     True when the argument is its command's unbounded trailing
@@ -514,6 +537,14 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return ok;
         }
 
+        internal override bool TryValidateSyntax(CommandArg input, out bool isNamedConstant)
+        {
+            bool parsed = TryParseValue(input, out T value, out bool fromConstant);
+            string error = parsed ? ValidateValue(value) : null;
+            isNamedConstant = fromConstant;
+            return parsed && error == null;
+        }
+
         internal override bool TryParseAll(BorrowedCommandArguments arguments, int start, object[] parsedValues, int slot, out CommandArg failedToken, out string validationError)
         {
             if (!IsRemaining)
@@ -641,7 +672,18 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private bool TryParseValue(CommandArg input, out T value)
         {
-            return _useRawInput ? input.TryGetRaw(out value, _parserOverride) : input.TryGet(out value, _parserOverride);
+            return TryParseValue(input, out value, out _);
+        }
+
+        private bool TryParseValue(CommandArg input, out T value, out bool isNamedConstant)
+        {
+            if (_useRawInput)
+            {
+                isNamedConstant = false;
+                return input.TryGetRaw(out value, _parserOverride);
+            }
+
+            return input.TryGet(out value, _parserOverride, out isNamedConstant);
         }
 
         private string ValidateValue(T value)

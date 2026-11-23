@@ -8,7 +8,8 @@ metadata:
 # Agentic Unity State Capture
 
 `npm run unity:capture` drives the host editor through the [unity-mcp](../unity-mcp/SKILL.md) bridge, invokes `DxTerminalStateCapture.CaptureAll(outputDirectory)`, and waits for
-the manifest to complete. Artifacts land inside this package's `.artifacts/unity-state/` (dot-prefixed: Unity never imports them) so they are visible in the devcontainer.
+the manifest to complete. Artifacts land inside this package's `.artifacts/unity-state/` (dot-prefixed: Unity never imports them) so they are visible in the devcontainer. For any
+visual change, capture matched before and after views for the [PR description](../simple-writing/SKILL.md#visual-review-evidence).
 
 ## Prerequisites
 

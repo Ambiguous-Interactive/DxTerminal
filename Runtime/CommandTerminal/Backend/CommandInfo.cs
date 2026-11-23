@@ -4,6 +4,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
     public readonly struct CommandInfo
     {
+        internal CommandBuilder.SubcommandRoute SyntaxRoute { get; }
+
         public readonly Action<CommandArg[]> proc;
         public readonly int minArgCount;
 
@@ -40,7 +42,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         public readonly CommandExecutionContexts executionContexts;
 
         public CommandInfo(Action<CommandArg[]> proc, int minArgCount, int? maxArgCount, string help, string hint, bool addToHistory = true)
-            : this(proc, null, null, CommandExecutionContextSets.All, minArgCount, maxArgCount, help, hint, addToHistory) { }
+            : this(proc, handler: null, completionProvider: null, CommandExecutionContextSets.All, minArgCount, maxArgCount, help, hint, addToHistory) { }
 
         public CommandInfo(
             Action<CommandArg[]> proc,
@@ -53,7 +55,22 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             string hint,
             bool addToHistory = true
         )
+            : this(proc, handler, completionProvider, executionContexts, minArgCount, maxArgCount, help, hint, addToHistory, syntaxRoute: null) { }
+
+        internal CommandInfo(
+            Action<CommandArg[]> proc,
+            CommandHandler handler,
+            CommandCompletionProvider completionProvider,
+            CommandExecutionContexts executionContexts,
+            int minArgCount,
+            int? maxArgCount,
+            string help,
+            string hint,
+            bool addToHistory,
+            CommandBuilder.SubcommandRoute syntaxRoute
+        )
         {
+            SyntaxRoute = syntaxRoute;
             this.proc = proc;
             this.handler = handler;
             this.completionProvider = completionProvider;

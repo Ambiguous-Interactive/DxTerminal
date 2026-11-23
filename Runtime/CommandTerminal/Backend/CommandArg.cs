@@ -732,68 +732,7 @@
 
         public bool TryGet<T>(out T parsed, CommandArgParser<T> parserOverride)
         {
-            Type type = typeof(T);
-            string stringValue = DoNotCleanTypes.Contains(type) ? contents : CleanedContents;
-
-            if (parserOverride != null)
-            {
-                return parserOverride(stringValue, out parsed);
-            }
-
-            if (TryGetParser(out CommandArgParser<T> parser))
-            {
-                return parser(stringValue, out parsed);
-            }
-
-            if (type == typeof(string))
-            {
-                parsed = (T)(object)stringValue;
-                return true;
-            }
-            if (TryGetNamedConstant(stringValue, out parsed))
-            {
-                return true;
-            }
-            if (BuiltInParsers.TryGetValue(type, out Delegate builtInParser))
-            {
-                return ((CommandArgParser<T>)builtInParser)(stringValue, out parsed);
-            }
-            if (type.IsEnum)
-            {
-                if (Enum.IsDefined(type, stringValue))
-                {
-                    bool parseOk = Enum.TryParse(type, stringValue, out object parsedObject);
-                    if (parseOk)
-                    {
-                        parsed = (T)parsedObject;
-                        return true;
-                    }
-                }
-
-                if (CommandArgParsers.Int(stringValue, out int enumIntValue))
-                {
-                    if (!EnumValues.TryGetValue(type, out object enumValues))
-                    {
-                        /*
-                            Enum.GetValues returns an array whose runtime type is
-                            exactly T[], so the cast is free; OfType/ToArray would
-                            copy it for nothing.
-                         */
-                        enumValues = Enum.GetValues(type);
-                        EnumValues[type] = enumValues;
-                    }
-
-                    T[] values = (T[])enumValues;
-                    if (0 <= enumIntValue && enumIntValue < values.Length)
-                    {
-                        parsed = values[enumIntValue];
-                        return true;
-                    }
-                }
-            }
-
-            parsed = default;
-            return false;
+            return TryGet(out parsed, parserOverride, out _);
         }
 
         public bool TryGetRaw<T>(out T parsed, CommandArgParser<T> parser)
@@ -810,6 +749,85 @@
         public override string ToString()
         {
             return contents;
+        }
+
+        internal bool TryGet<T>(out T parsed, CommandArgParser<T> parserOverride, out bool isNamedConstant)
+        {
+            Type type = typeof(T);
+            bool usesRawContents = DoNotCleanTypes.Contains(type);
+            string stringValue = usesRawContents ? contents : CleanedContents;
+
+            if (parserOverride != null)
+            {
+                isNamedConstant = false;
+                return parserOverride(stringValue, out parsed);
+            }
+
+            bool hasRegisteredParser = TryGetParser(out CommandArgParser<T> parser);
+            if (hasRegisteredParser)
+            {
+                isNamedConstant = false;
+                return parser(stringValue, out parsed);
+            }
+
+            if (type == typeof(string))
+            {
+                parsed = (T)(object)stringValue;
+                isNamedConstant = false;
+                return true;
+            }
+
+            bool foundConstant = TryGetNamedConstant(stringValue, out parsed);
+            if (foundConstant)
+            {
+                isNamedConstant = true;
+                return true;
+            }
+
+            bool hasBuiltInParser = BuiltInParsers.TryGetValue(type, out Delegate builtInParser);
+            if (hasBuiltInParser)
+            {
+                isNamedConstant = false;
+                return ((CommandArgParser<T>)builtInParser)(stringValue, out parsed);
+            }
+
+            if (type.IsEnum)
+            {
+                bool isDefined = Enum.IsDefined(type, stringValue);
+                if (isDefined)
+                {
+                    bool parseOk = Enum.TryParse(type, stringValue, out object parsedObject);
+                    if (parseOk)
+                    {
+                        parsed = (T)parsedObject;
+                        isNamedConstant = false;
+                        return true;
+                    }
+                }
+
+                bool parsedIndex = CommandArgParsers.Int(stringValue, out int enumIntValue);
+                if (parsedIndex)
+                {
+                    bool foundEnumValues = EnumValues.TryGetValue(type, out object enumValues);
+                    if (!foundEnumValues)
+                    {
+                        enumValues = Enum.GetValues(type);
+                        EnumValues[type] = enumValues;
+                    }
+
+                    T[] values = (T[])enumValues;
+                    if (0 <= enumIntValue && enumIntValue < values.Length)
+                    {
+                        parsed = values[enumIntValue];
+                        isNamedConstant = false;
+                        return true;
+                    }
+                }
+            }
+
+            parsed = default;
+            isNamedConstant = false;
+            return false;
         }
     }
 }
