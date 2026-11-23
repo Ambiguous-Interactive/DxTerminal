@@ -176,35 +176,13 @@ jobs:
 
       - name: Activate the runner seat
         timeout-minutes: 10
-        shell: python
+        shell: pwsh
         env:
           UNITY_EDITOR_PATH: ${{ steps.ensure_unity_editor.outputs.editor-path }}
           UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-        run: |
-          import os, pathlib, re, subprocess, tempfile, time
-          for attempt in range(2):
-              with tempfile.TemporaryDirectory(dir=os.environ["RUNNER_TEMP"]) as directory:
-                  log = pathlib.Path(directory, "activation.log")
-                  command = [os.environ["UNITY_EDITOR_PATH"], "-batchmode", "-nographics", "-quit",
-                             "-createProject", str(pathlib.Path(directory, "project")), "-logFile", str(log),
-                             "-serial", os.environ["UNITY_SERIAL"], "-username", os.environ["UNITY_EMAIL"],
-                             "-password", os.environ["UNITY_PASSWORD"]]
-                  child_env = {k: v for k, v in os.environ.items() if k not in {"UNITY_SERIAL", "UNITY_EMAIL", "UNITY_PASSWORD"}}
-                  with subprocess.Popen(command, cwd=directory, env=child_env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) as editor:
-                      try:
-                          code = editor.wait(timeout=240)
-                      except subprocess.TimeoutExpired:
-                          subprocess.run(["taskkill", "/T", "/F", "/PID", str(editor.pid)], capture_output=True)
-                          raise SystemExit("Unity activation timed out")
-                  if code == 0:
-                      break
-                  diagnostic = log.read_text(encoding="utf-8", errors="replace") if log.is_file() else ""
-                  transient = re.search(r"Licensing::[^\r\n]*(?:\b20111\b|maximum number of activations)", diagnostic, re.I)
-                  if attempt or not transient or "20113" in diagnostic:
-                      raise SystemExit(f"Unity activation failed (exit {code})")
-              time.sleep(15)
+        run: python tooling~/scripts/unity/activate_seat.py
 
       - name: Run package suites and requested compatibility fixtures
         # Two package suites plus two T13 profiles on Unity 6 need time to save failure reports.
