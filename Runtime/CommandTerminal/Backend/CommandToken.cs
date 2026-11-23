@@ -31,7 +31,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         public string GetVariableName()
         {
-            return EndQuote == null && Contents.StartsWith('$') ? Contents[1..] : null;
+            bool canExpand = EndQuote == null && !string.IsNullOrWhiteSpace(Contents) && Contents.StartsWith('$');
+            return canExpand ? Contents[1..] : null;
         }
 
         public CommandArg ToArgument()

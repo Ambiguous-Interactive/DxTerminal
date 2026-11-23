@@ -524,7 +524,8 @@
 
         internal static string NormalizeCommandName(string name)
         {
-            return name.Contains(' ') ? name.Replace(" ", string.Empty, StringComparison.Ordinal) : name;
+            bool hasSpace = name.Contains(' ');
+            return hasSpace ? name.Replace(" ", string.Empty, StringComparison.Ordinal) : name;
         }
 
         private static bool IsIncludedScanAssembly(Assembly assembly)
@@ -1041,7 +1042,9 @@
 
                 foreach (CommandToken token in tokens)
                 {
-                    if (TryResolveToken(token, token.GetVariableName(), out CommandArg argument))
+                    string variableName = token.GetVariableName();
+                    bool resolved = TryResolveToken(token, variableName, out CommandArg argument);
+                    if (resolved)
                     {
                         arguments.Add(argument);
                     }
@@ -1483,13 +1486,17 @@
         {
             if (token.EndQuote == null)
             {
-                if (string.IsNullOrWhiteSpace(token.Contents))
+                bool isBlank = string.IsNullOrWhiteSpace(token.Contents);
+                if (isBlank)
                 {
                     argument = default;
                     return false;
                 }
 
-                if (variableName != null && _variables.TryGetValue(variableName, out CommandArg variable))
+                CommandArg variable = default;
+                bool hasVariableName = !string.IsNullOrWhiteSpace(variableName);
+                bool foundVariable = hasVariableName && _variables.TryGetValue(variableName, out variable);
+                if (foundVariable)
                 {
                     argument = variable;
                     return true;
@@ -1755,7 +1762,8 @@
             }
 
             commandName = NormalizeCommandName(commandName);
-            if (!TryGetCommand(commandName, out CommandInfo command))
+            bool foundCommand = TryGetCommand(commandName, out CommandInfo command);
+            if (!foundCommand)
             {
                 IssueErrorMessage($"Command {commandName} not found");
                 // Unknown command, unconditional push

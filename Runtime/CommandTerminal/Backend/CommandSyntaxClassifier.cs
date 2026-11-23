@@ -19,48 +19,33 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private string _commandName;
         private string _normalizedName;
 
-        private static CommandSyntaxRole ValidateArgument(CommandArgument spec, in CommandArg argument)
+        internal static CommandSyntaxRole GetTypeRole(Type type)
         {
-            try
+            if (type.IsEnum || type == typeof(bool))
             {
-                if (!spec.TryValidateSyntax(argument, out bool namedConstant))
-                {
-                    return CommandSyntaxRole.Invalid;
-                }
-
-                Type type = spec.DeclaredType;
-                if (namedConstant || spec.HasChoices || type.IsEnum || type == typeof(bool))
-                {
-                    return CommandSyntaxRole.Choice;
-                }
-
-                return IsNumber(type) || IsComponentType(type) ? CommandSyntaxRole.Number : CommandSyntaxRole.String;
+                return CommandSyntaxRole.Choice;
             }
-            catch (Exception)
+
+            TypeCode typeCode = Type.GetTypeCode(type);
+            return typeCode switch
             {
-                // Custom parsers and validators can fail while the user edits.
-                return CommandSyntaxRole.Invalid;
-            }
+                TypeCode.Byte
+                or TypeCode.SByte
+                or TypeCode.Int16
+                or TypeCode.UInt16
+                or TypeCode.Int32
+                or TypeCode.UInt32
+                or TypeCode.Int64
+                or TypeCode.UInt64
+                or TypeCode.Single
+                or TypeCode.Double
+                or TypeCode.Decimal => CommandSyntaxRole.Number,
+                TypeCode.Object => type == typeof(BigInteger) || HasComponents(type) ? CommandSyntaxRole.Number : CommandSyntaxRole.String,
+                _ => CommandSyntaxRole.String,
+            };
         }
 
-        private static bool IsNumber(Type type)
-        {
-            return Type.GetTypeCode(type)
-                    is TypeCode.Byte
-                        or TypeCode.SByte
-                        or TypeCode.Int16
-                        or TypeCode.UInt16
-                        or TypeCode.Int32
-                        or TypeCode.UInt32
-                        or TypeCode.Int64
-                        or TypeCode.UInt64
-                        or TypeCode.Single
-                        or TypeCode.Double
-                        or TypeCode.Decimal
-                || type == typeof(BigInteger);
-        }
-
-        private static bool IsComponentType(Type type)
+        internal static bool HasComponents(Type type)
         {
             return type == typeof(Vector2)
                 || type == typeof(Vector3)
@@ -68,6 +53,25 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 || type == typeof(Vector2Int)
                 || type == typeof(Vector3Int)
                 || type == typeof(Color);
+        }
+
+        private static CommandSyntaxRole ValidateArgument(CommandArgument spec, in CommandArg argument)
+        {
+            try
+            {
+                bool valid = spec.TryValidateSyntax(argument, out bool isNamedConstant);
+                if (!valid)
+                {
+                    return CommandSyntaxRole.Invalid;
+                }
+
+                return isNamedConstant || spec.HasChoices ? CommandSyntaxRole.Choice : spec.SyntaxRole;
+            }
+            catch (Exception)
+            {
+                // Custom parsers and validators can fail while the user edits.
+                return CommandSyntaxRole.Invalid;
+            }
         }
 
         private static void AddSpan(List<CommandSyntaxSpan> results, int start, int end, CommandSyntaxRole role)
@@ -82,7 +86,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         {
             int start = token.Start;
             string contents = token.Contents;
-            if (type == typeof(Color) && contents.StartsWith("RGBA", StringComparison.OrdinalIgnoreCase))
+            bool hasColorPrefix = type == typeof(Color) && contents.StartsWith("RGBA", StringComparison.OrdinalIgnoreCase);
+            if (hasColorPrefix)
             {
                 AddSpan(results, start, start + 4, CommandSyntaxRole.Punctuation);
                 start += 4;
@@ -91,7 +96,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             for (int index = start; index < token.End; ++index)
             {
                 char character = contents[index - token.Start];
-                if (char.IsSurrogate(character) || (!CommandArg.Delimiters.Contains(character) && character is not ('(' or ')' or '[' or ']' or '{' or '}')))
+                bool isSurrogate = char.IsSurrogate(character);
+                bool isPunctuation = character is '(' or ')' or '[' or ']' or '{' or '}' || CommandArg.Delimiters.Contains(character);
+                if (isSurrogate || !isPunctuation)
                 {
                     continue;
                 }
@@ -115,7 +122,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 int index = 0;
                 foreach (T item in settings)
                 {
-                    if (!comparer.Equals(item, snapshot[index]))
+                    bool matches = comparer.Equals(item, snapshot[index]);
+                    if (!matches)
                     {
                         break;
                     }
@@ -140,12 +148,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         {
             results.Clear();
             UpdateTokens(line);
-            if (
-                UpdateSettings(CommandArg.Delimiters, _delimiters, EqualityComparer<char>.Default)
-                | UpdateSettings(CommandArg.IgnoredValuesForCleanedTypes, _ignoredForCleanedTypes, StringComparer.Ordinal)
-                | UpdateSettings(CommandArg.IgnoredValuesForComplexTypes, _ignoredForComplexTypes, StringComparer.Ordinal)
-                | UpdateSettings(CommandArg.DoNotCleanTypes, _doNotCleanTypes, EqualityComparer<Type>.Default)
-            )
+            bool delimitersChanged = UpdateSettings(CommandArg.Delimiters, _delimiters, EqualityComparer<char>.Default);
+            bool ignoredTextChanged = UpdateSettings(CommandArg.IgnoredValuesForCleanedTypes, _ignoredForCleanedTypes, StringComparer.Ordinal);
+            bool ignoredComponentsChanged = UpdateSettings(CommandArg.IgnoredValuesForComplexTypes, _ignoredForComplexTypes, StringComparer.Ordinal);
+            bool rawTypesChanged = UpdateSettings(CommandArg.DoNotCleanTypes, _doNotCleanTypes, EqualityComparer<Type>.Default);
+            if (delimitersChanged || ignoredTextChanged || ignoredComponentsChanged || rawTypesChanged)
             {
                 ResetValidationCache();
             }
@@ -161,13 +168,14 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 CommandToken token = _tokens[index];
                 string variableName = _variableNames[index];
-                if (!shell.TryResolveToken(token, variableName, out CommandArg argument))
+                if (token.StartQuote != null)
                 {
-                    if (token.StartQuote != null)
-                    {
-                        AddSpan(results, token.Start - 1, token.Start, CommandSyntaxRole.Punctuation);
-                    }
+                    AddSpan(results, token.Start - 1, token.Start, CommandSyntaxRole.Punctuation);
+                }
 
+                bool resolvedToken = shell.TryResolveToken(token, variableName, out CommandArg argument);
+                if (!resolvedToken)
+                {
                     continue;
                 }
 
@@ -176,7 +184,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 if (!foundCommandToken)
                 {
                     foundCommandToken = true;
-                    if (shell.TryGetCommand(NormalizeName(argument.contents ?? string.Empty), out CommandInfo command))
+                    string normalizedName = NormalizeName(argument.contents ?? string.Empty);
+                    bool foundCommand = shell.TryGetCommand(normalizedName, out CommandInfo command);
+                    if (foundCommand)
                     {
                         role = CommandSyntaxRole.Command;
                         route = command.SyntaxRoute;
@@ -189,15 +199,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 }
                 else if (route is { IsRouter: true })
                 {
-                    if (route.Lookup.TryGetValue(argument.contents ?? string.Empty, out route))
+                    bool foundRoute = route.Lookup.TryGetValue(argument.contents ?? string.Empty, out route);
+                    role = foundRoute ? CommandSyntaxRole.Choice : CommandSyntaxRole.Invalid;
+                    if (foundRoute)
                     {
-                        role = CommandSyntaxRole.Choice;
-                        argumentIndex = 0;
                         maxArguments = route.IsRouter || route.HasRemaining ? null : route.Specs.Length;
-                    }
-                    else
-                    {
-                        role = CommandSyntaxRole.Invalid;
                     }
                 }
                 else if (maxArguments is int limit && limit <= argumentIndex)
@@ -208,11 +214,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 {
                     if (route != null)
                     {
-                        spec = route.Specs[Math.Min(argumentIndex, route.Specs.Length - 1)];
+                        int specIndex = Math.Min(argumentIndex, route.Specs.Length - 1);
+                        spec = route.Specs[specIndex];
                         role = GetArgumentRole(index, spec, argument);
                     }
 
-                    if (role != CommandSyntaxRole.Invalid && variableName != null)
+                    bool hasVariableName = !string.IsNullOrWhiteSpace(variableName);
+                    if (role != CommandSyntaxRole.Invalid && hasVariableName)
                     {
                         role = CommandSyntaxRole.Variable;
                     }
@@ -220,12 +228,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     ++argumentIndex;
                 }
 
-                if (token.StartQuote != null)
-                {
-                    AddSpan(results, token.Start - 1, token.Start, CommandSyntaxRole.Punctuation);
-                }
-
-                if (role == CommandSyntaxRole.Number && spec != null && IsComponentType(spec.DeclaredType))
+                if (role == CommandSyntaxRole.Number && spec is { HasSyntaxComponents: true })
                 {
                     AddComponentSpans(results, token, spec.DeclaredType);
                 }
@@ -244,7 +247,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private void UpdateTokens(string line)
         {
             List<char> quotes = CommandArg.Quotes;
-            if (string.Equals(_tokenizedLine, line, StringComparison.Ordinal) && _quotes.Count == quotes.Count)
+            bool sameLine = string.Equals(_tokenizedLine, line, StringComparison.Ordinal);
+            if (sameLine && _quotes.Count == quotes.Count)
             {
                 int index = 0;
                 while (index < quotes.Count && _quotes[index] == quotes[index])
@@ -285,7 +289,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private string NormalizeName(string name)
         {
-            if (!string.Equals(_commandName, name, StringComparison.Ordinal))
+            bool sameName = string.Equals(_commandName, name, StringComparison.Ordinal);
+            if (!sameName)
             {
                 _commandName = name;
                 _normalizedName = CommandShell.NormalizeCommandName(name);
@@ -296,16 +301,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private CommandSyntaxRole GetArgumentRole(int index, CommandArgument spec, in CommandArg argument)
         {
-            Type type = spec.DeclaredType;
-            bool cacheable = (IsNumber(type) || IsComponentType(type) || type.IsEnum || type == typeof(bool) || type == typeof(string)) && spec.CanCacheSyntax;
-            if (!cacheable)
+            if (!spec.CanCacheSyntax)
             {
                 _validations[index] = default;
                 return ValidateArgument(spec, argument);
             }
 
             Validation previous = _validations[index];
-            if (ReferenceEquals(previous.Spec, spec) && previous.Input.Equals(argument))
+            bool matches = ReferenceEquals(previous.Spec, spec) && previous.Input.Equals(argument);
+            if (matches)
             {
                 return previous.Role;
             }

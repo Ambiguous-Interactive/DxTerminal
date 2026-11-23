@@ -11,9 +11,19 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
     public sealed class CommandSyntaxClassifierTests
     {
+        private static CommandArgumentSpec<int> GainRange(CommandArgumentSpec<int> spec)
+        {
+            return spec.Range(-20, 20);
+        }
+
         [TestCase("inspect", "Command:inspect", "")]
         [TestCase("missing abc", "UnknownCommand:missing|String:abc", null)]
         [TestCase("mode true", "Command:mode|Choice:true", "true")]
+        [TestCase("day Friday", "Command:day|Choice:Friday", "Friday")]
+        [TestCase("day 5", "Command:day|Choice:5", "5")]
+        [TestCase("day monday", "Command:day|Choice:monday", "monday")]
+        [TestCase("day someday", "Command:day|Invalid:someday", null)]
+        [TestCase("inspect $", "Command:inspect|String:$", "$")]
         [TestCase("point zero", "Command:point|Choice:zero", "zero")]
         [TestCase("gain -12", "Command:gain|Number:-12", "-12")]
         [TestCase("gain 21", "Command:gain|Invalid:21", null)]
@@ -59,19 +69,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("inspect").Contexts(CommandExecutionContextSets.All).Arg<string>("text").Handler(observe), out _));
             Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("mode").Contexts(CommandExecutionContextSets.All).Arg<bool>("enabled").Handler(observe), out _));
-            Assert.IsTrue(
-                shell.AddCommand(
-                    CommandBuilder
-                        .Create("gain")
-                        .Contexts(CommandExecutionContextSets.All)
-                        .Arg<int>("value", spec =>
-                        {
-                            return spec.Range(-20, 20);
-                        })
-                        .Handler(observe),
-                    out _
-                )
-            );
+            Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("day").Contexts(CommandExecutionContextSets.All).Arg<DayOfWeek>("day").Handler(observe), out _));
+            Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("gain").Contexts(CommandExecutionContextSets.All).Arg<int>("value", GainRange).Handler(observe), out _));
             Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("point").Contexts(CommandExecutionContextSets.All).Arg<Vector3>("position").Handler(observe), out _));
             Assert.IsTrue(
                 shell.AddCommand(
@@ -201,18 +200,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             CommandShell shell = new(new CommandHistory(16));
             Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("point").Arg<Vector3>("position").Handler((_, _) => { }), out _));
-            Assert.IsTrue(
-                shell.AddCommand(
-                    CommandBuilder
-                        .Create("gain")
-                        .Arg<int>("value", spec =>
-                        {
-                            return spec.Range(-20, 20);
-                        })
-                        .Handler((_, _) => { }),
-                    out _
-                )
-            );
+            Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("gain").Arg<int>("value", GainRange).Handler((_, _) => { }), out _));
             Assert.IsTrue(shell.SetVariable("value", "5"));
             CommandSyntaxClassifier classifier = new();
             List<CommandSyntaxSpan> spans = new();

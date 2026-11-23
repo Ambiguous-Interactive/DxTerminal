@@ -3,6 +3,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     using System;
     using System.Collections.Generic;
     using System.Text;
+    using CommandSyntaxRole = CommandSyntaxClassifier.CommandSyntaxRole;
 
     /// <summary>
     ///     Immutable specification of one typed command argument: how it
@@ -39,6 +40,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// <summary>The runtime type the argument parses and validates as.</summary>
         internal abstract Type DeclaredType { get; }
 
+        internal abstract CommandSyntaxRole SyntaxRole { get; }
+
+        internal abstract bool HasSyntaxComponents { get; }
+
         internal abstract bool CanCacheSyntax { get; }
 
         /// <summary>
@@ -56,7 +61,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         internal abstract bool TryParse(CommandArg input, out object parsed);
 
-        internal abstract bool TryValidateSyntax(CommandArg input, out bool namedConstant);
+        internal abstract bool TryValidateSyntax(CommandArg input, out bool isNamedConstant);
 
         /// <summary>
         ///     Parses and validates every argument from

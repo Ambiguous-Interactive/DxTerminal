@@ -42,7 +42,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         public readonly CommandExecutionContexts executionContexts;
 
         public CommandInfo(Action<CommandArg[]> proc, int minArgCount, int? maxArgCount, string help, string hint, bool addToHistory = true)
-            : this(proc, null, null, CommandExecutionContextSets.All, minArgCount, maxArgCount, help, hint, addToHistory) { }
+            : this(proc, handler: null, completionProvider: null, CommandExecutionContextSets.All, minArgCount, maxArgCount, help, hint, addToHistory) { }
 
         public CommandInfo(
             Action<CommandArg[]> proc,
@@ -55,7 +55,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             string hint,
             bool addToHistory = true
         )
-            : this(proc, handler, completionProvider, executionContexts, minArgCount, maxArgCount, help, hint, addToHistory, null) { }
+            : this(proc, handler, completionProvider, executionContexts, minArgCount, maxArgCount, help, hint, addToHistory, syntaxRoute: null) { }
 
         internal CommandInfo(
             Action<CommandArg[]> proc,

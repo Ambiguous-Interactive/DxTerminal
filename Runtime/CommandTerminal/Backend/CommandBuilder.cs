@@ -167,41 +167,34 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return builder.ToString();
         }
 
-        private static CommandCompletionProvider BuildCompletionProvider(CommandCompletionProvider[] stages, bool hasRemaining)
+        private static CommandCompletionProvider BuildCompletionProvider(ReadOnlyMemory<CommandCompletionProvider> stages, bool hasRemaining)
         {
-            foreach (CommandCompletionProvider stage in stages)
+            foreach (CommandCompletionProvider stage in stages.Span)
             {
                 if (stage == null)
                 {
                     continue;
                 }
 
-                if (!hasRemaining)
-                {
-                    return CommandCompletionProviders.Staged(stages);
-                }
-
                 return (in CommandCompletionContext context, List<CommandCompletion> results) =>
                 {
-                    /*
-                        The remaining argument owns every trailing stage, so
-                        requests past the last fixed index clamp onto its
-                        choices.
-                     */
+                    ReadOnlySpan<CommandCompletionProvider> available = stages.Span;
                     int index = context.ActiveArgumentIndex;
-                    if (stages.Length <= index)
+                    if (available.Length <= index)
                     {
-                        index = stages.Length - 1;
+                        if (!hasRemaining)
+                        {
+                            return;
+                        }
+
+                        index = available.Length - 1;
                     }
 
-                    stages[index]?.Invoke(context, results);
+                    available[index]?.Invoke(context, results);
                 };
             }
 
-            /*
-                No choices anywhere: leave the provider unset so the command
-                keeps the shared history-based completion path.
-             */
+            // Leave commands without choices on the history-based path.
             return null;
         }
 
