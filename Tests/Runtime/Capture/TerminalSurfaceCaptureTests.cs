@@ -753,6 +753,26 @@
 
 #if UNITY_EDITOR
         [UnityTest]
+        public IEnumerator CapturesDxDarkPaletteSelection()
+        {
+            yield return SpawnTerminal(useEditorDefaults: true);
+            AttachPalette();
+            RegisterFixtureCommands(CaptureCommandNames);
+            _palette.Open();
+            yield return null;
+            _palette._input.value = PaletteQuery;
+            yield return WaitForPaletteRows(PaletteQuery);
+
+            yield return CapturePaletteSurface(nameof(CapturesDxDarkPaletteSelection));
+            AssertAcceptable(_lastOutcome);
+            Assert.AreEqual("dx-dark-theme", _terminal.CurrentTheme);
+            VisualElement selected = _palette._rows[0];
+            Assert.That(selected.ClassListContains("palette-row-selected"));
+            Assert.AreEqual(1f, selected.resolvedStyle.borderTopWidth);
+            Assert.AreEqual((Color)new Color32(52, 126, 82, 255), selected.resolvedStyle.borderTopColor);
+        }
+
+        [UnityTest]
         public IEnumerator CapturesDefaultThemeSurface()
         {
             yield return SpawnTerminal(useEditorDefaults: true);
