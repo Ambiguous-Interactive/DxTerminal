@@ -356,6 +356,7 @@ export function buildChecks() {
           + "&& dotnet run --project tooling~/compat/testhost -c Release --no-build -- --noresult",
       cacheDotnet: true,
       cacheRuntimeEnvironment: true,
+      cacheEnvironment: ["DXT_STRICT_PROPOSED_THEME_CONTRAST"],
       cachePaths: [
         "global.json",
         "Runtime",
