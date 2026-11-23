@@ -522,6 +522,11 @@
             return false;
         }
 
+        internal static string NormalizeCommandName(string name)
+        {
+            return name.Contains(' ') ? name.Replace(" ", string.Empty, StringComparison.Ordinal) : name;
+        }
+
         private static bool IsIncludedScanAssembly(Assembly assembly)
         {
             foreach (Assembly included in IncludedScanAssemblies)
@@ -608,37 +613,34 @@
                 allocation), and an accidental future capture becomes a
                 compile error instead of a silent per-read closure.
              */
-            return AssemblyClassifications.GetValue(
-                assembly,
-                static loadedAssembly =>
+            return AssemblyClassifications.GetValue(assembly, static loadedAssembly =>
+            {
+                AssemblyName[] referencedAssemblies;
+                try
                 {
-                    AssemblyName[] referencedAssemblies;
-                    try
-                    {
-                        referencedAssemblies = loadedAssembly.GetReferencedAssemblies();
-                    }
-                    catch (Exception)
-                    {
-                        /*
-                            Metadata reads can fail for exotic assemblies; a null
-                            list marks them for unconditional scanning.
-                        */
-                        referencedAssemblies = null;
-                    }
-
-                    AssemblyName name;
-                    try
-                    {
-                        name = loadedAssembly.GetName();
-                    }
-                    catch (Exception)
-                    {
-                        name = null;
-                    }
-
-                    return new AssemblyClassification(name, referencedAssemblies);
+                    referencedAssemblies = loadedAssembly.GetReferencedAssemblies();
                 }
-            );
+                catch (Exception)
+                {
+                    /*
+                        Metadata reads can fail for exotic assemblies; a null
+                        list marks them for unconditional scanning.
+                    */
+                    referencedAssemblies = null;
+                }
+
+                AssemblyName name;
+                try
+                {
+                    name = loadedAssembly.GetName();
+                }
+                catch (Exception)
+                {
+                    name = null;
+                }
+
+                return new AssemblyClassification(name, referencedAssemblies);
+            });
         }
 
         /*
@@ -1039,28 +1041,10 @@
 
                 foreach (CommandToken token in tokens)
                 {
-                    CommandArg argument = token.ToArgument();
-                    string argumentString = argument.contents;
-                    if (argument.endQuote == null)
+                    if (TryResolveToken(token, token.GetVariableName(), out CommandArg argument))
                     {
-                        if (string.IsNullOrWhiteSpace(argumentString))
-                        {
-                            continue;
-                        }
-
-                        if (argumentString.StartsWith('$'))
-                        {
-                            string variableName = argumentString[1..];
-
-                            if (_variables.TryGetValue(variableName, out CommandArg variable))
-                            {
-                                // Replace variable argument if it's defined
-                                argument = variable;
-                            }
-                        }
+                        arguments.Add(argument);
                     }
-
-                    arguments.Add(argument);
                 }
 
                 if (arguments.Count == 0)
@@ -1350,7 +1334,8 @@
                 definition.MaxArgCount,
                 definition.Help,
                 definition.Hint,
-                definition.AddToHistory
+                definition.AddToHistory,
+                definition.SyntaxRoute
             );
             return AddCommand(name, info);
         }
@@ -1492,6 +1477,32 @@
             }
 
             return false;
+        }
+
+        internal bool TryResolveToken(in CommandToken token, string variableName, out CommandArg argument)
+        {
+            if (token.EndQuote == null)
+            {
+                if (string.IsNullOrWhiteSpace(token.Contents))
+                {
+                    argument = default;
+                    return false;
+                }
+
+                if (variableName != null && _variables.TryGetValue(variableName, out CommandArg variable))
+                {
+                    argument = variable;
+                    return true;
+                }
+            }
+
+            argument = token.ToArgument();
+            return true;
+        }
+
+        internal bool TryGetCommand(string normalizedName, out CommandInfo command)
+        {
+            return _commands.TryGetValue(normalizedName, out command);
         }
 
         private void RegisterAutoCommands()
@@ -1743,12 +1754,8 @@
                 return false;
             }
 
-            if (commandName.Contains(' '))
-            {
-                commandName = commandName.Replace(" ", string.Empty, StringComparison.OrdinalIgnoreCase);
-            }
-
-            if (!_commands.TryGetValue(commandName, out CommandInfo command))
+            commandName = NormalizeCommandName(commandName);
+            if (!TryGetCommand(commandName, out CommandInfo command))
             {
                 IssueErrorMessage($"Command {commandName} not found");
                 // Unknown command, unconditional push

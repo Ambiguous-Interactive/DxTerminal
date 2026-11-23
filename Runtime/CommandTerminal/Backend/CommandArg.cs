@@ -811,5 +811,18 @@
         {
             return contents;
         }
+
+        internal bool IsNamedConstant<T>()
+        {
+            Type type = typeof(T);
+            if (type == typeof(string) || RegisteredParsers.ContainsKey(type))
+            {
+                return false;
+            }
+
+            string value = DoNotCleanTypes.Contains(type) ? contents : CleanedContents;
+            return (StaticProperties.TryGetValue(type, out Dictionary<string, PropertyInfo> properties) && properties.ContainsKey(value))
+                || (ConstFields.TryGetValue(type, out Dictionary<string, FieldInfo> fields) && fields.ContainsKey(value));
+        }
     }
 }

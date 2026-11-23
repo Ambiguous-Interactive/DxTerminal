@@ -1,16 +1,20 @@
 namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
+    using System;
     using System.Collections.Generic;
     using System.Text;
     using Backend;
     using NUnit.Framework;
     using UnityEngine;
+    using CommandSyntaxRole = Backend.CommandSyntaxClassifier.CommandSyntaxRole;
+    using CommandSyntaxSpan = Backend.CommandSyntaxClassifier.CommandSyntaxSpan;
 
     public sealed class CommandSyntaxClassifierTests
     {
         [TestCase("inspect", "Command:inspect", "")]
         [TestCase("missing abc", "UnknownCommand:missing|String:abc", null)]
         [TestCase("mode true", "Command:mode|Choice:true", "true")]
+        [TestCase("point zero", "Command:point|Choice:zero", "zero")]
         [TestCase("gain -12", "Command:gain|Number:-12", "-12")]
         [TestCase("gain 21", "Command:gain|Invalid:21", null)]
         [TestCase("gain abc", "Command:gain|Invalid:abc", null)]
@@ -34,7 +38,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [TestCase("", "", null)]
         public void ClassifyMatchesShellDispatch(string line, string expectedSpans, string expectedArguments, int caret = 0)
         {
-            CommandShell shell = new(new CommandHistory(16));
+            CommandHistory history = new(16);
+            CommandShell shell = new(history);
             string actualArguments = null;
             TypedCommandHandler observe = (_, arguments) =>
             {
@@ -105,8 +110,133 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             Assert.That(string.Join("|", actualSpans), Is.EqualTo(expectedSpans));
             Assert.That(actualArguments, Is.Null, "Classification must not call a handler.");
+            Assert.That(history.GetHistory(onlySuccess: false, onlyErrorFree: false), Is.Empty);
+            Assert.IsFalse(shell.TryConsumeErrorMessage(out _));
             shell.RunCommand(line);
             Assert.That(actualArguments, Is.EqualTo(expectedArguments));
         }
+
+        [Test]
+        public void WarmClassifierReadsCurrentVariableAndParserConfiguration()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("gain").Arg<int>("value").Handler((_, _) => { }), out _));
+            CommandSyntaxClassifier classifier = new();
+            List<CommandSyntaxSpan> spans = new();
+            const string line = "gain $value";
+            Assert.IsTrue(shell.SetVariable("value", "5"));
+            classifier.Classify(line, shell, spans);
+            Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Variable));
+
+            Assert.IsTrue(shell.SetVariable("value", "oops"));
+            classifier.Classify(line, shell, spans);
+            Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+
+            bool allow = true;
+            Assert.IsTrue(
+                CommandArg.RegisterParser<int>(
+                    (string input, out int parsed) =>
+                    {
+                        parsed = 0;
+                        return allow;
+                    }
+                )
+            );
+            try
+            {
+                classifier.Classify(line, shell, spans);
+                Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Variable));
+                allow = false;
+                classifier.Classify(line, shell, spans);
+                Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+            }
+            finally
+            {
+                CommandArg.UnregisterParser<int>();
+            }
+
+            classifier.Classify(line, shell, spans);
+            Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+        }
+
+        [Test]
+        public void WarmClassifierTracksDirectQuoteAndDelimiterEdits()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("point").Arg<Vector3>("position").Handler((_, _) => { }), out _));
+            CommandSyntaxClassifier classifier = new();
+            List<CommandSyntaxSpan> spans = new();
+            const string line = "point ^(1, 2, 3)^";
+            classifier.Classify(line, shell, spans);
+            Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+            CommandArg.Quotes.Add('^');
+            try
+            {
+                classifier.Classify(line, shell, spans);
+                Assert.That(spans[3].Role, Is.EqualTo(CommandSyntaxRole.Number));
+
+                Assert.IsTrue(CommandArg.Delimiters.Remove(','));
+                try
+                {
+                    classifier.Classify(line, shell, spans);
+                    Assert.That(spans[2].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+                }
+                finally
+                {
+                    CommandArg.Delimiters.Add(',');
+                }
+            }
+            finally
+            {
+                CommandArg.Quotes.Remove('^');
+            }
+        }
+
+#if NET
+        [TestCase("point \"(1, 2, 3)\"")]
+        [TestCase("point zero")]
+        [TestCase("gain 21")]
+        [TestCase("gain $value")]
+        public void StableBuiltInClassificationDoesNotAllocateAfterWarmup(string line)
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.IsTrue(shell.AddCommand(CommandBuilder.Create("point").Arg<Vector3>("position").Handler((_, _) => { }), out _));
+            Assert.IsTrue(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("gain")
+                        .Arg<int>("value", spec =>
+                        {
+                            return spec.Range(-20, 20);
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                )
+            );
+            Assert.IsTrue(shell.SetVariable("value", "5"));
+            CommandSyntaxClassifier classifier = new();
+            List<CommandSyntaxSpan> spans = new();
+            for (int index = 0; index < 1024; ++index)
+            {
+                classifier.Classify(line, shell, spans);
+            }
+
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int index = 0; index < 1024; ++index)
+            {
+                classifier.Classify(line, shell, spans);
+            }
+
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.That(spans.Count, Is.GreaterThan(1));
+            Assert.That(allocated, Is.Zero);
+
+            before = GC.GetAllocatedBytesForCurrentThread();
+            byte[] control = new byte[256];
+            long controlBytes = GC.GetAllocatedBytesForCurrentThread() - before;
+            GC.KeepAlive(control);
+            Assert.That(controlBytes, Is.GreaterThanOrEqualTo(256));
+        }
+#endif
     }
 }

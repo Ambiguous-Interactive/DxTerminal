@@ -39,6 +39,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// <summary>The runtime type the argument parses and validates as.</summary>
         internal abstract Type DeclaredType { get; }
 
+        internal abstract bool CanCacheSyntax { get; }
+
         /// <summary>
         ///     True when the argument is the command's unbounded trailing
         ///     argument: every token after the declared arguments parses and
@@ -53,6 +55,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         }
 
         internal abstract bool TryParse(CommandArg input, out object parsed);
+
+        internal abstract bool TryValidateSyntax(CommandArg input, out bool namedConstant);
 
         /// <summary>
         ///     Parses and validates every argument from

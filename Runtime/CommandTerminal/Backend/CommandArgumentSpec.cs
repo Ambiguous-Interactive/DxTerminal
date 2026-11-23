@@ -47,6 +47,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         internal override Type DeclaredType => typeof(T);
 
+        internal override bool CanCacheSyntax => _parserOverride == null && _validator == null && !CommandArg.TryGetParser<T>(out _);
+
         /// <summary>
         ///     True when the argument is its command's unbounded trailing
         ///     argument; see <see cref="CommandBuilder.Remaining{T}"/>.
@@ -512,6 +514,18 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             bool ok = TryParseValue(input, out T value);
             parsed = value;
             return ok;
+        }
+
+        internal override bool TryValidateSyntax(CommandArg input, out bool namedConstant)
+        {
+            if (!TryParseValue(input, out T value) || ValidateValue(value) != null)
+            {
+                namedConstant = false;
+                return false;
+            }
+
+            namedConstant = _parserOverride == null && input.IsNamedConstant<T>();
+            return true;
         }
 
         internal override bool TryParseAll(BorrowedCommandArguments arguments, int start, object[] parsedValues, int slot, out CommandArg failedToken, out string validationError)

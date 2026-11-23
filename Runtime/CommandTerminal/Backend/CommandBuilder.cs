@@ -167,10 +167,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return builder.ToString();
         }
 
-        private static CommandCompletionProvider BuildCompletionProvider(CommandArgument[] specs)
+        private static CommandCompletionProvider BuildCompletionProvider(CommandCompletionProvider[] stages, bool hasRemaining)
         {
-            CommandCompletionProvider[] stages = BuildSpecCompletionStages(specs);
-            bool hasRemaining = HasRemaining(specs);
             foreach (CommandCompletionProvider stage in stages)
             {
                 if (stage == null)
@@ -601,10 +599,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private CommandDefinition BuildLeafDefinition(CommandShell owner, string name)
         {
-            CommandArgument[] specs = ValidateLeafConfiguration(name);
-            string hint = _hint ?? BuildUsageHint(name, specs);
-            CommandCompletionProvider provider = BuildCompletionProvider(specs);
-            TypedCommandHandler handler = _handler;
+            SubcommandRoute route = BuildLeafRoute(name, name);
+            CommandArgument[] specs = route.Specs;
+            CommandCompletionProvider provider = BuildCompletionProvider(route.CompletionStages, route.HasRemaining);
+            TypedCommandHandler handler = route.Handler;
 
             CommandHandler dispatch = (context, arguments) => RunTyped(owner, specs, name, handler, context, arguments, 0);
 
@@ -612,18 +610,19 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 Name = name,
                 Help = _help,
-                Hint = hint,
-                MinArgCount = RequiredCount(specs),
+                Hint = route.Usage,
+                MinArgCount = route.RequiredCount,
                 /*
                     A remaining argument consumes every trailing token, so the
                     command is unbounded at the shell level and the typed
                     dispatch reports per-element problems itself.
                  */
-                MaxArgCount = HasRemaining(specs) ? (int?)null : specs.Length,
+                MaxArgCount = route.HasRemaining ? (int?)null : specs.Length,
                 AddToHistory = _addToHistory,
                 Contexts = _contexts,
                 Handler = dispatch,
                 CompletionProvider = provider,
+                SyntaxRoute = route,
             };
         }
 
@@ -657,6 +656,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 Contexts = _contexts,
                 Handler = (context, arguments) => RouteInvocation(owner, self.Lookup, name, fallback, context, arguments, 0),
                 CompletionProvider = (in CommandCompletionContext context, List<CommandCompletion> results) => RouteCompletion(self.Lookup, context, 0, results),
+                SyntaxRoute = self,
             };
         }
 
@@ -679,13 +679,14 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private SubcommandRoute BuildLeafRoute(string path, string name)
         {
             CommandArgument[] specs = ValidateLeafConfiguration(path);
+            string usage = _hint ?? BuildUsageHint(name, specs);
             return new SubcommandRoute
             {
                 Name = name,
                 FullPath = path,
                 Help = _help,
-                Usage = _hint ?? BuildUsageHint(name, specs),
-                PathUsage = _hint ?? BuildUsageHint(path, specs),
+                Usage = usage,
+                PathUsage = _hint ?? (string.Equals(path, name, StringComparison.Ordinal) ? usage : BuildUsageHint(path, specs)),
                 Specs = specs,
                 RequiredCount = RequiredCount(specs),
                 HasRemaining = HasRemaining(specs),
@@ -913,7 +914,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             typed argument specs and a handler, or a nested router with its
             own children.
         */
-        private sealed class SubcommandRoute
+        internal sealed class SubcommandRoute
         {
             public string Name { get; internal set; }
 

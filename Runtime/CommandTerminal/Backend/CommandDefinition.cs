@@ -67,5 +67,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         ///     every command without a provider shares.
         /// </summary>
         public CommandCompletionProvider CompletionProvider { get; set; }
+
+        internal CommandBuilder.SubcommandRoute SyntaxRoute { get; set; }
     }
 }
