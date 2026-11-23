@@ -179,8 +179,11 @@
 #endif
             VisualElement root = _terminal._uiDocument.rootVisualElement.Q("TerminalRoot");
             VisualElement container = root.Q("TerminalContainer");
-            // Keep the toolbar below the configured floor so font metrics cannot change the expected height.
-            container.Q("LogToolbar").style.height = 64f;
+            // Keep the combined controls below the configured floor across font and layout engines.
+            container.Q("LogToolbar").style.maxHeight = 48f;
+            container.Q("InputContainer").style.maxHeight = 48f;
+            container.Q("AutoCompletePopup").style.maxHeight = 48f;
+            container.Q("LogCopyStatus").style.maxHeight = 48f;
             _terminal.maxHeight = 1f;
             _terminal.smallTerminalRatio = 0f;
             _terminal.SetState(TerminalState.OpenSmall);

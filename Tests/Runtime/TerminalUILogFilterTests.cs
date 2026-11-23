@@ -1082,15 +1082,22 @@
         {
             yield return SpawnOpenTerminal();
             yield return FillTheLog();
+            yield return RequireLaidOutLog();
+            Scroller scroller = LogScroller();
+            scroller.value = scroller.highValue;
+            Assert.That(scroller.value, Is.GreaterThan(Tolerance), "The view starts away from the first match");
+
             yield return RunCommand("find " + HitMarker);
             yield return WaitForDrawnText("the hit", "The search landed");
-
             yield return RequireLaidOutLog();
 
-            Scroller scroller = LogScroller();
-            float highValue = scroller.highValue;
-            Assert.That(0f < highValue, Is.True, "The filtered log overflows the view, so the jump has somewhere to go");
-            Assert.That(scroller.value, Is.EqualTo(0f).Within(Tolerance), "A search lands on its first match, which is the top of the filtered log");
+            int frameBudget = FrameBudget;
+            while (0 < frameBudget-- && Tolerance < scroller.value)
+            {
+                yield return null;
+            }
+
+            Assert.That(scroller.value, Is.EqualTo(0f).Within(Tolerance), "A search lands on its first match");
         }
 
         [UnityTest]
