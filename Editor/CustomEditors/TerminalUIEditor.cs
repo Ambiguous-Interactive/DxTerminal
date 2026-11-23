@@ -24,6 +24,8 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
     [CustomEditor(typeof(TerminalUI))]
     public sealed class TerminalUIEditor : Editor
     {
+        private const string DefaultThemePackGuid = "6dac1d93083d4776a6e29ebef180573a";
+
         private static readonly TimeSpan CycleInterval = TimeSpan.FromSeconds(0.75);
         private static List<TerminalThemePack> _themePackNamesSource;
         private static string[] _themePackNames;
@@ -92,19 +94,26 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
 
                 if (terminal._themePack == null)
                 {
-                    TerminalThemePack[] themePacks = LoadAll<TerminalThemePack>();
-                    int themePackIndex = Array.FindIndex(themePacks, themePack => string.Equals(themePack.name, "Minimal", StringComparison.OrdinalIgnoreCase));
-                    if (themePackIndex < 0)
+                    terminal._themePack = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(AssetDatabase.GUIDToAssetPath(DefaultThemePackGuid));
+                    if (terminal._themePack == null)
                     {
-                        themePackIndex = themePacks.Length - 1;
+                        TerminalThemePack[] themePacks = LoadAll<TerminalThemePack>();
+                        int themePackIndex = Array.FindIndex(themePacks, static themePack =>
+                        {
+                            return string.Equals(themePack.name, "Minimal", StringComparison.OrdinalIgnoreCase);
+                        });
+                        if (themePackIndex < 0)
+                        {
+                            themePackIndex = themePacks.Length - 1;
+                        }
+
+                        if (0 <= themePackIndex)
+                        {
+                            terminal._themePack = themePacks[themePackIndex];
+                        }
                     }
 
-                    if (0 <= themePackIndex && themePackIndex < themePacks.Length)
-                    {
-                        TerminalThemePack themePack = themePacks[themePackIndex];
-                        terminal._themePack = themePack;
-                        _ = TrySetupDefaultTheme(terminal);
-                    }
+                    _ = TrySetupDefaultTheme(terminal);
                 }
 
                 if (terminal._fontPack == null)

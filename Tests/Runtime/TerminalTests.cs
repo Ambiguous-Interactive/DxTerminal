@@ -58,6 +58,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             TerminalUI terminal = go.AddComponent<TerminalUI>();
             terminal.resetStateOnInit = true;
             terminal._themePack = AssetDatabase.LoadAssetAtPath<TerminalThemePack>($"{PackageRoot}/Packs/Themes/Medium.asset");
+            terminal._persistedTheme = "light-theme";
             terminal._fontPack = AssetDatabase.LoadAssetAtPath<TerminalFontPack>($"{PackageRoot}/Packs/Fonts/Medium.asset");
             go.AddComponent<StartTracker>();
 
@@ -73,6 +74,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             Assert.AreEqual(1, go.GetComponent<UIDocument>().rootVisualElement.childCount, "SetupUI must recover via TryGetComponent and build the terminal tree");
             Assert.That(terminal._commandInput != null, "The command input must exist after recovery");
+            Assert.AreEqual("light-theme", terminal.CurrentTheme);
+            Assert.That(go.GetComponent<UIDocument>().rootVisualElement[0].ClassListContains("light-theme"));
 
             UnityEngine.Object.Destroy(settings);
         }

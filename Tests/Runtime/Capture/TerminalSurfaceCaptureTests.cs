@@ -751,6 +751,23 @@
             }
         }
 
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator CapturesDefaultThemeSurface()
+        {
+            yield return SpawnTerminal(useEditorDefaults: true);
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return WaitForTerminalInputVisible();
+
+            Terminal.Log("capture-themes ready");
+            Terminal.Log(WrappedLine);
+            _terminal.SetCursorBlinkPaused(true);
+            yield return CaptureSurface(nameof(CapturesDefaultThemeSurface), CaptureBounds.Default(), TerminalBandRegion());
+            AssertAcceptable(_lastOutcome);
+            Assert.AreEqual("dx-dark-theme", _terminal.CurrentTheme);
+        }
+#endif
+
         /*
             Light/dark scenario coverage: one run per theme from the shipped
             Medium pack, and both captures must render distinct backgrounds so
@@ -1037,7 +1054,7 @@
             return region;
         }
 
-        private IEnumerator SpawnTerminal(float? panelScale = null, string fontPackPath = FontPackPath)
+        private IEnumerator SpawnTerminal(float? panelScale = null, string fontPackPath = FontPackPath, bool useEditorDefaults = false)
         {
             _diagnosticsSuffix = string.Empty;
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
@@ -1063,12 +1080,22 @@
             _surfaceObject.SetActive(false);
             UIDocument document = _surfaceObject.AddComponent<UIDocument>();
             document.panelSettings = _panelSettings;
-            _terminal = _surfaceObject.AddComponent<TerminalUI>();
+#if UNITY_EDITOR
+            if (useEditorDefaults)
+            {
+                _terminal = UnityEditor.ObjectFactory.AddComponent<TerminalUI>(_surfaceObject);
+                _surfaceObject.GetComponent<Persistence.TerminalThemePersister>().enabled = false;
+            }
+            else
+#endif
+            {
+                _terminal = _surfaceObject.AddComponent<TerminalUI>();
+                _terminal._themePack = LoadPack<TerminalThemePack>(ThemePackPath);
+            }
             _terminal._uiDocument = document;
             _terminal.resetStateOnInit = true;
             _terminal.easeOutTime = 0f;
             _terminal.easeInTime = 0f;
-            _terminal._themePack = LoadPack<TerminalThemePack>(ThemePackPath);
             _terminal._fontPack = LoadPack<TerminalFontPack>(fontPackPath);
             _tracker = _surfaceObject.AddComponent<StartTracker>();
             _surfaceObject.SetActive(true);
@@ -1076,17 +1103,10 @@
             {
                 return _tracker.Started;
             });
-            TerminalSession.Current.Buffer = new CommandLog(
-                _terminal._logBufferSize,
-                _terminal._ignoredLogTypes,
-                static () =>
-                {
-                    return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
-                }
-            )
+            TerminalSession.Current.Buffer = new CommandLog(_terminal._logBufferSize, _terminal._ignoredLogTypes, static () =>
             {
-                StackTraceMode = Terminal.Buffer.StackTraceMode,
-            };
+                return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+            }) { StackTraceMode = Terminal.Buffer.StackTraceMode };
         }
 
         private IEnumerator SpawnCalibratedTerminal(TerminalState state, bool withPalette = false, float? panelScale = null, string fontPackPath = FontPackPath)

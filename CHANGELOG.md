@@ -36,6 +36,7 @@ lines. Details live in the docs and the linked issue.
 
 ### Changed
 
+- Change new terminals to use Dx Dark by default ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Pass the source component to terminal and palette lifecycle subscribers; palette handlers now accept a `CommandPaletteUI` argument
   ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Rename the user-facing product name to DxTerminal: the Package Manager display name, the Assets > Create menus, the README and docs titles, and the `[DxTerminal]` console
