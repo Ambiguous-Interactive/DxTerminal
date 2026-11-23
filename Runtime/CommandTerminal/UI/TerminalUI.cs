@@ -1914,11 +1914,7 @@
             _commandInput.cursorIndex = index;
             _commandInput.selectIndex = index;
 #else
-            /*
-                2021.3 exposes the caret getters only; once the field holds
-                the input, the engine owns placement and the marker retires.
-             */
-            _pendingCaretIndex = null;
+            _commandInput.SelectRange(index, index);
 #endif
         }
 

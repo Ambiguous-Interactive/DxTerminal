@@ -44,6 +44,7 @@ lines. Details live in the docs and the linked issue.
 
 ### Fixed
 
+- Fix caret placement after completion, paste, and cut in Unity 2021.3 ([#349](https://github.com/Ambiguous-Interactive/DxTerminal/issues/349)).
 - Fix stale log rows and severity counts after a session buffer reset ([#322](https://github.com/Ambiguous-Interactive/DxTerminal/issues/322)).
 - Fix theme configuration hashes for equal Unicode names ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Fix generated catalog compilation for signed execution context masks ([#285](https://github.com/wallstop/DxCommandTerminal/issues/285)).

@@ -1381,8 +1381,7 @@
             yield return SendKeyDown(KeyCode.Tab);
             yield return WaitForCaret(14, "The caret lands after the applied candidate");
 
-            _palette._input.cursorIndex = 9;
-            _palette._input.selectIndex = 9;
+            _palette._input.SelectRange(9, 9);
 
             yield return WaitForCaret(14, "The queued caret re-asserts after a panel-driven re-clamp");
             Assert.IsTrue(_palette._input.selectIndex == 14 || _palette._pendingCaretIndex == 14, "The re-asserted caret is not left selected at the stale position");
@@ -1394,15 +1393,14 @@
                 marker drains. The pin targets a position the field actually
                 holds, discovered by probe, because the clamp decides that.
              */
-            _palette._input.cursorIndex = 14;
-            _palette._input.selectIndex = 14;
+            _palette._input.SelectRange(14, 14);
             int held = _palette._input.cursorIndex;
             _palette._pendingCaretIndex = held;
             _palette._caretStickPasses = 0;
             _palette.ApplyPendingCaret();
             _palette.ApplyPendingCaret();
             Assert.That(_palette._pendingCaretIndex == null, "Two held passes drain the queued caret");
-            _palette._input.cursorIndex = 2;
+            _palette._input.SelectRange(2, _palette._input.selectIndex);
             yield return null;
             yield return null;
             Assert.AreEqual(2, _palette._input.cursorIndex, "Movement after the caret settles is never re-asserted");
@@ -1425,21 +1423,18 @@
                 position the field actually holds, discovered by probe. The
                 rules themselves are position-independent.
              */
-            _palette._input.cursorIndex = 14;
-            _palette._input.selectIndex = 14;
+            _palette._input.SelectRange(14, 14);
             int target = _palette._input.cursorIndex;
             Assert.GreaterOrEqual(target, 1, "Sanity: the field holds a parkable caret position");
 
-            _palette._input.cursorIndex = 0;
-            _palette._input.selectIndex = 0;
+            _palette._input.SelectRange(0, 0);
             _palette._pendingCaretIndex = target;
             _palette.ApplyPendingCaret();
             Assert.AreEqual(target, _palette._input.cursorIndex, "The first pass parks the caret");
             Assert.AreEqual(0, _palette._caretStickPasses, "The parking pass has not stuck yet");
             Assert.AreEqual(target, _palette._pendingCaretIndex, "The marker survives the parking pass");
 
-            _palette._input.cursorIndex = target - 1;
-            _palette._input.selectIndex = target - 1;
+            _palette._input.SelectRange(target - 1, target - 1);
             _palette.ApplyPendingCaret();
             Assert.AreEqual(target, _palette._input.cursorIndex, "A drift pass re-asserts the queued caret");
             Assert.AreEqual(target, _palette._pendingCaretIndex, "The marker survives the drift pass");
@@ -1456,7 +1451,7 @@
             Assert.AreEqual(target, _palette._input.cursorIndex, "A position beyond the value is not written yet");
             Assert.AreEqual(30, _palette._pendingCaretIndex, "The marker waits for the value sync");
 
-            _palette._input.cursorIndex = 2;
+            _palette._input.SelectRange(2, _palette._input.selectIndex);
             _palette._pendingCaretIndex = null;
             _palette.ApplyPendingCaret();
             Assert.AreEqual(2, _palette._input.cursorIndex, "No marker means no caret write");
@@ -1940,8 +1935,7 @@
             int heldPasses = 0;
             while (heldPasses < 2 && 0 < frameBudget--)
             {
-                _palette._input.selectIndex = selectIndex;
-                _palette._input.cursorIndex = cursorIndex;
+                _palette._input.SelectRange(cursorIndex, selectIndex);
                 yield return null;
                 if (_palette._input.cursorIndex == cursorIndex && _palette._input.selectIndex == selectIndex)
                 {
@@ -2032,10 +2026,14 @@
         private IEnumerator SendPaletteClipboardKey(KeyCode keyCode, Func<IEnumerator> arrange, Func<bool> satisfied, string satisfiedBecause)
         {
             bool keyRouted = false;
+            int cursorBefore = 0;
+            int anchorBefore = 0;
             for (int attempt = 0; attempt < 8; ++attempt)
             {
                 yield return arrange();
                 _keyRouted = false;
+                cursorBefore = _palette._input.cursorIndex;
+                anchorBefore = _palette._input.selectIndex;
                 yield return SendKeyDown(keyCode, EventModifiers.Control);
                 keyRouted |= _keyRouted;
                 if (satisfied())
@@ -2056,7 +2054,11 @@
             yield return ProbeClipboard();
             if (_clipboardProbeHeld)
             {
-                Assert.Fail($"{satisfiedBecause}; the key did route, so the verdict is a product defect (#207, #250)");
+                Assert.Fail(
+                    $"{satisfiedBecause}. Before: caret={cursorBefore}, anchor={anchorBefore}. "
+                        + $"After: value='{_palette._input.value}', caret={_palette._input.cursorIndex}, anchor={_palette._input.selectIndex}, "
+                        + $"completion={_palette._completionMode}, replacement={_palette._completionContext.ReplacementStart}."
+                );
             }
 
             Assert.Ignore("The host clipboard did not hold a direct probe twice in a row; " + "the clipboard-key fixtures need a platform that answers (#207)");

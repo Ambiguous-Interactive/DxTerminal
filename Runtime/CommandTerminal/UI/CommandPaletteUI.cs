@@ -645,11 +645,7 @@
                 _input.cursorIndex = snapped;
                 _input.selectIndex = snapped;
 #else
-                /*
-                    2021.3 exposes the caret getters only; the engine owns
-                    placement, so the queue retires instead of re-asserting.
-                 */
-                QueueCaret(null);
+                _input.SelectRange(snapped, snapped);
 #endif
             }
 

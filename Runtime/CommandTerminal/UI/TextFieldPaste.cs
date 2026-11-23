@@ -55,10 +55,9 @@
         /*
             Returns true when a paste was applied, so the caller can consume
             the key, and hands back the caret the paste left so a caller that
-            ranks against a caret can use the same one on every editor - 2021.3
-            exposes the caret getters only, so the field's own cursorIndex is
-            not an answer there. Every other keystroke, and an empty or
-            all-whitespace clipboard, is left alone with the caret at zero.
+            ranks against a caret can use the intended position even when layout
+            clamps it. Other keystrokes and empty or whitespace-only clipboard
+            contents are left alone with the caret at zero.
          */
         public static bool TryApply(TextField field, KeyDownEvent evt, out int caret, ConsoleKeyBindings bindings = null)
         {
@@ -146,7 +145,7 @@
             field.cursorIndex = caret;
             field.selectIndex = caret;
 #else
-            /* 2021.3 exposes the caret getters only; the engine owns placement. */
+            field.SelectRange(caret, caret);
 #endif
             return true;
         }
