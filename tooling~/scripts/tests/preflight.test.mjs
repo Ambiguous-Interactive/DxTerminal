@@ -136,6 +136,7 @@ test("buildChecks: unique names, non-empty commands, expected canaries", () => {
   const editorRunCheck = checks.find((check) => check.name === "editor-run");
   assert.equal(editorRunCheck.lane, undefined, "testhost's restore owns its obj state, so it runs outside the dotnet lane");
   assert.equal(editorRunCheck.cacheDotnet, true);
+  assert.ok(editorRunCheck.cacheEnvironment.includes("DXT_STRICT_PROPOSED_THEME_CONTRAST"));
   assert.ok(editorRunCheck.cachePaths.includes("Tests/Editor"));
   assert.ok(editorRunCheck.cachePaths.includes("Generator~"));
   for (const buildOutput of ["Runtime/Analyzers", "tooling~/compat/testhost/obj", "tooling~/compat/testhost/bin", "tooling~/compat/testhost/TestResult.xml"]) {
