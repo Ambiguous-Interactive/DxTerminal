@@ -259,6 +259,7 @@
             yield return SpawnPalette();
             RegisterPair();
             _palette.Open();
+            _palette.SetQuery("paletteping");
 
             StyleSheet baseStyles = LoadPack<StyleSheet>("Styles/BaseStyles.uss");
             StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
