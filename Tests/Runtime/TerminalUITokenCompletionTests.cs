@@ -287,8 +287,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
          */
         private IEnumerator SetInput(string text, int caretIndex)
         {
-            _terminal._commandInput.value = text;
+            TextField field = _terminal._commandInput;
+            field.value = text;
             yield return null;
+
+#if UNITY_2022_3
+            field.SelectRange(caretIndex, caretIndex);
+            int initial = field.cursorIndex;
+            TerminalSurfaceCapture.ForcePanelRender(field, 1);
+            field.SelectRange(caretIndex, caretIndex);
+            TestContext.WriteLine($"Repaint probe reached {field.cursorIndex} from {initial} for requested caret {caretIndex}");
+#endif
 
             for (int attempt = 0; attempt < 3; ++attempt)
             {
