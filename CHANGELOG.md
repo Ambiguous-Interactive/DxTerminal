@@ -6,33 +6,27 @@ user cannot observe the difference, it does not belong here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/unity-helpers) (MIT): one user-observable change per bullet, a present-tense verb first - `Add`, `Fix`,
-`Change` - one sentence, two only when the second names what is preserved or refused, and the issue reference at the end. Details live in the docs and the linked issue.
+`Change` - one sentence, two only when the second names what is preserved or refused, and the issue reference at the end. Keep bullets in the same category together without blank
+lines. Details live in the docs and the linked issue.
 
 ## Unreleased
 
 ### Added
 
 - Add the Dx theme pack with Dx Dark, Dx Paper, and Phosphor ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
-
 - Add serialized PlayerInput action names and custom-map routing through C# events ([#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
-
 - Add gamepad control navigation, submit, cancel, and visible header focus ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241),
   [#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
 - Add a current search-match row marker that preserves log text selection ([#242](https://github.com/Ambiguous-Interactive/DxTerminal/issues/242)).
-
 - Add repeat collapse with entry-based search counts ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
 - Add Top, Bottom, and Auto terminal anchoring with safe-area placement ([#241](https://github.com/wallstop/DxCommandTerminal/issues/241),
   [#245](https://github.com/wallstop/DxCommandTerminal/issues/245)).
-
 - Add UTC capture times and severity markers beside selectable log messages ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
-
 - Add severity filters with retained-entry counts and narrow-screen controls ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
-
 - Add terminal header size and close controls ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241)).
 - Add header log search with shared command state, live counts, and match navigation ([#242](https://github.com/Ambiguous-Interactive/DxTerminal/issues/242)).
 - Add larger controls and wrapped search on narrow terminal views with configurable width breakpoint and minimum small-window height
   ([#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
-
 - Add configurable per-surface shortcuts for text editing, log navigation, and palette actions ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Add read-only log text selection and copying ([#194](https://github.com/wallstop/DxCommandTerminal/issues/194)).
 - Add terminal open and close events ([#241](https://github.com/wallstop/DxCommandTerminal/issues/241)).
@@ -51,7 +45,6 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 ### Fixed
 
 - Fix stale log rows and severity counts after a session buffer reset ([#322](https://github.com/Ambiguous-Interactive/DxTerminal/issues/322)).
-
 - Fix theme configuration hashes for equal Unicode names ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
 - Fix generated catalog compilation for signed execution context masks ([#285](https://github.com/wallstop/DxCommandTerminal/issues/285)).
 - Reduce first-use command registration time for large generated catalogs on Mono ([#282](https://github.com/wallstop/DxCommandTerminal/issues/282)).
@@ -417,7 +410,6 @@ Entry style follows [unity-helpers](https://github.com/Ambiguous-Interactive/uni
 - Quick-launch bar input focus: auto-loading a command name into the input now reliably parks the caret at the end (the text field's own deferred caret reset raced the write and
   could leave the caret mid-name or visibly select the loaded text), and clicking the results scrollbar no longer steals panel focus from the search input.
 - `TerminalUI.SetState` no longer throws a NullReferenceException when the terminal component is disabled before its UI setup completed.
-
 - Dynamic choice providers on subcommand arguments now receive a subcommand-relative completion context: `ActiveArgumentIndex` counts from the subcommand's first argument and
   `PrecedingArguments` contains exactly the subcommand's own arguments, matching what the same provider sees on a top-level command. Previously router tokens leaked into both.
 - `CommandShell.ClearCustomCommands` no longer leaves the auto-registered tracking state stale: it now also cancels a pending deferred registration and reports

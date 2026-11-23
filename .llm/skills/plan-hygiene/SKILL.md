@@ -34,6 +34,18 @@ files.
 - Omit standing constraints, measurement methods, command catalogs, archival headers, and repeated status/order sections.
 - Do not copy an issue, runbook, or skill into the plan. Link the authoritative source.
 
+## Advance a milestone
+
+1. Check the default branch CI, dependencies, issues, and open or draft PRs. Resume relevant work. Select the first unblocked milestone in plan order.
+2. State the outcome and acceptance check. Reproduce the gap or record the baseline before implementing. Follow the
+   [measurement contract](../../modernization.md#measurement-contract) for measured claims.
+3. Run the smallest check again after the fix, then run the affected suites and required gates. Use the real entry point where integration matters. Record any pending host or
+   Editor evidence.
+4. Keep one unstacked PR per milestone. Aim for fewer than 1,000 changed lines across fewer than 18 files. Include
+   [visual review evidence](../simple-writing/SKILL.md#visual-review-evidence) for any visual change.
+5. Review compatibility and failure paths. Resolve substantive findings and verify required checks on the current PR head. Record checks, environment, evidence, and decisions in
+   the session log.
+
 ## Audit and session close
 
 1. Read the whole plan and relevant session evidence. Do not infer completion from a partial pass.

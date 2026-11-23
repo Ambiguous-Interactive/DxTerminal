@@ -190,13 +190,14 @@ few sentences is the ceiling, not the target - cut before adding. PRs cover how 
 lines total. Commit bodies ~8 lines. No per-file tours, no process narration, no restated context. Code comments state only what the code cannot say, and a revised comment is
 edited in place - never stacked beside the stale one (rule 21). Enforced by `npm --prefix tooling~ run lint:pr-copy` and the pr-copy CI job (`tooling~/scripts/lint-pr-copy.mjs`:
 disclosure first line, section structure, line and bullet budgets; the Cursor Bugbot summary block is stripped before checking). Details:
-[simple-writing](./skills/simple-writing/SKILL.md).
+[simple-writing](./skills/simple-writing/SKILL.md). Follow its visual review rule when a PR changes what users see.
 
 ### CHANGELOG (user-facing only)
 
 `CHANGELOG.md` records only changes a package consumer can observe: public API and serialized-data changes, behavior changes, fixes, install-size or console-output changes.
 Internal work (refactors, tooling, style enforcement, linters, measurement, CI lanes) stays out, and so do internal numbers - those live in PR descriptions, issues, and `progress/`
-logs. Entries follow the unity-helpers style: verb-first (`Add`/`Fix`/`Change`), one sentence per user-observable change, issue reference at the end; the file header is law.
+logs. Entries follow the unity-helpers style: verb-first (`Add`/`Fix`/`Change`), one sentence per user-observable change, issue reference at the end. Keep bullets in the same
+category together without blank lines.
 
 ### LLM Attribution (GitHub)
 
