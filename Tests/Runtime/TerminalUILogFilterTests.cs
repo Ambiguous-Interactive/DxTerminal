@@ -544,14 +544,16 @@
             Submit(root.Q<Button>("LogSearchNext"));
             yield return Settle();
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"), "Navigation wraps to the first match");
+            VisualElement searchInput = search.Q("unity-text-input");
             KeyCode[] keys = { KeyCode.Return, KeyCode.F6, KeyCode.F7, KeyCode.KeypadEnter };
             foreach (KeyCode keyCode in keys)
             {
+                searchInput.Focus();
+                Assert.That(_terminal.SearchOwnsFocus, Is.True, $"The search field must hold focus before {keyCode}");
                 using (KeyDownEvent evt = KeyDownEvent.GetPooled('\0', keyCode, EventModifiers.None))
                 {
-                    evt.target = search;
-                    search.SendEvent(evt);
-                    Assert.That(evt.isPropagationStopped, Is.True);
+                    root.SendEvent(evt);
+                    Assert.That(evt.isPropagationStopped, Is.True, $"Search handles {keyCode}");
                 }
             }
 
