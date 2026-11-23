@@ -104,17 +104,18 @@
 
         private static IEnumerable<TestCaseData> ContrastCases()
         {
+            // Unity's assembly filter can run NUnit explicit cases during a full suite.
+            bool strict = string.Equals(Environment.GetEnvironmentVariable("DXT_STRICT_PROPOSED_THEME_CONTRAST"), "1", StringComparison.Ordinal);
             foreach (string theme in Themes.Keys)
             {
                 foreach ((string foreground, string background, double minimum) in Pairs)
                 {
-                    TestCaseData test = new(theme, foreground, background, minimum);
-                    if (ProposedFailures.ContainsKey((theme, foreground, background)))
+                    if (!strict && ProposedFailures.ContainsKey((theme, foreground, background)))
                     {
-                        test.Explicit("Run strict checks for the proposed colors before A2.").SetCategory("ProposedThemeContrast");
+                        continue;
                     }
 
-                    yield return test;
+                    yield return new TestCaseData(theme, foreground, background, minimum);
                 }
             }
         }
