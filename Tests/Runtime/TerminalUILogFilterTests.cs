@@ -165,7 +165,10 @@
             Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.True);
             Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.False);
             first.Focus();
+            TextSelectionFixture.PrepareCaret(first);
             first.SelectRange(1, 4);
+            Assert.That(first.cursorIndex, Is.EqualTo(1), "The selection arrange holds before navigation");
+            Assert.That(first.selectIndex, Is.EqualTo(4));
             _terminal.StepLogFilter(true, false);
             _terminal.RefreshUI();
             Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.False);
@@ -333,6 +336,7 @@
                 Assert.That(row.labelElement.layout.width + 0.5f, Is.GreaterThanOrEqualTo(textSize.x), "The repeat badge fits beside the message");
             }
             row.Focus();
+            TextSelectionFixture.PrepareCaret(row);
             row.SelectRange(1, 4);
             Assert.That(row.cursorIndex, Is.EqualTo(1), "The selection arrange holds before refresh");
             Assert.That(row.selectIndex, Is.EqualTo(4));

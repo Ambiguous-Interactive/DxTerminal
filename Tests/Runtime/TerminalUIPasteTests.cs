@@ -210,6 +210,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             _terminal._commandInput.value = value;
 #if UNITY_2022_1_OR_NEWER
+            TextSelectionFixture.PrepareCaret(_terminal._commandInput);
             _terminal._commandInput.selectIndex = selectIndex;
             _terminal._commandInput.cursorIndex = cursorIndex;
 #else

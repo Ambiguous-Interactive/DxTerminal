@@ -140,16 +140,13 @@
                     {
                         Name = "spawnitem",
                         Handler = (context, arguments) => { },
-                        CompletionProvider = CommandCompletionProviders.Staged(
-                            InventoryStage(),
-                            (in CommandCompletionContext context, List<CommandCompletion> results) =>
+                        CompletionProvider = CommandCompletionProviders.Staged(InventoryStage(), (in CommandCompletionContext context, List<CommandCompletion> results) =>
+                        {
+                            foreach (string count in new[] { "1", "2", "3" })
                             {
-                                foreach (string count in new[] { "1", "2", "3" })
-                                {
-                                    results.Add(new CommandCompletion(count));
-                                }
+                                results.Add(new CommandCompletion(count));
                             }
-                        ),
+                        }),
                     }
                 )
             );
@@ -1381,6 +1378,7 @@
             yield return SendKeyDown(KeyCode.Tab);
             yield return WaitForCaret(14, "The caret lands after the applied candidate");
 
+            TextSelectionFixture.PrepareCaret(_palette._input);
             _palette._input.SelectRange(9, 9);
 
             yield return WaitForCaret(14, "The queued caret re-asserts after a panel-driven re-clamp");
@@ -1415,6 +1413,7 @@
 
             _palette._input.SetValueWithoutNotify("pickitem torch");
             yield return null;
+            TextSelectionFixture.PrepareCaret(_palette._input);
 
             /*
                 The field's caret model clamps to its last laid-out text
@@ -1930,6 +1929,7 @@
         {
             _palette._input.value = text;
             yield return null;
+            TextSelectionFixture.PrepareCaret(_palette._input);
 
             int frameBudget = FrameBudget;
             int heldPasses = 0;

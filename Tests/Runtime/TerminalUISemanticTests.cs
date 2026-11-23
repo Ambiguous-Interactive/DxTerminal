@@ -452,6 +452,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
          */
         private IEnumerator SetInputCaret(int caretIndex)
         {
+            TextSelectionFixture.PrepareCaret(_terminal._commandInput);
             for (int attempt = 0; attempt < 3; ++attempt)
             {
                 _terminal._commandInput.SelectRange(caretIndex, caretIndex);

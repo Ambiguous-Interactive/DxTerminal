@@ -161,6 +161,10 @@ under session sequences (issue #56). Rules:
   `CommandPaletteTests.PendingCaretConsumesOnlyAfterStablePasses`). Synchronous caret reads one frame after a value write are clamped too
   (`PendingCaretWritesAndKeepsMarkerWhileUnfocused` readiness-polls its applied positions).
 
+On Unity 2022.3 in batch mode, a nonempty field can have zero generated TextCore characters. The caret reads as zero, even after a panel repaint. Use
+`TextSelectionFixture.PrepareCaret(field)` after arranging field text and before setting the test selection. It prepares the native text data. Assert the intended selection before
+exercising the behavior.
+
 ## Investigating red checks
 
 - Preserve the first failing report and logs, tested revision, execution environment, and reproduction command. Account for each failed case. Group cases only when evidence shows
