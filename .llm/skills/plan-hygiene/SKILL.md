@@ -46,6 +46,11 @@ files.
 5. Review compatibility and failure paths. Resolve substantive findings and verify required checks on the current PR head. Record checks, environment, evidence, and decisions in
    the session log.
 
+## When an Editor runner is unavailable
+
+Keep the goal active when a required Unity runner is unavailable. Record the pending check, the PR head, and the run link if one exists. Continue standalone checks and other
+independent work. Track the original run while it is queued. Verify the required Unity result on the current PR head when the runner is available.
+
 ## Audit and session close
 
 1. Read the whole plan and relevant session evidence. Do not infer completion from a partial pass.
