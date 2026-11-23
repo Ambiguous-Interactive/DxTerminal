@@ -1790,7 +1790,11 @@
             document.panelSettings = _panelSettings;
             _palette = _paletteObject.AddComponent<CommandPaletteUI>();
             _palette._uiDocument = document;
-            _palette._font = LoadPack<Font>("Fonts/Fira_Mono/FiraMono-Regular.ttf");
+#if UNITY_EDITOR
+            using UnityEditor.SerializedObject paletteSettings = new(_palette);
+            paletteSettings.FindProperty("_font").objectReferenceValue = LoadPack<Font>("Fonts/Fira_Mono/FiraMono-Regular.ttf");
+            paletteSettings.ApplyModifiedPropertiesWithoutUndo();
+#endif
             _paletteObject.SetActive(true);
             yield return null;
         }
