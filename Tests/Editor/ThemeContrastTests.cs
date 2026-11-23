@@ -267,6 +267,9 @@
         [TestCase("dx-dark-theme", "syn-string", "error-text", false)]
         [TestCase("dx-dark-theme", "syn-choice", "error-text", false)]
         [TestCase("dx-paper-theme", "syn-number", "syn-string", false)]
+        [TestCase("dx-paper-theme", "syn-number", "syn-choice", false)]
+        [TestCase("dx-paper-theme", "syn-string", "syn-choice", false)]
+        [TestCase("dx-paper-theme", "syn-choice", "error-text", false)]
         [TestCase("dx-paper-theme", "syn-number", "error-text", false)]
         // The Paper error keeps its glyph and underline below the usual CVD minimum.
         [TestCase("dx-paper-theme", "syn-string", "error-text", true)]
