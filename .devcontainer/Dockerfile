@@ -156,11 +156,12 @@ ENV NPM_CONFIG_FUND=false \
 # servers via uv. The MCP executables land in /usr/local/bin so MCP startup
 # never needs to download anything.
 # ------------------------------------------------------------------------------
-RUN pip3 install --no-cache-dir --break-system-packages pre-commit==4.7.0 yamllint==1.38.0 \
+RUN python3 -m venv /opt/dxt-python-tools \
+    && /opt/dxt-python-tools/bin/pip install --no-cache-dir pre-commit==4.7.0 yamllint==1.38.0 uv==0.13.9 \
+    && ln -sf /opt/dxt-python-tools/bin/pre-commit /opt/dxt-python-tools/bin/yamllint /opt/dxt-python-tools/bin/uv /usr/local/bin/ \
     && pre-commit --version \
     && yamllint --version
-RUN pip3 install --no-cache-dir --break-system-packages uv==0.13.9 \
-    && UV_TOOL_DIR=/opt/dxt-mcp/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mcp-server-git==2026.11.18 \
+RUN UV_TOOL_DIR=/opt/dxt-mcp/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mcp-server-git==2026.11.18 \
     && UV_TOOL_DIR=/opt/dxt-mcp/uv-tools UV_TOOL_BIN_DIR=/usr/local/bin uv tool install mcp-server-fetch==2026.11.18 \
     && mcp-server-git --help >/dev/null \
     && mcp-server-fetch --help >/dev/null
