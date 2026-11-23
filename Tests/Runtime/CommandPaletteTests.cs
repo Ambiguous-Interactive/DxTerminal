@@ -818,7 +818,7 @@
         [UnityTest]
         public IEnumerator CtrlVPasteReranksAgainstTheCaretThePasteLeft()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             RegisterSpawnItemCommand();
 
             string originalClipboard = GUIUtility.systemCopyBuffer;
@@ -868,7 +868,7 @@
         [UnityTest]
         public IEnumerator CtrlXCutsTheSelectedSpanAndReranksTheBar()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             RegisterSpawnItemCommand();
 
             string originalClipboard = GUIUtility.systemCopyBuffer;
@@ -1369,7 +1369,7 @@
         [UnityTest]
         public IEnumerator TabCaretSurvivesPanelReclamp()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             RegisterInventoryCommand();
 
             _palette.Open();
@@ -1410,7 +1410,7 @@
         [UnityTest]
         public IEnumerator PendingCaretConsumesOnlyAfterStablePasses()
         {
-            yield return SpawnPalette();
+            yield return SpawnPalette(withFont: true);
             _palette.Open();
             yield return null;
 
@@ -1781,7 +1781,7 @@
             );
         }
 
-        private IEnumerator SpawnPalette()
+        private IEnumerator SpawnPalette(bool withFont = false)
         {
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             _paletteObject = new GameObject("CommandPalette");
@@ -1791,9 +1791,14 @@
             _palette = _paletteObject.AddComponent<CommandPaletteUI>();
             _palette._uiDocument = document;
 #if UNITY_EDITOR
-            using UnityEditor.SerializedObject paletteSettings = new(_palette);
-            paletteSettings.FindProperty("_font").objectReferenceValue = LoadPack<Font>("Fonts/Fira_Mono/FiraMono-Regular.ttf");
-            paletteSettings.ApplyModifiedPropertiesWithoutUndo();
+            if (withFont)
+            {
+                Font font = LoadPack<Font>("Fonts/Fira_Mono/FiraMono-Regular.ttf");
+                Assert.That(font != null, "The palette selection fixture has a packaged font");
+                using UnityEditor.SerializedObject paletteSettings = new(_palette);
+                paletteSettings.FindProperty("_font").objectReferenceValue = font;
+                paletteSettings.ApplyModifiedPropertiesWithoutUndo();
+            }
 #endif
             _paletteObject.SetActive(true);
             yield return null;
