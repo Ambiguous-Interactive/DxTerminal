@@ -316,7 +316,10 @@ jobs:
           BUILD_LOCK_APP_PRIVATE_KEY: ${{ secrets.BUILD_LOCK_APP_PRIVATE_KEY }}
 
       - name: Require confirmed Unity cleanup
-        if: ${{ always() && steps.acquire_lock.outcome != 'skipped' }}
+        if: >-
+          ${{ always() &&
+            (steps.acquire_lock.outcome != 'skipped' ||
+              steps.release_unity_lock.outputs.cleanup-result != 'noop') }}
         timeout-minutes: 2
         uses: Ambiguous-Interactive/ambiguous-organization-build-lock/.github/actions/require-confirmed-unity-cleanup@720ef47f9ab352fbc9403363ca63ae8c487a2442 # v1.18.1
         with:
