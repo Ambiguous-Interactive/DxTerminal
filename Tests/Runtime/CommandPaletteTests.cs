@@ -104,6 +104,19 @@
             Assert.AreEqual(ctrl, resolved.CtrlRequired, $"Ctrl requirement for '{key}'");
         }
 
+#if UNITY_EDITOR
+        private static IEnumerator WaitForSelectionColor(VisualElement selected, Color32 expected)
+        {
+            int frameBudget = FrameBudget;
+            while (0 < frameBudget-- && !expected.Equals((Color32)selected.resolvedStyle.backgroundColor))
+            {
+                yield return null;
+            }
+
+            Assert.AreEqual(expected, (Color32)selected.resolvedStyle.backgroundColor);
+        }
+#endif
+
         private static CommandCompletionProvider InventoryStage()
         {
             return (in CommandCompletionContext context, List<CommandCompletion> results) =>
@@ -238,6 +251,30 @@
             Terminal.Shell = new CommandShell(Terminal.History);
             Terminal.AutoComplete = new CommandAutoComplete(Terminal.History, Terminal.Shell);
         }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator PartialLegacyPaletteColorsYieldToSemanticRoles()
+        {
+            yield return SpawnPalette();
+            RegisterPair();
+            _palette.Open();
+
+            StyleSheet baseStyles = LoadPack<StyleSheet>("Styles/BaseStyles.uss");
+            StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
+            Assert.That(baseStyles != null && overrides != null, "Both palette stylesheets must import");
+            _palette._paletteRoot.styleSheets.Add(baseStyles);
+            _palette._paletteRoot.styleSheets.Add(overrides);
+            _palette._paletteRoot.AddToClassList("partial-legacy");
+
+            VisualElement selected = _palette._paletteRoot.Q(className: "palette-row-selected");
+            Assert.That(selected != null, "Opening the palette selects a result");
+            yield return WaitForSelectionColor(selected, new Color32(197, 81, 34, 255));
+
+            _palette._paletteRoot.AddToClassList("semantic-override");
+            yield return WaitForSelectionColor(selected, new Color32(18, 48, 31, 255));
+        }
+#endif
 
         [Test]
         public void HotkeyParsingResolvesModifiersAndNames()

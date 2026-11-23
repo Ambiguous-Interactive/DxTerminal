@@ -1,0 +1,8 @@
+.partial-legacy {
+    --button-selected-bg: #C55122;
+}
+
+.semantic-override {
+    --dxt-surface: #0D1117;
+    --dxt-selection: #12301F;
+}
