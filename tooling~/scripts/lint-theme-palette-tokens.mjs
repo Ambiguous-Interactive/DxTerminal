@@ -10,8 +10,8 @@
        (TerminalThemeStyleSheetHelper.RequiredVariables) already rejects incomplete
        theme packs in the inspector; this lint adds Unity-independent CI coverage so
        a broken theme cannot land unnoticed.
-    2. Every `var(--token)` inside a `.palette-*` rule names a required token and
-       carries a fallback value. A palette rule without a fallback renders with
+    2. BaseStyles reads semantic roles. Every `var(--token)` inside a
+       `.palette-*` rule carries a fallback value. A palette rule without one renders with
        engine defaults (invisible text, transparent panel) whenever no theme sheet
        is attached, so a bare `var()` in a palette rule is a silent styling bug.
 
@@ -132,6 +132,11 @@ export function themeViolations(block) {
 }
 
 const VAR_PATTERN = /var\(\s*(--[a-zA-Z0-9-]+)\s*(,)?/g;
+const SEMANTIC_TOKENS = new Set([
+  "surface", "surface-raised", "hover", "input", "line", "ink", "ink-body",
+  "ink-muted", "accent", "accent-soft", "on-accent", "selection", "selection-line",
+  "warning", "error", "error-text", "error-line", "syn-number", "syn-string", "syn-choice",
+].map((role) => "--dxt-" + role));
 
 /**
  * Returns var() problems inside a block: tokens no shipped theme defines, and
@@ -139,20 +144,23 @@ const VAR_PATTERN = /var\(\s*(--[a-zA-Z0-9-]+)\s*(,)?/g;
  * var()s inside a fallback are scanned recursively: `var(--a, var(--b))`
  * must report `--b` even though the outer call has a fallback.
  */
-export function paletteTokenViolations(block) {
+function styleTokenViolations(block, known, requireFallback) {
   const violations = [];
-  const known = new Set(REQUIRED_TOKENS);
-  collectVarViolations(block.contents, known, violations);
+  collectVarViolations(block.contents, known, requireFallback, violations);
   return violations;
 }
 
-function collectVarViolations(source, known, violations) {
+function collectVarViolations(source, known, requireFallback, violations) {
   VAR_PATTERN.lastIndex = 0;
   let match;
   while ((match = VAR_PATTERN.exec(source)) !== null) {
     const [, token, comma] = match;
     if (!comma) {
-      violations.push({ token, reason: "missing var() fallback" });
+      if (requireFallback) {
+        violations.push({ token, reason: "missing var() fallback" });
+      } else if (!known.has(token)) {
+        violations.push({ token, reason: "unknown style token" });
+      }
       continue;
     }
 
@@ -194,7 +202,7 @@ function collectVarViolations(source, known, violations) {
     }
 
     if (fallback.includes("var(")) {
-      collectVarViolations(fallback, known, violations);
+      collectVarViolations(fallback, known, requireFallback, violations);
     }
 
     VAR_PATTERN.lastIndex = fallbackEnd;
@@ -213,9 +221,10 @@ function lineAt(text, index) {
 }
 
 /** Returns violations for one stripped USS file: theme blocks missing tokens and palette rules with bad var()s. */
-export function ussViolations(rawText) {
+export function ussViolations(rawText, semanticBase = false) {
   const text = stripComments(rawText);
   const violations = [];
+  const known = semanticBase ? SEMANTIC_TOKENS : new Set(REQUIRED_TOKENS);
   for (const block of extractBlocks(text)) {
     if (isThemeSelector(block.selector)) {
       for (const token of themeViolations(block)) {
@@ -227,8 +236,9 @@ export function ussViolations(rawText) {
       }
     }
 
-    if (isPaletteSelector(block.selector)) {
-      for (const violation of paletteTokenViolations(block)) {
+    const palette = isPaletteSelector(block.selector);
+    if (semanticBase || palette) {
+      for (const violation of styleTokenViolations(block, known, palette)) {
         violations.push({
           line: lineAt(text, block.start),
           token: violation.token,
@@ -281,7 +291,7 @@ function main() {
 
   let violations = 0;
   for (const file of files) {
-    const fileViolations = ussViolations(fs.readFileSync(file, "utf8"));
+    const fileViolations = ussViolations(fs.readFileSync(file, "utf8"), path.basename(file) === "BaseStyles.uss");
     if (fileViolations.length === 0) {
       continue;
     }

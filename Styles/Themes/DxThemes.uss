@@ -1,4 +1,4 @@
-/* BaseStyles still reads the widget variables while legacy packs share it. */
+/* Widget variables keep these themes compatible with the current pack editor. */
 
 .dx-dark-theme {
     --dxt-surface: rgba(13, 17, 23, 0.94);

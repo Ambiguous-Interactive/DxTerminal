@@ -66,6 +66,7 @@
          - UI/KeyEvents.cs: shared key helper used only by those two.
          - Themes/TerminalThemePack.cs, Themes/TerminalFontPack.cs:
            UIElements/Font asset payloads.
+         - Themes/LegacyThemeStyles.cs: reads UI Toolkit's resolved colors.
          - Input/TerminalKeyboardController.cs,
            Persistence/TerminalThemePersister.cs,
            Persistence/TerminalThemeConfigurations.cs: reference
@@ -78,6 +79,7 @@
     <Compile Remove="../../../Runtime/CommandTerminal/UI/KeyEvents.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/Themes/TerminalThemePack.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/Themes/TerminalFontPack.cs" />
+    <Compile Remove="../../../Runtime/CommandTerminal/Themes/LegacyThemeStyles.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/Input/TerminalKeyboardController.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/Persistence/TerminalThemePersister.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/Persistence/TerminalThemeConfigurations.cs" />

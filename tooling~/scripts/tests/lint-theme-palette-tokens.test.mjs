@@ -93,6 +93,19 @@ test("a non-theme, non-palette rule is untouched", () => {
   assert.deepStrictEqual(ussViolations(source), []);
 });
 
+test("BaseStyles requires semantic roles in both surfaces", () => {
+  const source = [
+    ".terminal-header { background-color: var(--terminal-bg); }",
+    ".palette-panel { background-color: var(--dxt-surface, black); }",
+    ".palette-row { color: var(--button-text, white); }",
+    ".terminal-button { color: var(--dxt-ink); }",
+  ].join("\n");
+  assert.deepStrictEqual(ussViolations(source, true).map(({ token }) => token), [
+    "--terminal-bg",
+    "--button-text",
+  ]);
+});
+
 test("a file without theme classes owes no required tokens", () => {
   assert.deepStrictEqual(ussViolations(CLEAN_PALETTE), []);
 });

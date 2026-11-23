@@ -802,8 +802,11 @@
             _terminal.SetCursorBlinkPaused(true);
             Rect band = TerminalBandRegion();
             List<CaptureOutcome> themed = new List<CaptureOutcome>(2);
+            VisualElement container = _terminal._uiDocument.rootVisualElement.Q("TerminalContainer");
             yield return CaptureThemedSurface(LightThemeName, LightScenarioName, themed, band);
+            Assert.AreEqual(new Color(245f / 255f, 245f / 255f, 245f / 255f, 0.7f), container.resolvedStyle.backgroundColor);
             yield return CaptureThemedSurface(DarkThemeName, DarkScenarioName, themed, band);
+            Assert.AreEqual(new Color(28f / 255f, 28f / 255f, 30f / 255f, 0.9f), container.resolvedStyle.backgroundColor);
             AssertAcceptable(themed[0]);
             AssertAcceptable(themed[1]);
 
