@@ -193,28 +193,35 @@ class PackageTests(unittest.TestCase):
                     self.assertEqual(process.call_count, expected)
                 self.assertEqual(list(Path(directory).iterdir()), [])
 
-    def test_rendered_evidence_requires_the_matching_positive_capture(self) -> None:
+    def test_rendered_evidence_requires_runtime_and_theme_captures(self) -> None:
         with TemporaryDirectory() as directory:
             out = Path(directory) / "out"
             captures = Path(directory) / "t4"
             stamp = captures / "timestamp"
             stamp.mkdir(parents=True)
             version = "6000.4.6f1"
-            scenario = "CapturesTerminalSmallSurface"
             (stamp / "BlankRenderFailsBounds.png").write_bytes(b"negative")
-            with self.assertRaisesRegex(ValueError, scenario):
-                runner.retain_captures(captures, out, version)
-            png = stamp / (scenario + ".png")
-            png.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
-            manifest = stamp / (scenario + ".manifest.json")
-            data = {"scenario": scenario, "complete": True, "unityVersion": version, "graphicsApi": "Direct3D12",
-                    "png": png.name, "metrics": {"pngBytes": png.stat().st_size}}
-            manifest.write_text(json.dumps(data))
+            for scenario in ("CapturesTerminalSmallSurface", "CapturesLightThemeSurface", "CapturesDarkThemeSurface"):
+                with self.subTest(missing=scenario):
+                    with self.assertRaisesRegex(ValueError, scenario):
+                        runner.retain_captures(captures, out, version)
+                png = stamp / (scenario + ".png")
+                png.write_bytes(b"\x89PNG\r\n\x1a\nfixture")
+                manifest = stamp / (scenario + ".manifest.json")
+                manifest.write_text(json.dumps(
+                    {"scenario": scenario, "complete": True, "unityVersion": version, "graphicsApi": "Direct3D12",
+                     "png": png.name, "metrics": {"pngBytes": png.stat().st_size}}), encoding="utf-8")
             runner.retain_captures(captures, out, version)
+            self.assertEqual(sorted(file.name for file in (out / "captures" / stamp.name).iterdir()),
+                             sorted(file.name for file in stamp.iterdir()))
+
+            manifest = stamp / "CapturesDarkThemeSurface.manifest.json"
+            data = json.loads(manifest.read_text(encoding="utf-8"))
             for key, wrong in (("complete", False), ("graphicsApi", "Null"), ("unityVersion", "other")):
-                manifest.write_text(json.dumps({**data, key: wrong}))
-                with self.assertRaisesRegex(ValueError, scenario):
-                    runner.retain_captures(captures, out, version)
+                with self.subTest(invalid=key):
+                    manifest.write_text(json.dumps({**data, key: wrong}), encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, "CapturesDarkThemeSurface"):
+                        runner.retain_captures(captures, out, version)
 
     def test_t13_retains_reports_without_copying_editor_or_project_data(self) -> None:
         with TemporaryDirectory() as directory:

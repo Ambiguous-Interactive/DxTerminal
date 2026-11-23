@@ -11,8 +11,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         custom editors (TerminalUI/theme/font pack) paint with the rest of the
         harness. The capture shows the editors' control surface, not the
         inspector window chrome; the drawn controls receive no input events
-        and keep their defaults. Players have no editor, so Attach there hands
-        back an inert scope and the scenario ignores.
+        and keep their defaults. The fixture requires a visible Game View.
      */
     public static class EditorInspectorCapture
     {
@@ -21,15 +20,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             get
             {
 #if UNITY_EDITOR
-                return true;
+                return !Application.isBatchMode;
 #else
                 return false;
 #endif
             }
         }
 
-        public static string UnsupportedReason =>
-            "Inspector capture drives UnityEditor.Editor.OnInspectorGUI through the game " + "view's IMGUI pass; players have no editor to draw it with.";
+        public static string UnsupportedReason
+        {
+            get { return "Inspector capture requires an interactive Unity Editor with a visible Game View."; }
+        }
 
         /*
             Creates an editor for target and attaches an InspectorDrawSurface
