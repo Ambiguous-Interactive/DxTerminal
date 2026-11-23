@@ -954,7 +954,7 @@
 
             _paletteRoot = new VisualElement { name = PaletteRootName, pickingMode = PickingMode.Position };
             _paletteRoot.AddToClassList("palette-root");
-            _paletteRoot.RegisterCallback<CustomStyleResolvedEvent>(LegacyThemeStyles.Apply);
+            LegacyThemeStyles.Register(_paletteRoot);
             _paletteRoot.style.position = Position.Absolute;
             _paletteRoot.style.left = 0;
             _paletteRoot.style.right = 0;

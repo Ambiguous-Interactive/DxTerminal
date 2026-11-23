@@ -5,20 +5,59 @@
 
     internal static class LegacyThemeStyles
     {
+        private const string LegacyClass = "dxt-legacy";
+
         private static readonly CustomStyleProperty<Color> SemanticSurface = new("--dxt-surface");
-        private static readonly CustomStyleProperty<Color> LegacySurface = new("--terminal-bg");
+        private static readonly CustomStyleProperty<Color>[] LegacyColors =
+        {
+            new("--terminal-bg"),
+            new("--button-bg"),
+            new("--input-field-bg"),
+            new("--button-selected-bg"),
+            new("--button-hover-bg"),
+            new("--scroll-bg"),
+            new("--scroll-inverse-bg"),
+            new("--scroll-active-bg"),
+            new("--button-text"),
+            new("--button-selected-text"),
+            new("--button-hover-text"),
+            new("--input-text-color"),
+            new("--text-message"),
+            new("--text-warning"),
+            new("--text-input-echo"),
+            new("--text-shell"),
+            new("--text-error"),
+            new("--scroll-color"),
+            new("--caret-color"),
+        };
 
         private static bool _reportedLegacyTheme;
 
-        internal static void Apply(CustomStyleResolvedEvent evt)
+        internal static void Register(VisualElement root)
+        {
+            root.AddToClassList(LegacyClass);
+            root.RegisterCallback<CustomStyleResolvedEvent>(Apply);
+        }
+
+        private static void Apply(CustomStyleResolvedEvent evt)
         {
             VisualElement root = (VisualElement)evt.currentTarget;
-            bool legacy = !evt.customStyle.TryGetValue(SemanticSurface, out _) && evt.customStyle.TryGetValue(LegacySurface, out _);
-            root.EnableInClassList("dxt-legacy", legacy);
-            if (legacy && !_reportedLegacyTheme)
+            ICustomStyle styles = evt.customStyle;
+            bool semantic = styles.TryGetValue(SemanticSurface, out _);
+            root.EnableInClassList(LegacyClass, !semantic);
+            if (semantic || _reportedLegacyTheme)
             {
-                _reportedLegacyTheme = true;
-                Debug.LogWarning("A legacy terminal theme is in use. Convert its colors to semantic roles.");
+                return;
+            }
+
+            foreach (CustomStyleProperty<Color> color in LegacyColors)
+            {
+                if (styles.TryGetValue(color, out _))
+                {
+                    _reportedLegacyTheme = true;
+                    Debug.LogWarning("A legacy terminal theme is in use. Convert its colors to semantic roles.");
+                    return;
+                }
             }
         }
 

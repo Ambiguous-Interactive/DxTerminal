@@ -2812,7 +2812,7 @@
             uiRoot.Add(root);
             root.name = TerminalRootName;
             root.AddToClassList("terminal-root");
-            root.RegisterCallback<CustomStyleResolvedEvent>(LegacyThemeStyles.Apply);
+            LegacyThemeStyles.Register(root);
             root.RegisterCallback<NavigationMoveEvent, TerminalUI>(
                 static (evt, terminal) =>
                 {
