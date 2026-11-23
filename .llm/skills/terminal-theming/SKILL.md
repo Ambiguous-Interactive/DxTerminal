@@ -52,9 +52,9 @@ Built-in packs ship as ScriptableObject assets under `Packs/Themes/` and `Packs/
 
 - Prefer adding/overriding USS variables in the theme pack over editing `BaseStyles.uss`; base styles are shared by all themes.
 - Keep selectors minimal and stable - `TerminalUI` queries elements by name; renaming UI elements requires updating selectors in the same change.
-- Command palette rules live in `BaseStyles.uss` under `.palette-*`. They may only consume the required theme variables, and each `var()` there needs a fallback value so the
-  palette renders when no theme sheet is attached. `npm --prefix tooling~ run lint:theme-palette-tokens` enforces both contracts (and that every theme block defines the full
-  required list).
+- `BaseStyles.uss` reads semantic `--dxt-*` roles. Each `var()` in its `.palette-*` rules needs a fallback so the palette renders without a theme sheet.
+- `LegacyColors.uss` preserves widget colors for sheets that only supply legacy variables. Keep those variables in that stylesheet when editing a legacy rule.
+- `npm --prefix tooling~ run lint:theme-palette-tokens` checks BaseStyles role names, palette fallbacks, and shipped theme variables.
 
 ## Responsive layout settings
 
