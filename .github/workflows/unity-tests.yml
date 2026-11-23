@@ -131,6 +131,8 @@ jobs:
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
 
       - name: Validate Unity license secrets
         timeout-minutes: 2
@@ -314,7 +316,7 @@ jobs:
           BUILD_LOCK_APP_PRIVATE_KEY: ${{ secrets.BUILD_LOCK_APP_PRIVATE_KEY }}
 
       - name: Require confirmed Unity cleanup
-        if: always()
+        if: ${{ always() && steps.acquire_lock.outcome != 'skipped' }}
         timeout-minutes: 2
         uses: Ambiguous-Interactive/ambiguous-organization-build-lock/.github/actions/require-confirmed-unity-cleanup@720ef47f9ab352fbc9403363ca63ae8c487a2442 # v1.18.1
         with:
