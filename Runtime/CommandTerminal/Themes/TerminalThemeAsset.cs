@@ -123,6 +123,11 @@ namespace WallstopStudios.DxCommandTerminal.Themes
         [Tooltip("Input caret color")]
         private Color _caretColor = new(0.949f, 0.949f, 0.9686f, 1f);
 
+        internal static TerminalThemeAsset CreateSemantic()
+        {
+            return CreateInstance<TerminalThemeAsset>();
+        }
+
         /*
             Reads without an exists-check: the file can vanish between a
             check and the read, so the read is the check. Expected failures

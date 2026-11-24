@@ -7,6 +7,7 @@
     using System.Text.RegularExpressions;
     using NUnit.Framework;
     using Themes;
+    using UnityEngine;
 #if UNITY_EDITOR
     using UnityEditor;
     using PackageInfo = UnityEditor.PackageManager.PackageInfo;
@@ -108,6 +109,13 @@
             using StreamReader reader = new(typeof(ThemeContrastTests).Assembly.GetManifestResourceStream(ThemeSheet));
             string sheet = reader.ReadToEnd();
 #endif
+            Dictionary<string, Dictionary<string, Rgb>> themes = ParseThemes(sheet);
+            Assert.That(themes.Keys, Is.EquivalentTo(ThemeClasses));
+            return themes;
+        }
+
+        private static Dictionary<string, Dictionary<string, Rgb>> ParseThemes(string sheet)
+        {
             sheet = Regex.Replace(sheet, @"/\*[\s\S]*?\*/", string.Empty);
             Dictionary<string, Dictionary<string, Rgb>> themes = new(StringComparer.Ordinal);
             foreach (Match block in Regex.Matches(sheet, @"^\.([a-z-]+)\s*\{([^}]*)\}", RegexOptions.Multiline))
@@ -142,7 +150,6 @@
                 themes.Add(themeClass, roles);
             }
 
-            Assert.That(themes.Keys, Is.EquivalentTo(ThemeClasses));
             return themes;
         }
 
@@ -215,6 +222,24 @@
             string result = FormattableString.Invariant($"{pair} on {worstBackdrop}: {worstRatio:F2}:1");
             TestContext.WriteLine(result);
             return (worstRatio, result);
+        }
+
+        [Test]
+        public void NewThemeAssetGeneratesEveryDxDarkColor()
+        {
+            TerminalThemeAsset asset = TerminalThemeAsset.CreateSemantic();
+            try
+            {
+                asset.name = "sample";
+                Dictionary<string, Rgb> roles = ParseThemes(asset.BuildUss())["sample-theme"];
+                Assert.That(roles, Is.EquivalentTo(Themes.Value["dx-dark-theme"]));
+            }
+            finally
+            {
+#if UNITY_EDITOR
+                UnityEngine.Object.DestroyImmediate(asset);
+#endif
+            }
         }
 
         [TestCaseSource(nameof(ContrastCases))]
