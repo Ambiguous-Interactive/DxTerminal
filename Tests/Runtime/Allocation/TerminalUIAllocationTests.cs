@@ -67,6 +67,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             Terminal.Shell?.ClearCustomCommands();
         }
 
+#if UNITY_EDITOR
         [UnityTest]
         public IEnumerator RecordInputEditAndIdleAllocationBaseline()
         {
@@ -84,7 +85,6 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 })
                 .Handler((context, arguments) => { });
             Assert.That(Terminal.Shell.AddCommand(command, out _), Is.True);
-            AllocationAssertions.EnsureInstrumentValidated();
 
             TextField field = _terminal._commandInput;
             int editCount = HighlightInput.Length;
@@ -109,37 +109,52 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 foreach (string edit in edits)
                 {
                     nextEdit = edit;
-                    AllocationProbe.Measure(applyEdit);
+                    applyEdit();
                 }
 
                 yield return null;
-                AllocationProbe.Measure(refresh);
+                refresh();
             }
 
-            long[] editBytes = new long[editCount];
-            long[] idleBytes = new long[IdleFrameCount];
+            int sampleCount = editCount + IdleFrameCount;
+            using ProfilerAllocationTrace trace = new ProfilerAllocationTrace(sampleCount);
             field.value = string.Empty;
             for (int index = 0; index < editCount; ++index)
             {
                 yield return null;
+                trace.ReadAvailable();
                 nextEdit = edits[index];
-                AllocationMeasurement measurement = AllocationProbe.Measure(applyEdit);
+                trace.Record(applyEdit);
                 Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
-                editBytes[index] = measurement.AllocatedBytes;
             }
 
             for (int index = 0; index < IdleFrameCount; ++index)
             {
                 yield return null;
-                AllocationMeasurement measurement = AllocationProbe.Measure(refresh);
-                idleBytes[index] = measurement.AllocatedBytes;
+                trace.ReadAvailable();
+                trace.Record(refresh);
+            }
+
+            yield return trace.WaitForSamples(sampleCount);
+            long[] editBytes = new long[editCount];
+            long[] idleBytes = new long[IdleFrameCount];
+            int[] idleEvents = new int[IdleFrameCount];
+            for (int index = 0; index < editCount; ++index)
+            {
+                editBytes[index] = trace.Samples[index].Bytes;
+            }
+
+            for (int index = 0; index < IdleFrameCount; ++index)
+            {
+                (idleBytes[index], idleEvents[index]) = trace.Samples[editCount + index];
             }
 
             TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
             TestContext.Out.WriteLine($"T11 idle refresh bytes: {string.Join(",", idleBytes)}");
-            Assert.That(editBytes, Is.All.GreaterThanOrEqualTo(0), "The edit baseline requires a numeric byte reader");
             Assert.That(idleBytes, Is.All.Zero, "Each idle refresh must allocate zero bytes");
+            Assert.That(idleEvents, Is.All.Zero, "Idle refreshes must have no allocation events");
         }
+#endif
 
         [UnityTest]
         public IEnumerator PerKeystrokeHintSweepIsAllocationFree()
