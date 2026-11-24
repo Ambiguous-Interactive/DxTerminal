@@ -72,6 +72,11 @@
             return (worstRatio, worstBackdrop);
         }
 
+        internal static double Linearize(double channel)
+        {
+            return channel <= 0.04045 ? channel / 12.92 : Math.Pow((channel + 0.055) / 1.055, 2.4);
+        }
+
         private static Color Over(Color foreground, Color opaqueBackground)
         {
             float remaining = 1f - foreground.a;
@@ -85,11 +90,6 @@
         private static double Luminance(Color color)
         {
             return 0.2126 * Linearize(color.r) + 0.7152 * Linearize(color.g) + 0.0722 * Linearize(color.b);
-        }
-
-        private static double Linearize(double channel)
-        {
-            return channel <= 0.04045 ? channel / 12.92 : Math.Pow((channel + 0.055) / 1.055, 2.4);
         }
     }
 }

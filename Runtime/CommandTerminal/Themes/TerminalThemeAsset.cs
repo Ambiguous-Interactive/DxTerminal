@@ -271,7 +271,7 @@ namespace WallstopStudios.DxCommandTerminal.Themes
 
         private static string Channel(float value)
         {
-            int channel = Mathf.RoundToInt(Mathf.Clamp01(value) * 255f);
+            int channel = TerminalThemeRoles.QuantizeChannel(value);
             return channel.ToString(CultureInfo.InvariantCulture);
         }
 
@@ -332,6 +332,7 @@ namespace WallstopStudios.DxCommandTerminal.Themes
                 warning: _textWarning,
                 errorText: _textError
             );
+            converted._roles.RepairContrast();
             return converted;
         }
 
