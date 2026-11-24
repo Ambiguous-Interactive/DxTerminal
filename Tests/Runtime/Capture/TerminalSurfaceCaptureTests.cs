@@ -753,6 +753,44 @@
 
 #if UNITY_EDITOR
         [UnityTest]
+        public IEnumerator CapturesClassicRepairs()
+        {
+            yield return SpawnTerminal(themePackPath: "Packs/Themes/ClassicThemes.asset");
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return WaitForTerminalInputVisible();
+            Terminal.Buffer.HandleLog("Muted shell text", string.Empty, TerminalLogType.ShellMessage);
+            Terminal.Log("Classic theme contrast");
+            _terminal.SetCursorBlinkPaused(true);
+            _terminal._commandInput.value = "help";
+            Rect band = TerminalBandRegion();
+            VisualElement root = _terminal._uiDocument.rootVisualElement.Q("TerminalRoot");
+            foreach (
+                (string theme, string stem, string beforeStem) in new[]
+                {
+                    ("dimmed", "DimmedTheme", "ClassicDimmedBefore"),
+                    ("eldritch-horror", "EldritchHorrorTheme", "ClassicEldritchBefore"),
+                }
+            )
+            {
+                StyleSheet before = LoadPack<StyleSheet>($"Tests/Runtime/Capture/{beforeStem}.uss");
+                StyleSheet after = LoadPack<StyleSheet>($"Styles/Themes/{stem}.uss");
+                Assert.That(before != null && after != null, Is.True);
+                _terminal.SetTheme(theme);
+                yield return WaitForTheme(theme);
+                root.styleSheets.Remove(after);
+                root.styleSheets.Add(before);
+                yield return CaptureSurface($"{stem}Before", CaptureBounds.Default(), band);
+                AssertAcceptable(_lastOutcome);
+                Assert.That(root.ClassListContains("dxt-legacy"), Is.True);
+                root.styleSheets.Remove(before);
+                root.styleSheets.Add(after);
+                yield return CaptureSurface($"{stem}After", CaptureBounds.Default(), band);
+                AssertAcceptable(_lastOutcome);
+                Assert.That(root.ClassListContains("dxt-legacy"), Is.False);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator CapturesDxDarkPaletteSelection()
         {
             yield return SpawnTerminal(useEditorDefaults: true);
@@ -1077,7 +1115,7 @@
             return region;
         }
 
-        private IEnumerator SpawnTerminal(float? panelScale = null, string fontPackPath = FontPackPath, bool useEditorDefaults = false)
+        private IEnumerator SpawnTerminal(float? panelScale = null, string fontPackPath = FontPackPath, bool useEditorDefaults = false, string themePackPath = ThemePackPath)
         {
             _diagnosticsSuffix = string.Empty;
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
@@ -1113,7 +1151,7 @@
 #endif
             {
                 _terminal = _surfaceObject.AddComponent<TerminalUI>();
-                _terminal._themePack = LoadPack<TerminalThemePack>(ThemePackPath);
+                _terminal._themePack = LoadPack<TerminalThemePack>(themePackPath);
             }
             _terminal._uiDocument = document;
             _terminal.resetStateOnInit = true;

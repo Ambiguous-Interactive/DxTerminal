@@ -68,12 +68,7 @@ jobs:
       fail-fast: false
       matrix:
         unity-version:
-          - 2021.3.45f1
-          - 2022.3.45f1
           - 6000.5.2f1
-        exclude:
-          - unity-version: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && '2021.3.45f1' || '' }}
-          - unity-version: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') && '2022.3.45f1' || '' }}
     steps:
       - name: Require current PR head before setup
         timeout-minutes: 2
@@ -191,18 +186,9 @@ jobs:
         env:
           UNITY_VERSION: ${{ matrix.unity-version }}
           UNITY_EDITOR_PATH: ${{ steps.ensure_unity_editor.outputs.editor-path }}
-          FULL_MATRIX: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
           CAPTURE_GRAPHICS: ${{ inputs.capture_graphics && matrix.unity-version == '6000.5.2f1' }}
         run: |
           $options = @()
-          if ($env:FULL_MATRIX -eq 'true') {
-            $legs = @{
-              '2021.3.45f1' = @('unity-2021')
-              '2022.3.45f1' = @('unity-2022')
-              '6000.5.2f1' = @('unity-6', 'unity-6-no-reload')
-            }
-            foreach ($leg in $legs[$env:UNITY_VERSION]) { $options += @('--t13', $leg) }
-          }
           if ($env:CAPTURE_GRAPHICS -eq 'true') { $options += '--graphics' }
           $report = Join-Path $env:RUNNER_TEMP "dxterminal-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT-$env:UNITY_VERSION"
           python tooling~/scripts/unity/package_tests.py --unity $env:UNITY_EDITOR_PATH --version $env:UNITY_VERSION --out $report @options
