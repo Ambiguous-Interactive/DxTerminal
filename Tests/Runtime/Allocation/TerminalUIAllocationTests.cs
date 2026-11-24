@@ -120,7 +120,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(editCount))
             {
                 field.value = string.Empty;
-                yield return null;
+                yield return trace.WaitUntilReady();
                 for (int index = 0; index < editCount; ++index)
                 {
                     nextEdit = edits[index];

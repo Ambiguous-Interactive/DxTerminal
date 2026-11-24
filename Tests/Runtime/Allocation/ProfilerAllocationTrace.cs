@@ -4,6 +4,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     using System;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using NUnit.Framework;
     using Unity.Profiling;
     using UnityEditor.Profiling;
@@ -11,11 +12,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
     internal sealed class ProfilerAllocationTrace : IDisposable
     {
-        private const string WindowName = "DxTerminal.AllocationTest.Window";
         private const string AllocationMarkerName = "GC.Alloc";
-        private const int FlushFrameBudget = 60;
-
-        private static readonly ProfilerMarker Window = new ProfilerMarker(ProfilerCategory.Scripts, WindowName);
+        private static readonly TimeSpan PublicationTimeout = TimeSpan.FromSeconds(5);
 
         public IReadOnlyList<(long Bytes, int Events)> Samples
         {
@@ -24,14 +22,26 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
         private readonly List<(long Bytes, int Events)> _samples;
         private readonly bool _wasEnabled;
-        private readonly int _firstFrame;
+        private readonly string _readyName;
+        private readonly string _windowName;
+        private readonly ProfilerMarker _ready;
+        private readonly ProfilerMarker _window;
 
         public ProfilerAllocationTrace(int capacity)
         {
+            string traceName = $"DxTerminal.AllocationTest.{Guid.NewGuid():N}";
+            _readyName = traceName + ".Ready";
+            _windowName = traceName + ".Window";
+            _ready = new ProfilerMarker(ProfilerCategory.Scripts, _readyName);
+            _window = new ProfilerMarker(ProfilerCategory.Scripts, _windowName);
             _samples = new List<(long Bytes, int Events)>(capacity);
             _wasEnabled = ProfilerDriver.enabled;
             ProfilerDriver.enabled = true;
-            _firstFrame = ProfilerDriver.lastFrameIndex + 1;
+        }
+
+        private static string DescribeHistory()
+        {
+            return $"Profiler enabled: {ProfilerDriver.enabled}. Retained frames: {ProfilerDriver.firstFrameIndex} to {ProfilerDriver.lastFrameIndex}.";
         }
 
         public void Dispose()
@@ -41,34 +51,57 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
         public void Record(Action subject)
         {
-            using (Window.Auto())
+            using (_window.Auto())
             {
                 subject();
             }
         }
 
+        public IEnumerator WaitUntilReady()
+        {
+            Stopwatch timeout = Stopwatch.StartNew();
+            int frames = 0;
+            do
+            {
+                _ready.Begin();
+                _ready.End();
+                yield return null;
+                ++frames;
+                ReadAvailable(_readyName);
+                if (0 < _samples.Count)
+                {
+                    TestContext.Out.WriteLine($"Allocation profiler ready after {frames} frames ({timeout.ElapsedMilliseconds} ms)");
+                    _samples.Clear();
+                    yield break;
+                }
+            } while (timeout.Elapsed < PublicationTimeout);
+
+            Assert.Fail($"The profiler did not publish a warm-up marker after {frames} frames. {DescribeHistory()}");
+        }
+
         public IEnumerator WaitForSamples(int expected)
         {
-            for (int index = 0; index < FlushFrameBudget; ++index)
+            Stopwatch timeout = Stopwatch.StartNew();
+            do
             {
                 yield return null;
-                ReadAvailable();
+                ReadAvailable(_windowName);
                 if (expected <= _samples.Count)
                 {
                     break;
                 }
-            }
+            } while (timeout.Elapsed < PublicationTimeout);
 
-            Assert.That(_samples.Count, Is.EqualTo(expected), "The profiler must retain every marked window");
+            Assert.That(_samples.Count, Is.EqualTo(expected), $"The profiler must retain every marked window. {DescribeHistory()}");
         }
 
-        private void ReadAvailable()
+        private void ReadAvailable(string markerName)
         {
             _samples.Clear();
-            int firstFrame = Math.Max(_firstFrame, ProfilerDriver.firstFrameIndex);
+            int firstFrame = ProfilerDriver.firstFrameIndex;
             int lastFrame = ProfilerDriver.lastFrameIndex;
             // The newest frame may still receive samples.
-            for (int index = firstFrame; index < lastFrame; ++index)
+            for (int index = Math.Max(0, firstFrame); index < lastFrame; ++index)
             {
                 using RawFrameDataView frame = ProfilerDriver.GetRawFrameDataView(index, 0);
                 if (!frame.valid)
@@ -76,13 +109,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                     continue;
                 }
 
-                ReadFrame(frame);
+                ReadFrame(frame, markerName);
             }
         }
 
-        private void ReadFrame(RawFrameDataView frame)
+        private void ReadFrame(RawFrameDataView frame, string markerName)
         {
-            int windowId = frame.GetMarkerId(WindowName);
+            int windowId = frame.GetMarkerId(markerName);
             if (windowId == FrameDataView.invalidMarkerId)
             {
                 return;
