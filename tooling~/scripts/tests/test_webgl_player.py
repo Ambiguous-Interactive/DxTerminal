@@ -50,13 +50,14 @@ class BrowserReportTests(unittest.TestCase):
     def test_wrong_or_absent_owner_cannot_claim_a_report(self) -> None:
         for path in ("/report", "/report?token=other", "/report?token=owner-token&extra=1"):
             with self.subTest(path=path):
-                self.assertEqual(self.request(path, b'{"passed":true}')[0], 404)
+                # The handler rejects the URL before reading a body. Unread bytes can reset the Windows connection.
+                self.assertEqual(self.request(path, b"")[0], 404)
                 self.assertEqual(self.report, [])
                 self.assertFalse(self.ready.is_set())
 
     def test_malformed_or_oversized_body_does_not_consume_the_owner(self) -> None:
         for body, length in ((b"not-json", None), (b"[]", None), (b"null", None),
-                             (b"{}", "-1"), (b"{}", "1048577"), (b"{}", "bogus")):
+                             (b"", "-1"), (b"", "1048577"), (b"", "bogus")):
             with self.subTest(body=body, length=length):
                 self.assertEqual(self.request("/report?token=owner-token", body, length)[0], 400)
                 self.assertEqual(self.report, [])
