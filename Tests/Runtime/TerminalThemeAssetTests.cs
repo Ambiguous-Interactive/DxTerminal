@@ -144,9 +144,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             StringAssert.Contains("--text-error: rgba(255, 69, 58, 1);", uss);
         }
 
-        private TerminalThemeAsset CreateAsset(string name)
+        private TerminalThemeAsset CreateAsset(string name, bool semantic = false)
         {
-            TerminalThemeAsset asset = ScriptableObject.CreateInstance<TerminalThemeAsset>();
+            TerminalThemeAsset asset = semantic ? TerminalThemeAsset.CreateSemantic() : ScriptableObject.CreateInstance<TerminalThemeAsset>();
             asset.name = name;
             _createdAssets.Add(asset);
             return asset;
@@ -174,6 +174,27 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             SetColor(asset, "_textError", new Color(1f, 0f, 0f, 1f));
             Assert.AreEqual(asset.BuildUss(), File.ReadAllText(sheetPath), "Editing the asset rewrites the sheet");
+        }
+
+        [Test]
+        public void EditingASemanticAssetUpdatesItsImportedSheet()
+        {
+            CreateTempFolder();
+
+            const string assetPath = TempFolder + "/ProbeTheme.asset";
+            const string sheetPath = TempFolder + "/ProbeTheme.uss";
+            AssetDatabase.CreateAsset(CreateAsset("ProbeTheme", semantic: true), assetPath);
+            string originalGuid = AssetDatabase.AssetPathToGUID(sheetPath);
+            TerminalThemeAsset asset = AssetDatabase.LoadAssetAtPath<TerminalThemeAsset>(assetPath);
+            Assert.That(asset.UsesSemanticRoles, Is.True);
+
+            SetColor(asset, TerminalThemeAsset.RolesPropertyName + "._errorText", Color.magenta);
+            string uss = File.ReadAllText(sheetPath);
+            Assert.That(uss, Does.Contain("--dxt-error-text: rgba(255, 0, 255, 1);"));
+            Assert.That(uss, Does.Contain("--text-error: rgba(255, 0, 255, 1);"));
+            Assert.That(AssetDatabase.LoadAssetAtPath<StyleSheet>(sheetPath) != null, Is.True);
+            Assert.That(originalGuid, Is.Not.Empty);
+            Assert.That(AssetDatabase.AssetPathToGUID(sheetPath), Is.EqualTo(originalGuid));
         }
 
         [Test]

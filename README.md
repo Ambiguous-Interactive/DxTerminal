@@ -163,12 +163,11 @@ require the package's `BaseStyles.uss` on the panel settings; without it the bar
 
 ## Themes and Settings Assets
 
-Create a theme without hand-writing USS: `Assets > Create > Wallstop Studios > DxTerminal > Theme Asset` makes a `TerminalThemeAsset` with color pickers for the 19 custom
-properties a terminal theme sheet needs. The Editor automatically writes a sibling `.uss` named after the asset and keeps it in sync when you recolor or rename it (a rename
-generates a fresh sheet file — Unity references assets by path-derived identity, so like renaming any stylesheet, packs using the old file need the new sheet re-assigned); drag
-that sheet into a `TerminalThemePack`'s Themes list and it behaves exactly like the shipped sheets — `set-theme <name>` (or the palette) picks it up. Hand-written `.uss` themes
-remain fully supported. Prefer asset names without "theme" in the middle (`DarkTheme`, `Neon Nights`); names like `Cool Theme 2` still work but their `set-theme` shorthand becomes
-ambiguous — the full class name always resolves.
+Choose `Assets > Create > Wallstop Studios > DxTerminal > Theme Asset` to start with Dx Dark colors. Edit the semantic roles in the Inspector. The contrast check reports any text
+below 4.5:1 or outline below 3:1 across black, mid gray, and white game backdrops. Existing theme assets still use their widget color fields.
+
+The Editor writes a sibling `.uss` and keeps it in sync. Add the sheet to a `TerminalThemePack` to make it available to `set-theme`. If you rename the asset, reassign the new sheet
+in the pack. Hand-written `.uss` themes also work. Use the full class name if the `set-theme` shorthand is ambiguous, such as for `Cool Theme 2`.
 
 To share one configuration across terminals, `Assets > Create > Wallstop Studios > DxTerminal > Terminal Settings` makes a `TerminalSettings` asset. Assign it to a `TerminalUI` or
 `CommandPaletteUI` and its values (buffer sizes, input caret, caret blink rate, button text, hint mode, history dedup, ignored log types, disabled commands, Unity log forwarding,

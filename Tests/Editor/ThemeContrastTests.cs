@@ -16,46 +16,10 @@
 
     public sealed class ThemeContrastTests
     {
-        private const double TextMinimum = 4.5;
-        private const double OutlineMinimum = 3.0;
-
         private const string PackageRoot = "Packages/com.wallstop-studios.dxcommandterminal/";
         private const string ThemeSheet = "Styles/Themes/DxThemes.uss";
         private static readonly string[] ThemeClasses = { "dx-dark-theme", "dx-paper-theme", "phosphor-theme" };
         private static readonly Lazy<Dictionary<string, Dictionary<string, Rgb>>> Themes = new(LoadThemes);
-
-        private static readonly (string Foreground, string Background, double Minimum)[] Pairs =
-        {
-            ("ink", "surface", TextMinimum),
-            ("ink", "input", TextMinimum),
-            ("ink", "selection", TextMinimum),
-            ("ink", "hover", TextMinimum),
-            ("ink-body", "surface", TextMinimum),
-            ("ink-body", "surface-raised", TextMinimum),
-            ("ink-muted", "surface", TextMinimum),
-            ("ink-muted", "input", TextMinimum),
-            ("accent", "input", TextMinimum),
-            ("accent-soft", "surface", TextMinimum),
-            ("accent-soft", "selection", TextMinimum),
-            ("on-accent", "accent", TextMinimum),
-            ("warning", "surface", TextMinimum),
-            ("warning", "surface-raised", TextMinimum),
-            ("error-text", "surface", TextMinimum),
-            ("error-text", "surface-raised", TextMinimum),
-            ("error-text", "input", TextMinimum),
-            ("syn-number", "surface", TextMinimum),
-            ("syn-number", "input", TextMinimum),
-            ("syn-string", "surface", TextMinimum),
-            ("syn-string", "input", TextMinimum),
-            ("syn-choice", "surface", TextMinimum),
-            ("syn-choice", "input", TextMinimum),
-            ("error", "surface", OutlineMinimum),
-            ("error", "surface-raised", OutlineMinimum),
-            ("accent", "surface", OutlineMinimum),
-            ("selection-line", "surface", OutlineMinimum),
-            ("error-line", "surface", OutlineMinimum),
-            ("error-line", "input", OutlineMinimum),
-        };
 
         private static readonly (string Name, Rgb Color)[] Backdrops = { ("black", new Rgb(0x000000)), ("mid gray", new Rgb(0x808080)), ("white", new Rgb(0xFFFFFF)) };
 
@@ -157,18 +121,11 @@
         {
             foreach (string theme in ThemeClasses)
             {
-                foreach ((string foreground, string background, double minimum) in Pairs)
+                foreach ((string foreground, string background, double minimum) in ThemeContrast.Pairs)
                 {
                     yield return new TestCaseData(theme, foreground, background, minimum);
                 }
             }
-        }
-
-        private static double Contrast(Rgb foreground, Rgb background)
-        {
-            double text = foreground.RelativeLuminance();
-            double back = background.RelativeLuminance();
-            return (Math.Max(text, back) + 0.05) / (Math.Min(text, back) + 0.05);
         }
 
         private static double Apca(Rgb foreground, Rgb background)
@@ -193,8 +150,8 @@
         private static (double Ratio, string Result) MeasureContrast(string theme, string foregroundRole, string backgroundRole)
         {
             Dictionary<string, Rgb> colors = Themes.Value[theme];
-            double worstRatio = double.PositiveInfinity;
-            string worstBackdrop = string.Empty;
+            Color? layer = string.Equals(backgroundRole, "surface", StringComparison.Ordinal) ? null : colors["dxt-" + backgroundRole].ToColor();
+            (double worstRatio, string worstBackdrop) = ThemeContrast.Measure(colors["dxt-" + foregroundRole].ToColor(), colors["dxt-surface"].ToColor(), layer);
             double weakestLc = double.PositiveInfinity;
             string weakestBackdrop = string.Empty;
             foreach ((string backdrop, Rgb game) in Backdrops)
@@ -202,13 +159,6 @@
                 Rgb surface = colors["dxt-surface"].Over(game);
                 Rgb background = string.Equals(backgroundRole, "surface", StringComparison.Ordinal) ? surface : colors["dxt-" + backgroundRole].Over(surface);
                 Rgb foreground = colors["dxt-" + foregroundRole].Over(background);
-                double ratio = Contrast(foreground, background);
-                if (ratio < worstRatio)
-                {
-                    worstRatio = ratio;
-                    worstBackdrop = backdrop;
-                }
-
                 double lc = Apca(foreground, background);
                 if (Math.Abs(lc) < Math.Abs(weakestLc))
                 {
@@ -240,6 +190,16 @@
                 UnityEngine.Object.DestroyImmediate(asset);
 #endif
             }
+        }
+
+        [Test]
+        public void ContrastRejectsTextThatOnlyPassesOnDarkBackdrops()
+        {
+            Color surface = new(13f / 255f, 17f / 255f, 23f / 255f, 0.94f);
+            Color error = new(236f / 255f, 70f / 255f, 97f / 255f);
+            (double ratio, string backdrop) = ThemeContrast.Measure(error, surface, null);
+            Assert.That(backdrop, Is.EqualTo("white"));
+            Assert.That(ratio, Is.EqualTo(4.41).Within(0.01));
         }
 
         [TestCaseSource(nameof(ContrastCases))]
@@ -399,9 +359,9 @@
                 return 100 * Math.Sqrt(deltaL * deltaL + deltaA * deltaA + deltaB * deltaB);
             }
 
-            public double RelativeLuminance()
+            public Color ToColor()
             {
-                return 0.2126 * Linearize(_red) + 0.7152 * Linearize(_green) + 0.0722 * Linearize(_blue);
+                return new Color((float)_red, (float)_green, (float)_blue, (float)_alpha);
             }
 
             public double ApcaLuminance()

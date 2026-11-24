@@ -9,19 +9,22 @@ metadata:
 
 ## Asset model
 
-| Asset       | Class                                                     | Role                                                                                                                  |
-| ----------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Theme pack  | `TerminalThemePack` (`Runtime/CommandTerminal/Themes/`)   | Named set of UI Toolkit style values (colors, sizes) applied to `TerminalUI`                                          |
-| Font pack   | `TerminalFontPack` (`Runtime/CommandTerminal/Themes/`)    | Bundle of `FontAsset`s selectable per terminal                                                                        |
-| Theme asset | `TerminalThemeAsset` (`Runtime/CommandTerminal/Themes/`)  | Authoring-only SO whose 19 color fields auto-generate a sibling `.uss` via `TerminalThemeAssetPostProcessor` (Editor) |
-| Stylesheets | `Styles/*.uss`, `Styles/*.tss`                            | Base USS (`BaseStyles.uss`), theme settings TSS chain                                                                 |
-| Persistence | `TerminalThemeConfiguration(s)`, `TerminalThemePersister` | Saved/serialized theme selections and per-theme overrides                                                             |
+| Asset       | Class                                                     | Role                                                                         |
+| ----------- | --------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Theme pack  | `TerminalThemePack` (`Runtime/CommandTerminal/Themes/`)   | Named set of UI Toolkit style values (colors, sizes) applied to `TerminalUI` |
+| Font pack   | `TerminalFontPack` (`Runtime/CommandTerminal/Themes/`)    | Bundle of `FontAsset`s selectable per terminal                               |
+| Theme asset | `TerminalThemeAsset` (`Runtime/CommandTerminal/Themes/`)  | Authoring asset that generates a sibling `.uss` on import                    |
+| Stylesheets | `Styles/*.uss`, `Styles/*.tss`                            | Base USS (`BaseStyles.uss`), theme settings TSS chain                        |
+| Persistence | `TerminalThemeConfiguration(s)`, `TerminalThemePersister` | Saved/serialized theme selections and per-theme overrides                    |
 
 Built-in packs ship as ScriptableObject assets under `Packs/Themes/` and `Packs/Fonts/`.
 
 ## Theme assets (generated sheets)
 
-`TerminalThemeAsset` colors -> sibling `<AssetName>.uss` written by `TerminalThemeAssetPostProcessor` on every import. Contracts enforced there:
+New theme assets start with the 20 Dx Dark roles. The Inspector checks the serialized colors against the same contrast pairs as the shipped-theme gate. Generated USS includes
+widget aliases for theme pack discovery. Old assets still generate their original widget colors.
+
+`TerminalThemeAssetPostProcessor` writes `<AssetName>.uss` on import:
 
 - Generated sheets carry the `TerminalThemeAsset.GeneratedMarkerPrefix` first-line stamp; only marker-carrying files are overwritten or deleted. A hand-written sheet sharing the
   asset's name is preserved with a warning.
