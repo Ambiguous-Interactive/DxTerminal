@@ -16,7 +16,7 @@
     {
 #if UNITY_EDITOR
         [Test]
-        public void LegacyThemeConversionRepairsAWritableRole()
+        public void LegacyThemeConversionRepairsLowContrastText()
         {
             TerminalThemeAsset source = ScriptableObject.CreateInstance<TerminalThemeAsset>();
             TerminalThemeAsset defaults = TerminalThemeAsset.CreateSemantic();
@@ -45,6 +45,7 @@
                 IReadOnlyDictionary<string, Color> colors = converted.ReadRoleColors();
                 (double ratio, string backdrop) = ThemeContrast.Measure(colors["ink-muted"], colors["surface"], colors["input"]);
                 Assert.That(ratio, Is.GreaterThanOrEqualTo(4.5), backdrop);
+                Assert.That(converted.BuildUss(), Does.Not.Contain("--dxt-ink-muted: rgba(51, 51, 51, 1);"));
                 Assert.That(source.BuildUss(), Does.Contain("--text-shell: rgba(51, 51, 51, 1);"));
             }
             finally
@@ -114,6 +115,79 @@
             }
         }
 #endif
+
+        [TestCase(0, 116, 117)]
+        [TestCase(255, 119, 118)]
+        public void RepairUsesTheFirstPassingExportedGray(int background, int original, int expected)
+        {
+            Color surface = new(background / 255f, background / 255f, background / 255f);
+            Color ink = new(original / 255f, original / 255f, original / 255f);
+            Dictionary<string, Color> colors = new(StringComparer.Ordinal)
+            {
+                ["surface"] = surface,
+                ["input"] = surface,
+                ["selection"] = surface,
+                ["hover"] = surface,
+                ["surface-raised"] = surface,
+                ["ink"] = ink,
+            };
+            foreach ((string foreground, _, _) in ThemeContrast.Pairs)
+            {
+                Color passing = background == 0 ? Color.white : Color.black;
+                if (string.Equals(foreground, "on-accent", StringComparison.Ordinal))
+                {
+                    passing = surface;
+                }
+
+                colors.TryAdd(foreground, passing);
+            }
+
+            Assert.That(ThemeContrastRepair.TryRepair(colors, out IReadOnlyDictionary<string, Color> repaired), Is.True);
+            Assert.That(repaired["ink"], Is.EqualTo(new Color(expected / 255f, expected / 255f, expected / 255f)));
+            Assert.That(colors["ink"], Is.EqualTo(ink));
+        }
+
+        [Test]
+        public void RepairKeepsChromaHueAndAlphaWithinExportPrecision()
+        {
+            IReadOnlyDictionary<string, Color> defaults = new TerminalThemeRoles().ReadColors();
+            Dictionary<string, Color> colors = new(defaults, StringComparer.Ordinal);
+            Color original = new(84f / 255f, 70f / 255f, 79f / 255f, 0.9f);
+            colors["ink-muted"] = original;
+
+            Assert.That(ThemeContrastRepair.TryRepair(colors, out IReadOnlyDictionary<string, Color> repaired), Is.True);
+            (double l, double a, double b) = ThemeContrastRepair.ToLab(original);
+            (double repairedL, double repairedA, double repairedB) = ThemeContrastRepair.ToLab(repaired["ink-muted"]);
+            Assert.That(repairedL, Is.GreaterThan(l));
+            Assert.That(repairedA, Is.EqualTo(a).Within(0.002));
+            Assert.That(repairedB, Is.EqualTo(b).Within(0.002));
+            Assert.That(repaired["ink-muted"].a, Is.EqualTo(original.a));
+            foreach ((string foreground, string background, double minimum) in ThemeContrast.Pairs)
+            {
+                Color? layer = string.Equals(background, "surface", StringComparison.Ordinal) ? null : repaired[background];
+                Assert.That(ThemeContrast.Measure(repaired[foreground], repaired["surface"], layer).Ratio, Is.GreaterThanOrEqualTo(minimum), $"{foreground}/{background}");
+            }
+
+            foreach (KeyValuePair<string, Color> role in defaults)
+            {
+                if (!string.Equals(role.Key, "ink-muted", StringComparison.Ordinal))
+                {
+                    Assert.That(repaired[role.Key], Is.EqualTo(role.Value), role.Key);
+                }
+            }
+        }
+
+        [TestCase(1f, 0f, 0f, 1f)]
+        [TestCase(0.2f, 0.2f, 0.2f, 0.1f)]
+        public void UnrepairableRoleLeavesTheWholePaletteAsItWas(float red, float green, float blue, float alpha)
+        {
+            IReadOnlyDictionary<string, Color> defaults = new TerminalThemeRoles().ReadColors();
+            Dictionary<string, Color> colors = new(defaults, StringComparer.Ordinal) { ["ink"] = new Color(0.2f, 0.2f, 0.2f), ["error-text"] = new Color(red, green, blue, alpha) };
+
+            Assert.That(ThemeContrastRepair.TryRepair(colors, out IReadOnlyDictionary<string, Color> repaired), Is.False);
+            Assert.That(repaired, Is.SameAs(colors));
+            Assert.That(repaired["ink"], Is.EqualTo(new Color(0.2f, 0.2f, 0.2f)));
+        }
 
         [Test]
         public void LegacyColorsFeedSemanticRolesAndNewRolesKeepTheirDefaults()

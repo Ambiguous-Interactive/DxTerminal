@@ -98,7 +98,7 @@
             _errorText = errorText;
         }
 
-        private static Color Quantize(Color color)
+        internal static Color Quantize(Color color)
         {
             return new Color(
                 Mathf.RoundToInt(Mathf.Clamp01(color.r) * 255f) / 255f,
@@ -106,6 +106,29 @@
                 Mathf.RoundToInt(Mathf.Clamp01(color.b) * 255f) / 255f,
                 (float)Math.Round(Mathf.Clamp01(color.a), 3)
             );
+        }
+
+        internal void RepairContrast()
+        {
+            if (!ThemeContrastRepair.TryRepair(ReadColors(), out IReadOnlyDictionary<string, Color> colors))
+            {
+                return;
+            }
+
+            _ink = colors["ink"];
+            _inkBody = colors["ink-body"];
+            _inkMuted = colors["ink-muted"];
+            _accent = colors["accent"];
+            _accentSoft = colors["accent-soft"];
+            _onAccent = colors["on-accent"];
+            _selectionLine = colors["selection-line"];
+            _warning = colors["warning"];
+            _error = colors["error"];
+            _errorLine = colors["error-line"];
+            _errorText = colors["error-text"];
+            _synNumber = colors["syn-number"];
+            _synString = colors["syn-string"];
+            _synChoice = colors["syn-choice"];
         }
 
         internal IReadOnlyDictionary<string, Color> ReadColors()

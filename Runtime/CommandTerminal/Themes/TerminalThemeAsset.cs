@@ -332,6 +332,7 @@ namespace WallstopStudios.DxCommandTerminal.Themes
                 warning: _textWarning,
                 errorText: _textError
             );
+            converted._roles.RepairContrast();
             return converted;
         }
 

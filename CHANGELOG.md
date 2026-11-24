@@ -40,6 +40,7 @@ lines. Details live in the docs and the linked issue.
 
 ### Changed
 
+- Change Convert Legacy Theme to repair contrast when lightness alone can meet the theme gate ([#331](https://github.com/Ambiguous-Interactive/DxTerminal/issues/331)).
 - Change new terminals to use Dx Dark by default ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Pass the source component to terminal and palette lifecycle subscribers; palette handlers now accept a `CommandPaletteUI` argument
   ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).
