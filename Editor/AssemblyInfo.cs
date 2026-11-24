@@ -1,3 +1,1 @@
-﻿using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("WallstopStudios.DxCommandTerminal.Tests.Editor")]
+﻿[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("WallstopStudios.DxCommandTerminal.Tests.Editor")]
