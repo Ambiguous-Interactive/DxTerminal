@@ -126,7 +126,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                     nextEdit = edits[index];
                     trace.Record(applyEdit);
                     Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
-                    yield return trace.WaitForSamples(index + 1);
+                }
+
+                yield return trace.WaitForSamples(editCount);
+                for (int index = 0; index < editCount; ++index)
+                {
                     editBytes[index] = trace.Samples[index].Bytes;
                 }
             }

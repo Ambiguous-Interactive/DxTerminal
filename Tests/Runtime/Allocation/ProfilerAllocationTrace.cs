@@ -24,14 +24,14 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
         private readonly List<(long Bytes, int Events)> _samples;
         private readonly bool _wasEnabled;
-        private int _nextFrame;
+        private readonly int _firstFrame;
 
         public ProfilerAllocationTrace(int capacity)
         {
             _samples = new List<(long Bytes, int Events)>(capacity);
             _wasEnabled = ProfilerDriver.enabled;
             ProfilerDriver.enabled = true;
-            _nextFrame = ProfilerDriver.lastFrameIndex + 1;
+            _firstFrame = ProfilerDriver.lastFrameIndex + 1;
         }
 
         public void Dispose()
@@ -53,23 +53,24 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             {
                 yield return null;
                 ReadAvailable();
-                if (expected <= Samples.Count)
+                if (expected <= _samples.Count)
                 {
                     break;
                 }
             }
 
-            Assert.That(Samples.Count, Is.EqualTo(expected), "The profiler must retain every marked window");
+            Assert.That(_samples.Count, Is.EqualTo(expected), "The profiler must retain every marked window");
         }
 
         private void ReadAvailable()
         {
+            _samples.Clear();
+            int firstFrame = Math.Max(_firstFrame, ProfilerDriver.firstFrameIndex);
             int lastFrame = ProfilerDriver.lastFrameIndex;
-            _nextFrame = Math.Max(_nextFrame, ProfilerDriver.firstFrameIndex);
             // The newest frame may still receive samples.
-            for (; _nextFrame < lastFrame; ++_nextFrame)
+            for (int index = firstFrame; index < lastFrame; ++index)
             {
-                using RawFrameDataView frame = ProfilerDriver.GetRawFrameDataView(_nextFrame, 0);
+                using RawFrameDataView frame = ProfilerDriver.GetRawFrameDataView(index, 0);
                 if (!frame.valid)
                 {
                     continue;
