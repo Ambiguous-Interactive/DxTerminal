@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1a9bc152d51461c85ea3fe7c217592f, type: 3}
+  m_Name: IBM Plex Sans
+  m_EditorClassIdentifier:
+  _fonts:
+  - {fileID: 12800000, guid: e1d9052d5a9743749a6b62ed1e057899, type: 3}
+  - {fileID: 12800000, guid: e7873f701cc545f7b286a41a367468f7, type: 3}
+  - {fileID: 12800000, guid: 268483be85034019a99b9fd6b0b2f642, type: 3}

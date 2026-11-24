@@ -13,6 +13,7 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add JetBrains Mono and IBM Plex Sans terminal font packs ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Add a Convert Legacy Theme menu item that creates a semantic theme copy ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Add semantic color roles and contrast checks to new theme assets ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Add a selection outline to Dx theme palette results and completion hints ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
