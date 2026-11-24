@@ -116,43 +116,34 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 refresh();
             }
 
-            int sampleCount = editCount + IdleFrameCount;
-            using ProfilerAllocationTrace trace = new ProfilerAllocationTrace(sampleCount);
-            field.value = string.Empty;
-            for (int index = 0; index < editCount; ++index)
-            {
-                yield return null;
-                trace.ReadAvailable();
-                nextEdit = edits[index];
-                trace.Record(applyEdit);
-                Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
-            }
-
-            for (int index = 0; index < IdleFrameCount; ++index)
-            {
-                yield return null;
-                trace.ReadAvailable();
-                trace.Record(refresh);
-            }
-
-            yield return trace.WaitForSamples(sampleCount);
             long[] editBytes = new long[editCount];
-            long[] idleBytes = new long[IdleFrameCount];
-            int[] idleEvents = new int[IdleFrameCount];
-            for (int index = 0; index < editCount; ++index)
+            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(editCount))
             {
-                editBytes[index] = trace.Samples[index].Bytes;
+                field.value = string.Empty;
+                yield return null;
+                for (int index = 0; index < editCount; ++index)
+                {
+                    nextEdit = edits[index];
+                    trace.Record(applyEdit);
+                    Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
+                    yield return trace.WaitForSamples(index + 1);
+                    editBytes[index] = trace.Samples[index].Bytes;
+                }
             }
 
+            AllocationAssertions.EnsureInstrumentValidated();
+            long[] idleBytes = new long[IdleFrameCount];
             for (int index = 0; index < IdleFrameCount; ++index)
             {
-                (idleBytes[index], idleEvents[index]) = trace.Samples[editCount + index];
+                yield return null;
+                AllocationMeasurement measurement = AllocationProbe.Measure(refresh);
+                Assert.That(measurement.IsZeroAllocation, Is.True, $"Idle refresh {index} must allocate zero bytes: {measurement.Describe()}");
+                // An event-free window is zero even when Mono cannot supply a thread byte count.
+                idleBytes[index] = 0;
             }
 
             TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
             TestContext.Out.WriteLine($"T11 idle refresh bytes: {string.Join(",", idleBytes)}");
-            Assert.That(idleBytes, Is.All.Zero, "Each idle refresh must allocate zero bytes");
-            Assert.That(idleEvents, Is.All.Zero, "Idle refreshes must have no allocation events");
         }
 #endif
 

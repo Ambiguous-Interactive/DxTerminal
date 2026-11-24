@@ -47,7 +47,22 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             }
         }
 
-        public void ReadAvailable()
+        public IEnumerator WaitForSamples(int expected)
+        {
+            for (int index = 0; index < FlushFrameBudget; ++index)
+            {
+                yield return null;
+                ReadAvailable();
+                if (expected <= Samples.Count)
+                {
+                    break;
+                }
+            }
+
+            Assert.That(Samples.Count, Is.EqualTo(expected), "The profiler must retain every marked window");
+        }
+
+        private void ReadAvailable()
         {
             int lastFrame = ProfilerDriver.lastFrameIndex;
             _nextFrame = Math.Max(_nextFrame, ProfilerDriver.firstFrameIndex);
@@ -62,21 +77,6 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
                 ReadFrame(frame);
             }
-        }
-
-        public IEnumerator WaitForSamples(int expected)
-        {
-            for (int index = 0; index < FlushFrameBudget; ++index)
-            {
-                yield return null;
-                ReadAvailable();
-                if (expected <= Samples.Count)
-                {
-                    break;
-                }
-            }
-
-            Assert.That(Samples.Count, Is.EqualTo(expected), "The profiler must retain every marked window");
         }
 
         private void ReadFrame(RawFrameDataView frame)
