@@ -364,6 +364,7 @@
 
             Assert.That(labels, Does.Contain("alien-jungle (2.83:1 contrast)"));
             Assert.That(labels, Does.Contain("one-dark-pro (2.21:1 contrast)"));
+            TerminalUIEditor.FriendlyThemeNames(dx);
             Assert.That(TerminalUIEditor.FriendlyThemeNames(classic), Is.SameAs(labels));
         }
 
