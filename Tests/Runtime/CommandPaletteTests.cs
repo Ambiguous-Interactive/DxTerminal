@@ -261,36 +261,39 @@
             _palette.Open();
             _palette.SetQuery("paletteping");
 
+            VisualElement root = _palette._paletteRoot;
             StyleSheet baseStyles = LoadPack<StyleSheet>("Styles/BaseStyles.uss");
             StyleSheet legacyColors = LoadPack<StyleSheet>("Styles/LegacyColors.uss");
             Assert.That(baseStyles != null && legacyColors != null, "The shipped palette styles must import");
-            _palette._paletteRoot.styleSheets.Add(baseStyles);
-            _palette._paletteRoot.styleSheets.Add(legacyColors);
-            StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
-            Assert.That(overrides != null, "The palette override sheet must import");
-            _palette._paletteRoot.styleSheets.Add(overrides);
-            _palette._paletteRoot.AddToClassList("partial-legacy");
-
-            VisualElement selected = _palette._paletteRoot.Q(className: "palette-row-selected");
-            Assert.That(selected != null, "Opening the palette selects a result");
-            selected.style.transitionProperty = new List<StylePropertyName>();
-            _palette._paletteRoot.panel.Pick(Vector2.zero);
-            Assert.That(
-                _palette._paletteRoot.customStyle.TryGetValue(new CustomStyleProperty<Color>("--button-selected-bg"), out Color legacy),
-                Is.True,
-                "The legacy color must reach the palette root"
-            );
-            Assert.AreEqual(new Color32(197, 81, 34, 255), (Color32)legacy);
-            AssertSelectionColor(selected, (Color32)legacy);
-
-            _palette._paletteRoot.AddToClassList("partial-semantic");
-            AssertSelectionColor(selected, (Color32)legacy);
+            root.styleSheets.Add(baseStyles);
+            root.styleSheets.Add(legacyColors);
 
             StyleSheet semanticTheme = LoadPack<StyleSheet>("Styles/Themes/DxThemes.uss");
             Assert.That(semanticTheme != null, "The shipped semantic theme must import");
-            _palette._paletteRoot.styleSheets.Add(semanticTheme);
-            _palette._paletteRoot.AddToClassList("dx-dark-theme");
+            root.styleSheets.Add(semanticTheme);
+            /* Keep the fixture's legacy color after Dx Dark enables its semantic roles. */
+            StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
+            Assert.That(overrides != null, "The palette override sheet must import");
+            root.styleSheets.Add(overrides);
+            root.AddToClassList("partial-legacy");
+
+            VisualElement selected = root.Q(className: "palette-row-selected");
+            Assert.That(selected != null, "Opening the palette selects a result");
+            selected.style.transitionProperty = new List<StylePropertyName>();
+            root.panel.Pick(Vector2.zero);
+            CustomStyleProperty<Color> legacySelection = new("--button-selected-bg");
+            Assert.That(root.customStyle.TryGetValue(legacySelection, out Color legacy), Is.True, "The legacy color must reach the palette root");
+            Assert.AreEqual(new Color32(197, 81, 34, 255), (Color32)legacy);
+            AssertSelectionColor(selected, (Color32)legacy);
+
+            root.AddToClassList("partial-semantic");
+            AssertSelectionColor(selected, (Color32)legacy);
+
+            root.AddToClassList("dx-dark-theme");
             AssertSelectionColor(selected, new Color32(18, 48, 31, 255));
+            Assert.That(root.ClassListContains("dxt-legacy"), Is.False, "A complete semantic theme must disable legacy styling");
+            Assert.That(root.customStyle.TryGetValue(legacySelection, out Color retainedLegacy), Is.True);
+            Assert.AreEqual((Color32)legacy, (Color32)retainedLegacy, "The two selection rules must resolve to different colors");
         }
 #endif
 
