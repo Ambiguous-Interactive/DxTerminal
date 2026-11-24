@@ -7,7 +7,23 @@
     {
         private const string LegacyClass = "dxt-legacy";
 
-        private static readonly CustomStyleProperty<Color> SemanticSurface = new("--dxt-surface");
+        private static readonly CustomStyleProperty<Color>[] SemanticColors =
+        {
+            new("--dxt-accent"),
+            new("--dxt-accent-soft"),
+            new("--dxt-error-text"),
+            new("--dxt-hover"),
+            new("--dxt-ink"),
+            new("--dxt-ink-body"),
+            new("--dxt-ink-muted"),
+            new("--dxt-input"),
+            new("--dxt-line"),
+            new("--dxt-selection"),
+            new("--dxt-selection-line"),
+            new("--dxt-surface"),
+            new("--dxt-surface-raised"),
+            new("--dxt-warning"),
+        };
         private static readonly CustomStyleProperty<Color>[] LegacyColors =
         {
             new("--terminal-bg"),
@@ -43,7 +59,7 @@
         {
             VisualElement root = (VisualElement)evt.currentTarget;
             ICustomStyle styles = evt.customStyle;
-            bool semantic = styles.TryGetValue(SemanticSurface, out _);
+            bool semantic = HasSemanticColors(styles);
             root.EnableInClassList(LegacyClass, !semantic);
             if (semantic || _reportedLegacyTheme)
             {
@@ -59,6 +75,19 @@
                     return;
                 }
             }
+        }
+
+        private static bool HasSemanticColors(ICustomStyle styles)
+        {
+            foreach (CustomStyleProperty<Color> color in SemanticColors)
+            {
+                if (!styles.TryGetValue(color, out _))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

@@ -273,9 +273,23 @@
 
             VisualElement selected = _palette._paletteRoot.Q(className: "palette-row-selected");
             Assert.That(selected != null, "Opening the palette selects a result");
-            AssertSelectionColor(selected, new Color32(197, 81, 34, 255));
+            selected.style.transitionProperty = new List<StylePropertyName>();
+            _palette._paletteRoot.panel.Pick(Vector2.zero);
+            Assert.That(
+                _palette._paletteRoot.customStyle.TryGetValue(new CustomStyleProperty<Color>("--button-selected-bg"), out Color legacy),
+                Is.True,
+                "The legacy color must reach the palette root"
+            );
+            Assert.AreEqual(new Color32(197, 81, 34, 255), (Color32)legacy);
+            AssertSelectionColor(selected, (Color32)legacy);
 
-            _palette._paletteRoot.AddToClassList("semantic-override");
+            _palette._paletteRoot.AddToClassList("partial-semantic");
+            AssertSelectionColor(selected, (Color32)legacy);
+
+            StyleSheet semanticTheme = LoadPack<StyleSheet>("Styles/Themes/DxThemes.uss");
+            Assert.That(semanticTheme != null, "The shipped semantic theme must import");
+            _palette._paletteRoot.styleSheets.Add(semanticTheme);
+            _palette._paletteRoot.AddToClassList("dx-dark-theme");
             AssertSelectionColor(selected, new Color32(18, 48, 31, 255));
         }
 #endif

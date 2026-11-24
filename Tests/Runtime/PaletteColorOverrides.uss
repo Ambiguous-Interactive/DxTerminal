@@ -1,12 +1,7 @@
 .partial-legacy {
-    --button-selected-bg: #C55122;
+    --button-selected-bg: rgba(197, 81, 34, 1);
 }
 
-.semantic-override {
-    --dxt-surface: #0D1117;
-    --dxt-selection: #12301F;
-}
-
-.partial-legacy .palette-row {
-    transition-duration: 0s;
+.partial-semantic {
+    --dxt-surface: rgba(13, 17, 23, 1);
 }
