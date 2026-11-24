@@ -3,6 +3,7 @@
     "rootNamespace": "WallstopStudios.DxCommandTerminal.Tests",
     "references": [
         "WallstopStudios.DxCommandTerminal",
+        "WallstopStudios.DxCommandTerminal.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

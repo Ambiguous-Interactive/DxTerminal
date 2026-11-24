@@ -9,6 +9,7 @@
     using Themes;
     using UnityEngine;
 #if UNITY_EDITOR
+    using DxCommandTerminal.Editor.CustomEditors;
     using UnityEditor;
     using PackageInfo = UnityEditor.PackageManager.PackageInfo;
     using UnityEngine.UIElements;
@@ -335,6 +336,51 @@
             TerminalThemePack pack = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(path);
             Assert.That(pack != null, Is.True);
             Assert.That(pack.name, Is.EqualTo("Classic Themes"));
+        }
+
+        [Test]
+        public void ClassicPickerShowsTheWorstTextContrastForEveryLegacySheet()
+        {
+            TerminalThemePack classic = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(PackageRoot + "Packs/Themes/ClassicThemes.asset");
+            TerminalThemePack dx = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(PackageRoot + "Packs/Themes/Dx.asset");
+            Assert.That(classic != null && dx != null, Is.True);
+            Assert.That(TerminalUIEditor.FriendlyThemeNames(dx), Is.EqualTo(new[] { "dx-dark", "dx-paper", "phosphor" }));
+
+            string[] labels = TerminalUIEditor.FriendlyThemeNames(classic);
+            Assert.That(labels.Length, Is.EqualTo(classic.ThemeNames.Count));
+            for (int index = 0; index < labels.Length; ++index)
+            {
+                string theme = classic.ThemeNames[index];
+                string friendly = ThemeNameHelper.GetFriendlyThemeName(theme);
+                if (string.Equals(theme, "dimmed-theme", StringComparison.Ordinal) || string.Equals(theme, "eldritch-horror-theme", StringComparison.Ordinal))
+                {
+                    Assert.That(labels[index], Is.EqualTo(friendly));
+                }
+                else
+                {
+                    Assert.That(labels[index], Does.Match(@$"^{Regex.Escape(friendly)} \([0-9]+\.[0-9]{{2}}:1 contrast\)$"));
+                }
+            }
+
+            Assert.That(labels, Does.Contain("alien-jungle (2.83:1 contrast)"));
+            Assert.That(labels, Does.Contain("one-dark-pro (2.21:1 contrast)"));
+            Assert.That(TerminalUIEditor.FriendlyThemeNames(classic), Is.SameAs(labels));
+        }
+
+        [TestCase("DimmedTheme.uss", "dimmed-theme")]
+        [TestCase("EldritchHorrorTheme.uss", "eldritch-horror-theme")]
+        public void RepairedClassicSheetsMeetEverySemanticContrastGate(string filename, string theme)
+        {
+            string relativePath = $"Styles/Themes/{filename}";
+            PackageInfo package = PackageInfo.FindForAssetPath(PackageRoot + relativePath);
+            string source = File.ReadAllText(Path.Combine(package.resolvedPath, relativePath));
+            Dictionary<string, Rgb> colors = ParseThemes(source)[theme];
+            foreach ((string foreground, string background, double minimum) in ThemeContrast.Pairs)
+            {
+                Color? layer = string.Equals(background, "surface", StringComparison.Ordinal) ? null : colors["dxt-" + background].ToColor();
+                double ratio = ThemeContrast.Measure(colors["dxt-" + foreground].ToColor(), colors["dxt-surface"].ToColor(), layer).Ratio;
+                Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum), $"{theme}: {foreground}/{background}");
+            }
         }
 
         [Test]

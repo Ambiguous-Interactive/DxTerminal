@@ -8,6 +8,7 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
     using Attributes;
     using Backend;
     using DxCommandTerminal.Helper;
+    using Helper;
     using UnityEditor;
     using UnityEngine;
     using UnityEngine.UIElements;
@@ -83,6 +84,36 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         static TerminalUIEditor()
         {
             ObjectFactory.componentWasAdded += HandleComponentAdded;
+            EditorApplication.projectChanged += static () =>
+            {
+                _themeDisplayNames = null;
+            };
+        }
+
+        internal static string[] FriendlyThemeNames(TerminalThemePack pack)
+        {
+            List<string> names = pack._themeNames;
+            if (_themeDisplayNames == null || !ReferenceEquals(_themeDisplayNameSource, names) || _themeDisplayNames.Length != names.Count)
+            {
+                Dictionary<string, double> ratios = ClassicThemeContrast.ReadRatios(pack);
+                RefreshCache(
+                    names,
+                    name =>
+                    {
+                        string displayName = FriendlyThemeName(name);
+                        if (ratios.TryGetValue(name, out double ratio))
+                        {
+                            return FormattableString.Invariant($"{displayName} ({ratio:F2}:1 contrast)");
+                        }
+
+                        return displayName;
+                    },
+                    ref _themeDisplayNameSource,
+                    ref _themeDisplayNames
+                );
+            }
+
+            return _themeDisplayNames;
         }
 
         private static void HandleComponentAdded(Component addedComponent)
@@ -547,11 +578,6 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         private static string[] PackNames(List<TerminalFontPack> fontPacks)
         {
             return RefreshCache(fontPacks, static pack => LogTextSanitizer.Sanitize(pack.name), ref _fontPackNamesSource, ref _fontPackNames);
-        }
-
-        private static string[] FriendlyThemeNames(List<string> themeNames)
-        {
-            return RefreshCache(themeNames, static name => FriendlyThemeName(name), ref _themeDisplayNameSource, ref _themeDisplayNames);
         }
 
         /*
@@ -1161,7 +1187,7 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
                         GUILayout.Label("Select Theme:");
                     }
 
-                    int selectedThemeIndex = EditorGUILayout.Popup(_themeIndex.GetValueOrDefault(-1), FriendlyThemeNames(terminal._themePack._themeNames));
+                    int selectedThemeIndex = EditorGUILayout.Popup(_themeIndex.GetValueOrDefault(-1), FriendlyThemeNames(terminal._themePack));
                     _themeIndex = selectedThemeIndex < 0 ? null : selectedThemeIndex;
 
                     if (_themeIndex is int themeIndex && 0 <= themeIndex && themeIndex < terminal._themePack._themeNames.Count)

@@ -385,7 +385,33 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.AreEqual("uniarg a\u202Eb", DefaultTerminalInput.Instance.CommandText, "The applied candidate is the raw text the developer chose");
         }
 
-        private IEnumerator SpawnOpenTerminal(bool logUnityMessages = false)
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator ClassicPackRestoresTheSavedNameAndSelectsOneDarkPro()
+        {
+            const string legacyName = "dracula-theme";
+            const string newChoice = "one-dark-pro-theme";
+            yield return SpawnOpenTerminal(themePackPath: "Packs/Themes/ClassicThemes.asset", persistedTheme: legacyName);
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement.Q<VisualElement>("TerminalRoot");
+            Assert.That(_terminal.CurrentTheme, Is.EqualTo(legacyName));
+            Assert.That(root.ClassListContains(legacyName), Is.True);
+
+            _terminal.SetTheme(newChoice, persist: true);
+
+            Assert.That(_terminal.CurrentTheme, Is.EqualTo(newChoice));
+            Assert.That(root.ClassListContains(newChoice), Is.True);
+            Assert.That(root.ClassListContains(legacyName), Is.False);
+            root.panel.Pick(Vector2.zero);
+            Assert.That(root.customStyle.TryGetValue(new CustomStyleProperty<Color>("--terminal-bg"), out Color color), Is.True);
+            Assert.That(color.r, Is.EqualTo(40f / 255f).Within(0.001f));
+            Assert.That(color.g, Is.EqualTo(42f / 255f).Within(0.001f));
+            Assert.That(color.b, Is.EqualTo(54f / 255f).Within(0.001f));
+            Assert.That(root.ClassListContains("dxt-legacy"), Is.True);
+        }
+#endif
+
+        private IEnumerator SpawnOpenTerminal(bool logUnityMessages = false, string themePackPath = "Packs/Themes/Medium.asset", string persistedTheme = null)
         {
 #if UNITY_EDITOR
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
@@ -404,7 +430,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 field from the settings asset when one is assigned.
              */
             _terminal._logUnityMessages = logUnityMessages;
-            _terminal._themePack = LoadAsset<TerminalThemePack>("Packs/Themes/Medium.asset");
+            _terminal._themePack = LoadAsset<TerminalThemePack>(themePackPath);
+            _terminal._persistedTheme = persistedTheme ?? _terminal._persistedTheme;
             _terminal._fontPack = LoadAsset<TerminalFontPack>("Packs/Fonts/Medium.asset");
             StartTracker tracker = _terminalObject.AddComponent<StartTracker>();
             _terminalObject.SetActive(true);

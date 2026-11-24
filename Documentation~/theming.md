@@ -7,6 +7,9 @@ Themes are style sheets; fonts are TrueType assets. Both ship as ScriptableObjec
 A `TerminalThemePack` asset lists `Themes` (style sheets) and their `ThemeNames`. A `TerminalFontPack` asset lists `Fonts`. The built-in packs live under `Packs/`; add your own
 assets to extend either list.
 
+New terminals use the Dx pack. To use the older themes, select **Classic Themes** in the Terminal UI inspector. This pack replaces Everything and preserves existing asset
+references. The theme picker shows the lowest text contrast for themes that keep their legacy colors.
+
 `list-themes` and `list-fonts` print every entry in the active packs.
 
 A font draws only the glyphs it carries, and a character it lacks shows a missing-glyph box. All 42 shipped families cover basic Latin. Two carry more, and `list-fonts` prints them

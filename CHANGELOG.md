@@ -40,6 +40,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Changed
 
+- Change the Everything theme pack to Classic Themes and show contrast for themes that retain their legacy colors
+  ([#331](https://github.com/Ambiguous-Interactive/DxTerminal/issues/331)).
 - Change Convert Legacy Theme to repair contrast when lightness alone can meet the theme gate ([#331](https://github.com/Ambiguous-Interactive/DxTerminal/issues/331)).
 - Change new terminals to use Dx Dark by default ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Pass the source component to terminal and palette lifecycle subscribers; palette handlers now accept a `CommandPaletteUI` argument
@@ -50,6 +52,7 @@ lines. Details live in the docs and the linked issue.
 
 ### Fixed
 
+- Fix One Dark Pro and Dracula sharing a single theme choice ([#331](https://github.com/Ambiguous-Interactive/DxTerminal/issues/331)).
 - Fix caret placement after completion, paste, and cut in Unity 2021.3 ([#349](https://github.com/Ambiguous-Interactive/DxTerminal/issues/349)).
 - Fix stale log rows and severity counts after a session buffer reset ([#322](https://github.com/Ambiguous-Interactive/DxTerminal/issues/322)).
 - Fix theme configuration hashes for equal Unicode names ([#317](https://github.com/Ambiguous-Interactive/DxTerminal/pull/317)).

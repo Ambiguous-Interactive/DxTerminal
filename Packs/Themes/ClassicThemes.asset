@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 607c3df0e4d44d3bbafa28e73f136540, type: 3}
-  m_Name: Everything
+  m_Name: Classic Themes
   m_EditorClassIdentifier: 
   _themes:
   - {fileID: 7433441132597879392, guid: c6af239c233c4200b5f45db8a9909353, type: 3}
@@ -219,7 +219,7 @@ MonoBehaviour:
   - ocean-deep-theme
   - oceanic-next-theme
   - old-paper-theme
-  - dracula-theme
+  - one-dark-pro-theme
   - one-dark-theme
   - one-light-theme
   - one-monokai-theme
