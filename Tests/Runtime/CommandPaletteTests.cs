@@ -105,7 +105,7 @@
         }
 
 #if UNITY_EDITOR
-        private static void AssertSelectionColor(VisualElement selected, Color32 expected)
+        private static void AssertSelectionColor(VisualElement root, VisualElement selected, Color32 expected)
         {
             IPanel panel = selected.panel;
             Assert.That(panel, Is.Not.Null, "The selected row must be attached to a panel");
@@ -113,7 +113,16 @@
             panel.Pick(Vector2.zero);
             panel.Pick(Vector2.zero);
             Assert.AreEqual(1f, selected.resolvedStyle.borderTopWidth, "BaseStyles must style the selected row");
-            Assert.AreEqual(expected, (Color32)selected.resolvedStyle.backgroundColor);
+            foreach (TimeValue duration in selected.resolvedStyle.transitionDuration)
+            {
+                Assert.AreEqual(0f, duration.value, "The fixture must disable row transitions");
+            }
+            bool inheritedLegacy = selected.customStyle.TryGetValue(new CustomStyleProperty<Color>("--button-selected-bg"), out Color legacy);
+            Assert.AreEqual(
+                expected,
+                (Color32)selected.resolvedStyle.backgroundColor,
+                $"Legacy class: {root.ClassListContains("dxt-legacy")}. Inherited legacy color: {inheritedLegacy} ({(Color32)legacy})."
+            );
         }
 #endif
 
@@ -256,18 +265,13 @@
         [UnityTest]
         public IEnumerator PartialLegacyPaletteColorsYieldToSemanticRoles()
         {
-            yield return SpawnPalette();
+            ThemeStyleSheet panelTheme = LoadPack<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
+            Assert.That(panelTheme != null, "The package panel theme must import");
+            yield return SpawnPalette(theme: panelTheme);
             RegisterPair();
             _palette.Open();
-            _palette.SetQuery("paletteping");
 
             VisualElement root = _palette._paletteRoot;
-            StyleSheet baseStyles = LoadPack<StyleSheet>("Styles/BaseStyles.uss");
-            StyleSheet legacyColors = LoadPack<StyleSheet>("Styles/LegacyColors.uss");
-            Assert.That(baseStyles != null && legacyColors != null, "The shipped palette styles must import");
-            root.styleSheets.Add(baseStyles);
-            root.styleSheets.Add(legacyColors);
-
             StyleSheet semanticTheme = LoadPack<StyleSheet>("Styles/Themes/DxThemes.uss");
             Assert.That(semanticTheme != null, "The shipped semantic theme must import");
             root.styleSheets.Add(semanticTheme);
@@ -277,20 +281,20 @@
             root.styleSheets.Add(overrides);
             root.AddToClassList("partial-legacy");
 
+            root.panel.Pick(Vector2.zero);
+            _palette.SetQuery("paletteping");
             VisualElement selected = root.Q(className: "palette-row-selected");
             Assert.That(selected != null, "Opening the palette selects a result");
-            selected.style.transitionProperty = new List<StylePropertyName>();
-            root.panel.Pick(Vector2.zero);
             CustomStyleProperty<Color> legacySelection = new("--button-selected-bg");
             Assert.That(root.customStyle.TryGetValue(legacySelection, out Color legacy), Is.True, "The legacy color must reach the palette root");
             Assert.AreEqual(new Color32(197, 81, 34, 255), (Color32)legacy);
-            AssertSelectionColor(selected, (Color32)legacy);
+            AssertSelectionColor(root, selected, (Color32)legacy);
 
             root.AddToClassList("partial-semantic");
-            AssertSelectionColor(selected, (Color32)legacy);
+            AssertSelectionColor(root, selected, (Color32)legacy);
 
             root.AddToClassList("dx-dark-theme");
-            AssertSelectionColor(selected, new Color32(18, 48, 31, 255));
+            AssertSelectionColor(root, selected, new Color32(18, 48, 31, 255));
             Assert.That(root.ClassListContains("dxt-legacy"), Is.False, "A complete semantic theme must disable legacy styling");
             Assert.That(root.customStyle.TryGetValue(legacySelection, out Color retainedLegacy), Is.True);
             Assert.AreEqual((Color32)legacy, (Color32)retainedLegacy, "The two selection rules must resolve to different colors");
@@ -1839,9 +1843,10 @@
             );
         }
 
-        private IEnumerator SpawnPalette(bool withFont = false)
+        private IEnumerator SpawnPalette(bool withFont = false, ThemeStyleSheet theme = null)
         {
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            _panelSettings.themeStyleSheet = theme;
             _paletteObject = new GameObject("CommandPalette");
             _paletteObject.SetActive(false);
             UIDocument document = _paletteObject.AddComponent<UIDocument>();

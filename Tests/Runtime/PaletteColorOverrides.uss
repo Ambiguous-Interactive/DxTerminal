@@ -5,3 +5,7 @@
 .partial-semantic {
     --dxt-surface: rgba(13, 17, 23, 1);
 }
+
+.partial-legacy .palette-row {
+    transition-duration: 0s;
+}
