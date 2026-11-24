@@ -314,6 +314,11 @@ namespace WallstopStudios.DxCommandTerminal.Themes
             return _roles.ReadColors();
         }
 
+        internal TerminalThemeAsset CreateSemanticCopy()
+        {
+            return CreateSemantic();
+        }
+
         private void AppendSemanticColors(StringBuilder builder)
         {
             IReadOnlyDictionary<string, Color> roles = ReadRoleColors();
