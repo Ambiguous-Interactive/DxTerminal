@@ -104,6 +104,28 @@
             Assert.AreEqual(ctrl, resolved.CtrlRequired, $"Ctrl requirement for '{key}'");
         }
 
+#if UNITY_EDITOR
+        private static void AssertSelectionColor(VisualElement root, VisualElement selected, Color32 expected)
+        {
+            IPanel panel = selected.panel;
+            Assert.That(panel, Is.Not.Null, "The selected row must be attached to a panel");
+            /* Pick validates styles in batch mode. A styles callback can invalidate them once more. */
+            panel.Pick(Vector2.zero);
+            panel.Pick(Vector2.zero);
+            Assert.AreEqual(1f, selected.resolvedStyle.borderTopWidth, "BaseStyles must style the selected row");
+            foreach (TimeValue duration in selected.resolvedStyle.transitionDuration)
+            {
+                Assert.AreEqual(0f, duration.value, "The fixture must disable row transitions");
+            }
+            bool inheritedLegacy = selected.customStyle.TryGetValue(new CustomStyleProperty<Color>("--button-selected-bg"), out Color legacy);
+            Assert.AreEqual(
+                expected,
+                (Color32)selected.resolvedStyle.backgroundColor,
+                $"Legacy class: {root.ClassListContains("dxt-legacy")}. Inherited legacy color: {inheritedLegacy} ({(Color32)legacy})."
+            );
+        }
+#endif
+
         private static CommandCompletionProvider InventoryStage()
         {
             return (in CommandCompletionContext context, List<CommandCompletion> results) =>
@@ -238,6 +260,48 @@
             Terminal.Shell = new CommandShell(Terminal.History);
             Terminal.AutoComplete = new CommandAutoComplete(Terminal.History, Terminal.Shell);
         }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator PartialLegacyPaletteColorsYieldToSemanticRoles()
+        {
+            ThemeStyleSheet panelTheme = LoadPack<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
+            Assert.That(panelTheme != null, "The package panel theme must import");
+            yield return SpawnPalette(theme: panelTheme);
+            RegisterPair();
+            _palette.Open();
+
+            VisualElement root = _palette._paletteRoot;
+            StyleSheet semanticTheme = LoadPack<StyleSheet>("Styles/Themes/DxThemes.uss");
+            Assert.That(semanticTheme != null, "The shipped semantic theme must import");
+            root.styleSheets.Add(semanticTheme);
+            /* Keep the fixture's legacy color after Dx Dark enables its semantic roles. */
+            StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
+            Assert.That(overrides != null, "The palette override sheet must import");
+            root.styleSheets.Add(overrides);
+            root.panel.Pick(Vector2.zero);
+            _palette.SetQuery("paletteping");
+            VisualElement selected = root.Q(className: "palette-row-selected");
+            Assert.That(selected != null, "Opening the palette selects a result");
+            AssertSelectionColor(root, selected, new Color32(69, 79, 92, 255));
+
+            root.AddToClassList("partial-legacy");
+            root.panel.Pick(Vector2.zero);
+            CustomStyleProperty<Color> legacySelection = new("--button-selected-bg");
+            Assert.That(root.customStyle.TryGetValue(legacySelection, out Color legacy), Is.True, "The legacy color must reach the palette root");
+            Assert.AreEqual(new Color32(197, 81, 34, 255), (Color32)legacy);
+            AssertSelectionColor(root, selected, (Color32)legacy);
+
+            root.AddToClassList("partial-semantic");
+            AssertSelectionColor(root, selected, (Color32)legacy);
+
+            root.AddToClassList("dx-dark-theme");
+            AssertSelectionColor(root, selected, new Color32(18, 48, 31, 255));
+            Assert.That(root.ClassListContains("dxt-legacy"), Is.False, "A complete semantic theme must disable legacy styling");
+            Assert.That(root.customStyle.TryGetValue(legacySelection, out Color retainedLegacy), Is.True);
+            Assert.AreEqual((Color32)legacy, (Color32)retainedLegacy, "The two selection rules must resolve to different colors");
+        }
+#endif
 
         [Test]
         public void HotkeyParsingResolvesModifiersAndNames()
@@ -1781,9 +1845,10 @@
             );
         }
 
-        private IEnumerator SpawnPalette(bool withFont = false)
+        private IEnumerator SpawnPalette(bool withFont = false, ThemeStyleSheet theme = null)
         {
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            _panelSettings.themeStyleSheet = theme;
             _paletteObject = new GameObject("CommandPalette");
             _paletteObject.SetActive(false);
             UIDocument document = _paletteObject.AddComponent<UIDocument>();

@@ -1,0 +1,270 @@
+/* Older Unity cannot resolve var() fallbacks for defined colors. */
+:root {
+    --text-shell: rgba(174, 174, 174, 1);
+    --text-error: rgba(230, 115, 115, 1);
+    --text-message: rgba(235, 235, 235, 1);
+    --button-selected-text: rgba(255, 255, 255, 1);
+    --button-hover-text: rgba(242, 242, 247, 1);
+    --button-text: rgba(235, 235, 235, 1);
+    --button-selected-bg: rgba(69, 79, 92, 1);
+    --button-hover-bg: rgba(72, 72, 74, 1);
+    --scroll-active-bg: rgba(110, 110, 110, 1);
+    --scroll-color: rgba(235, 235, 235, 1);
+    --button-bg: rgba(77, 77, 77, 1);
+    --input-field-bg: rgba(44, 44, 46, 0.8);
+    --caret-color: rgba(235, 235, 235, 1);
+    --input-text-color: rgba(235, 235, 235, 1);
+    --terminal-bg: rgba(31, 31, 31, 0.96);
+}
+
+/* Keep widget-specific colors for legacy theme sheets. */
+
+.dxt-legacy .terminal-header,
+.dxt-legacy .terminal-search,
+.dxt-legacy .terminal-severities {
+    background-color: var(--terminal-bg);
+    color: var(--text-shell);
+}
+
+.dxt-legacy .terminal-header .terminal-button,
+.dxt-legacy .terminal-search .terminal-button,
+.dxt-legacy .terminal-severities .terminal-button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+}
+
+.dxt-legacy .terminal-header .terminal-button:hover,
+.dxt-legacy .terminal-search .terminal-button:hover,
+.dxt-legacy .terminal-severities .terminal-button:hover {
+    background-color: var(--button-hover-bg);
+    color: var(--button-hover-text);
+}
+
+.dxt-legacy .terminal-search-field > #unity-text-input {
+    --unity-cursor-color: var(--caret-color);
+    background-color: var(--input-field-bg);
+    color: var(--input-text-color);
+}
+
+.dxt-legacy .terminal-search-field > #unity-text-input > .unity-text-element {
+    color: var(--input-text-color);
+}
+
+.dxt-legacy .terminal-output-label--current-match {
+    border-left-color: var(--caret-color);
+}
+
+.dxt-legacy .terminal-copy-status {
+    color: var(--text-warning);
+    background-color: var(--terminal-bg);
+}
+
+.dxt-legacy .terminal-button-jump-latest {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+}
+
+.dxt-legacy .terminal-button-jump-latest:hover {
+    background-color: var(--button-hover-bg);
+    color: var(--button-hover-text);
+}
+
+.dxt-legacy .terminal-input-field > #unity-text-input {
+    background-color: var(--input-field-bg);
+}
+
+.dxt-legacy .styled-cursor {
+    --unity-cursor-color: var(--input-text-color);
+}
+
+.dxt-legacy .terminal-container,
+.dxt-legacy .log-scroll-view .unity-scroller .unity-scroller__dragger {
+    background-color: var(--terminal-bg);
+}
+
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__dragger {
+    background-color: var(--scroll-color);
+}
+
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__dragger:hover,
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__tracker:hover,
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__dragger:active,
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__tracker:active,
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__dragger.dragger-active {
+    background-color: var(--scroll-active-bg);
+}
+
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__dragger.tracker-hovered,
+.dxt-legacy .log-scroll-view .unity-scroller .unity-base-slider__dragger.tracker-active {
+    background-color: var(--scroll-inverse-bg);
+}
+
+.dxt-legacy .autocomplete-item {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+}
+
+.dxt-legacy .autocomplete-item:hover {
+    background-color: var(--button-hover-bg);
+    color: var(--button-hover-text);
+}
+
+.dxt-legacy .autocomplete-item-selected {
+    background-color: var(--button-selected-bg);
+    color: var(--button-selected-text);
+}
+
+.dxt-legacy .autocomplete-item-selected:hover {
+    background-color: var(--button-hover-bg);
+    color: var(--button-hover-text);
+}
+
+.dxt-legacy .terminal-button-run {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+}
+
+.dxt-legacy .terminal-input-caret {
+    color: var(--input-text-color);
+    background-color: var(--input-field-bg);
+}
+
+.dxt-legacy .terminal-input-field > #unity-text-input,
+.dxt-legacy .terminal-input-field > #unity-text-input > .unity-text-element {
+    color: var(--input-text-color);
+}
+
+.dxt-legacy .state-button-container .terminal-button {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+}
+
+.dxt-legacy .state-button-container .terminal-button:hover {
+    background-color: var(--button-selected-bg);
+    color: var(--button-selected-text);
+}
+
+.dxt-legacy .terminal-output-label--message,
+.dxt-legacy .terminal-output-label--message #unity-text-input,
+.dxt-legacy .terminal-output-label--message .unity-text-element {
+    color: var(--text-message);
+}
+
+.dxt-legacy .terminal-output-label--warning,
+.dxt-legacy .terminal-output-label--warning #unity-text-input,
+.dxt-legacy .terminal-output-label--warning .unity-text-element {
+    color: var(--text-warning);
+}
+
+.dxt-legacy .terminal-output-label--input,
+.dxt-legacy .terminal-output-label--input #unity-text-input,
+.dxt-legacy .terminal-output-label--input .unity-text-element {
+    color: var(--text-input-echo);
+}
+
+.dxt-legacy .terminal-output-label--shell,
+.dxt-legacy .terminal-output-label--shell #unity-text-input,
+.dxt-legacy .terminal-output-label--shell .unity-text-element {
+    color: var(--text-shell);
+}
+
+.dxt-legacy .terminal-output-label--error,
+.dxt-legacy .terminal-output-label--error #unity-text-input,
+.dxt-legacy .terminal-output-label--error .unity-text-element {
+    color: var(--text-error);
+}
+
+.dxt-legacy .terminal-severities .terminal-type-chip {
+    background-color: var(--button-selected-bg);
+    color: var(--button-selected-text);
+}
+
+.dxt-legacy .terminal-severities .terminal-type-chip--excluded {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border-bottom-color: var(--text-shell);
+}
+
+.dxt-legacy .palette-panel {
+    background-color: var(--terminal-bg);
+    border-color: var(--button-bg);
+}
+
+.dxt-legacy .palette-input > #unity-text-input,
+.dxt-legacy .palette-input > #unity-text-input > .unity-text-element {
+    color: var(--input-text-color);
+}
+
+.dxt-legacy .palette-input > #unity-text-input {
+    --unity-cursor-color: var(--caret-color);
+    background-color: var(--input-field-bg);
+}
+
+.dxt-legacy .palette-divider {
+    background-color: var(--button-bg);
+}
+
+.dxt-legacy .palette-results .unity-scroller .unity-base-slider__dragger {
+    background-color: var(--scroll-color);
+}
+
+.dxt-legacy .palette-results .unity-scroller .unity-base-slider__dragger:hover,
+.dxt-legacy .palette-results .unity-scroller .unity-base-slider__tracker:hover,
+.dxt-legacy .palette-results .unity-scroller .unity-base-slider__dragger:active,
+.dxt-legacy .palette-results .unity-scroller .unity-base-slider__tracker:active {
+    background-color: var(--scroll-active-bg);
+}
+
+.dxt-legacy .palette-row:hover {
+    background-color: var(--button-hover-bg);
+}
+
+.dxt-legacy .palette-row-selected:hover {
+    background-color: var(--button-selected-bg);
+}
+
+.dxt-legacy .palette-row-selected {
+    background-color: var(--button-selected-bg);
+}
+
+.dxt-legacy .palette-row-name {
+    color: var(--button-text);
+}
+
+.dxt-legacy .palette-row:hover .palette-row-name {
+    color: var(--button-hover-text);
+}
+
+.dxt-legacy .palette-row-selected .palette-row-name {
+    color: var(--button-selected-text);
+}
+
+.dxt-legacy .palette-row-help {
+    color: var(--text-shell);
+}
+
+.dxt-legacy .palette-output {
+    color: var(--text-message);
+}
+
+.dxt-legacy .palette-feedback {
+    color: var(--text-error);
+}
+
+.dxt-legacy .palette-footer {
+    color: var(--text-shell);
+}
+
+.dxt-legacy .terminal-header .terminal-button:focus,
+.dxt-legacy .terminal-search .terminal-button:focus,
+.dxt-legacy .terminal-severities .terminal-button:focus,
+.dxt-legacy .input-container .terminal-button:focus {
+    background-color: var(--button-selected-bg);
+    color: var(--button-selected-text);
+}
+
+.dxt-legacy .autocomplete-item,
+.dxt-legacy .autocomplete-item-selected {
+    border-width: 0;
+    padding: 0 4px;
+}

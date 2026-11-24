@@ -1,3 +1,5 @@
+@import url("LegacyColors.uss");
+
 .transparent-cursor {
     --unity-cursor-color: transparent;
 }
@@ -36,8 +38,8 @@
     align-items: center;
     min-width: 0;
     padding: 2px 4px;
-    background-color: var(--terminal-bg);
-    color: var(--text-shell);
+    background-color: var(--dxt-surface);
+    color: var(--dxt-ink-muted);
 }
 
 .terminal-header-title {
@@ -53,15 +55,15 @@
 .terminal-severities .terminal-button {
     flex-shrink: 0;
     min-height: 24px;
-    background-color: var(--button-bg);
-    color: var(--button-text);
+    background-color: var(--dxt-surface-raised);
+    color: var(--dxt-ink-body);
 }
 
 .terminal-header .terminal-button:hover,
 .terminal-search .terminal-button:hover,
 .terminal-severities .terminal-button:hover {
-    background-color: var(--button-hover-bg);
-    color: var(--button-hover-text);
+    background-color: var(--dxt-hover);
+    color: var(--dxt-ink);
 }
 
 .terminal-search-field {
@@ -82,17 +84,17 @@
 }
 
 .terminal-search-field > #unity-text-input {
-    --unity-cursor-color: var(--caret-color);
+    --unity-cursor-color: var(--dxt-accent);
     min-width: 0;
-    background-color: var(--input-field-bg);
-    color: var(--input-text-color);
+    background-color: var(--dxt-input);
+    color: var(--dxt-ink);
     border-width: 0;
     padding: 2px 4px;
     margin: 0;
 }
 
 .terminal-search-field > #unity-text-input > .unity-text-element {
-    color: var(--input-text-color);
+    color: var(--dxt-ink);
 }
 
 .terminal-search-count {
@@ -255,7 +257,7 @@
 }
 
 .terminal-output-label--current-match {
-    border-left-color: var(--caret-color);
+    border-left-color: var(--dxt-accent);
 }
 
 .terminal-output-label > .unity-base-field__label {
@@ -283,8 +285,8 @@
 
 .terminal-copy-status {
     flex-shrink: 0;
-    color: var(--text-warning);
-    background-color: var(--terminal-bg);
+    color: var(--dxt-warning);
+    background-color: var(--dxt-surface);
     white-space: normal;
     padding: 2px 4px;
 }
@@ -298,13 +300,13 @@
 
 .terminal-button-jump-latest {
     flex-shrink: 0;
-    background-color: var(--button-bg);
-    color: var(--button-text);
+    background-color: var(--dxt-surface-raised);
+    color: var(--dxt-ink-body);
 }
 
 .terminal-button-jump-latest:hover {
-    background-color: var(--button-hover-bg);
-    color: var(--button-hover-text);
+    background-color: var(--dxt-hover);
+    color: var(--dxt-ink);
 }
 
 .terminal-input-caret {
@@ -330,7 +332,7 @@
 }
 
 .terminal-input-field > #unity-text-input {
-    background-color: var(--input-field-bg);
+    background-color: var(--dxt-input);
     border-top-width: 0;
     border-bottom-width: 0;
     border-left-width: 0;
@@ -342,16 +344,16 @@
 /* -- Theming -- */
 
 .styled-cursor {
-    --unity-cursor-color: var(--input-text-color);
+    --unity-cursor-color: var(--dxt-accent);
 }
 
 .terminal-container,
 .log-scroll-view .unity-scroller .unity-scroller__dragger {
-    background-color: var(--terminal-bg);
+    background-color: var(--dxt-surface);
 }
 
 .log-scroll-view .unity-scroller .unity-base-slider__dragger {
-    background-color: var(--scroll-color);
+    background-color: var(--dxt-ink-muted);
     transition: background-color 0.1s ease;
 }
 
@@ -360,101 +362,109 @@
 .log-scroll-view .unity-scroller .unity-base-slider__dragger:active,
 .log-scroll-view .unity-scroller .unity-base-slider__tracker:active,
 .log-scroll-view .unity-scroller .unity-base-slider__dragger.dragger-active {
-    background-color: var(--scroll-active-bg);
+    background-color: var(--dxt-ink-body);
 }
 
 .log-scroll-view .unity-scroller .unity-base-slider__dragger.tracker-hovered,
 .log-scroll-view .unity-scroller .unity-base-slider__dragger.tracker-active {
-    background-color: var(--scroll-inverse-bg);
+    background-color: var(--dxt-ink-muted);
 }
 
 .autocomplete-item {
-    background-color: var(--button-bg);
+    background-color: var(--dxt-surface-raised);
     transition: background-color 0.1s ease;
-    color: var(--button-text);
+    color: var(--dxt-ink-body);
 }
 
 .autocomplete-item:hover {
-    background-color: var(--button-hover-bg);
-    color: var(--button-hover-text);
+    background-color: var(--dxt-hover);
+    color: var(--dxt-ink);
+}
+
+.autocomplete-item,
+.autocomplete-item-selected {
+    border-width: 1px;
+    border-color: transparent;
+    padding: 0 3px;
 }
 
 .autocomplete-item-selected {
-    background-color: var(--button-selected-bg);
-    color: var(--button-selected-text);
+    border-color: var(--dxt-selection-line);
+    background-color: var(--dxt-selection);
+    color: var(--dxt-ink);
 }
 
 .autocomplete-item-selected:hover {
-    background-color: var(--button-hover-bg);
-    color: var(--button-hover-text);
+    background-color: var(--dxt-hover);
+    color: var(--dxt-ink);
 }
 
 .terminal-button-run {
-    background-color: var(--button-bg);
-    color: var(--button-text);
+    background-color: var(--dxt-surface-raised);
+    color: var(--dxt-ink-body);
 }
 
 .terminal-input-caret {
-    color: var(--input-text-color);
-    background-color: var(--input-field-bg);
+    color: var(--dxt-accent);
+    background-color: var(--dxt-input);
 }
 
 .terminal-input-field > #unity-text-input,
 .terminal-input-field > #unity-text-input > .unity-text-element {
-    color: var(--input-text-color);
+    color: var(--dxt-ink);
 }
 
 .state-button-container .terminal-button {
-    background-color: var(--button-bg);
-    color: var(--button-text);
+    background-color: var(--dxt-surface-raised);
+    color: var(--dxt-ink-body);
 }
 
 .state-button-container .terminal-button:hover {
-    background-color: var(--button-selected-bg);
-    color: var(--button-selected-text);
+    background-color: var(--dxt-selection);
+    color: var(--dxt-ink);
 }
 
 .terminal-output-label--message,
 .terminal-output-label--message #unity-text-input,
 .terminal-output-label--message .unity-text-element {
-    color: var(--text-message);
+    color: var(--dxt-ink-body);
 }
 
 .terminal-output-label--warning,
 .terminal-output-label--warning #unity-text-input,
 .terminal-output-label--warning .unity-text-element {
-    color: var(--text-warning);
+    color: var(--dxt-warning);
 }
 
 .terminal-output-label--input,
 .terminal-output-label--input #unity-text-input,
 .terminal-output-label--input .unity-text-element {
-    color: var(--text-input-echo);
+    color: var(--dxt-accent-soft);
 }
 
 .terminal-output-label--shell,
 .terminal-output-label--shell #unity-text-input,
 .terminal-output-label--shell .unity-text-element {
-    color: var(--text-shell);
+    color: var(--dxt-ink-muted);
 }
 
 .terminal-output-label--error,
 .terminal-output-label--error #unity-text-input,
 .terminal-output-label--error .unity-text-element {
-    color: var(--text-error);
+    color: var(--dxt-error-text);
 }
 
 
 .terminal-severities .terminal-type-chip {
-    background-color: var(--button-selected-bg);
-    color: var(--button-selected-text);
+    background-color: var(--dxt-selection);
+    color: var(--dxt-ink);
 }
 
 .terminal-severities .terminal-type-chip--excluded {
-    background-color: var(--button-bg);
-    color: var(--button-text);
+    background-color: var(--dxt-surface-raised);
+    color: var(--dxt-ink-body);
     border-bottom-width: 2px;
-    border-bottom-color: var(--text-shell);
+    border-bottom-color: var(--dxt-ink-muted);
 }
 
 .terminal-root--narrow .terminal-type-chip {
@@ -464,8 +474,8 @@
 /* -- Command palette -- */
 
 .palette-panel {
-    background-color: var(--terminal-bg, rgba(31, 31, 31, 0.96));
-    border-color: var(--button-bg, rgba(77, 77, 77, 1));
+    background-color: var(--dxt-surface);
+    border-color: var(--dxt-line);
     border-width: 1px;
     border-radius: 10px;
     padding: 10px 12px 8px 12px;
@@ -479,12 +489,12 @@
 
 .palette-input > #unity-text-input,
 .palette-input > #unity-text-input > .unity-text-element {
-    color: var(--input-text-color, rgba(235, 235, 235, 1));
+    color: var(--dxt-ink);
 }
 
 .palette-input > #unity-text-input {
-    --unity-cursor-color: var(--caret-color, rgba(235, 235, 235, 1));
-    background-color: var(--input-field-bg, rgba(44, 44, 46, 0.8));
+    --unity-cursor-color: var(--dxt-accent);
+    background-color: var(--dxt-input);
     border-width: 0;
     border-radius: 6px;
     font-size: 14px;
@@ -496,7 +506,7 @@
     height: 1px;
     margin-top: 6px;
     align-self: stretch;
-    background-color: var(--button-bg, rgba(77, 77, 77, 1));
+    background-color: var(--dxt-line);
 }
 
 .palette-results {
@@ -533,7 +543,7 @@
     min-width: 0;
     width: 10px;
     left: 0;
-    background-color: var(--scroll-color, rgba(235, 235, 235, 1));
+    background-color: var(--dxt-ink-muted);
     transition: background-color 0.1s ease;
 }
 
@@ -541,7 +551,7 @@
 .palette-results .unity-scroller .unity-base-slider__tracker:hover,
 .palette-results .unity-scroller .unity-base-slider__dragger:active,
 .palette-results .unity-scroller .unity-base-slider__tracker:active {
-    background-color: var(--scroll-active-bg, rgba(110, 110, 110, 1));
+    background-color: var(--dxt-ink-body);
 }
 
 .palette-results .unity-scroller .unity-scroller__low-button,
@@ -553,65 +563,65 @@
 .palette-row {
     flex-direction: row;
     align-items: center;
-    padding: 4px 8px 4px 8px;
+    padding: 3px 7px;
+    border-width: 1px;
+    border-color: transparent;
     border-radius: 4px;
     transition: background-color 0.1s ease;
 }
 
 .palette-row:hover {
-    background-color: var(--button-hover-bg, rgba(72, 72, 74, 1));
+    background-color: var(--dxt-hover);
 }
 
+.palette-row-selected,
 .palette-row-selected:hover {
-    background-color: var(--button-selected-bg, rgba(69, 79, 92, 1));
-}
-
-.palette-row-selected {
-    background-color: var(--button-selected-bg, rgba(69, 79, 92, 1));
+    background-color: var(--dxt-selection);
+    border-color: var(--dxt-selection-line);
 }
 
 .palette-row-name {
     flex-shrink: 0;
     min-width: 140px;
-    color: var(--button-text, rgba(235, 235, 235, 1));
+    color: var(--dxt-ink-body);
 }
 
 .palette-row:hover .palette-row-name {
-    color: var(--button-hover-text, rgba(242, 242, 247, 1));
+    color: var(--dxt-ink);
 }
 
 .palette-row-selected .palette-row-name {
-    color: var(--button-selected-text, rgba(255, 255, 255, 1));
+    color: var(--dxt-ink);
 }
 
 .palette-row-help {
     flex-grow: 1;
     white-space: normal;
-    color: var(--text-shell, rgba(174, 174, 174, 1));
+    color: var(--dxt-ink-muted);
 }
 
 .palette-output {
     margin-top: 4px;
     white-space: normal;
-    color: var(--text-message, rgba(235, 235, 235, 1));
+    color: var(--dxt-ink-body);
 }
 
 .palette-feedback {
     margin-top: 4px;
     white-space: normal;
-    color: var(--text-error, rgba(230, 115, 115, 1));
+    color: var(--dxt-error-text);
 }
 
 .palette-footer {
     margin-top: 6px;
     font-size: 10px;
-    color: var(--text-shell, rgba(158, 158, 158, 1));
+    color: var(--dxt-ink-muted);
 }
 
 .terminal-header .terminal-button:focus,
 .terminal-search .terminal-button:focus,
 .terminal-severities .terminal-button:focus,
 .input-container .terminal-button:focus {
-    background-color: var(--button-selected-bg);
-    color: var(--button-selected-text);
+    background-color: var(--dxt-selection);
+    color: var(--dxt-ink);
 }

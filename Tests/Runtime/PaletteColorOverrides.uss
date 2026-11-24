@@ -1,0 +1,11 @@
+.partial-legacy {
+    --button-selected-bg: rgba(197, 81, 34, 1);
+}
+
+.partial-semantic {
+    --dxt-surface: rgba(13, 17, 23, 1);
+}
+
+.palette-row {
+    transition-duration: 0s;
+}
