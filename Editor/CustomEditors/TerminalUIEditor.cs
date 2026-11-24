@@ -28,12 +28,12 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         private const string DefaultThemePackGuid = "6dac1d93083d4776a6e29ebef180573a";
 
         private static readonly TimeSpan CycleInterval = TimeSpan.FromSeconds(0.75);
+        private static readonly Dictionary<TerminalThemePack, (List<string> Names, string[] Labels)> ThemeDisplayNames = new();
         private static List<TerminalThemePack> _themePackNamesSource;
         private static string[] _themePackNames;
         private static List<TerminalFontPack> _fontPackNamesSource;
         private static string[] _fontPackNames;
-        private static List<string> _themeDisplayNameSource;
-        private static string[] _themeDisplayNames;
+
         private static bool _fontKeyCacheStale = true;
         private static string[] _fontKeyCache = Array.Empty<string>();
         private static string[] _fontKeyLabels = Array.Empty<string>();
@@ -84,36 +84,30 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         static TerminalUIEditor()
         {
             ObjectFactory.componentWasAdded += HandleComponentAdded;
-            EditorApplication.projectChanged += static () =>
-            {
-                _themeDisplayNames = null;
-            };
+            EditorApplication.projectChanged += ThemeDisplayNames.Clear;
         }
 
         internal static string[] FriendlyThemeNames(TerminalThemePack pack)
         {
             List<string> names = pack._themeNames;
-            if (_themeDisplayNames == null || !ReferenceEquals(_themeDisplayNameSource, names) || _themeDisplayNames.Length != names.Count)
+            if (ThemeDisplayNames.TryGetValue(pack, out (List<string> Names, string[] Labels) entry) && ReferenceEquals(entry.Names, names) && entry.Labels.Length == names.Count)
             {
-                Dictionary<string, double> ratios = ClassicThemeContrast.ReadRatios(pack);
-                RefreshCache(
-                    names,
-                    name =>
-                    {
-                        string displayName = FriendlyThemeName(name);
-                        if (ratios.TryGetValue(name, out double ratio))
-                        {
-                            return FormattableString.Invariant($"{displayName} ({ratio:F2}:1 contrast)");
-                        }
-
-                        return displayName;
-                    },
-                    ref _themeDisplayNameSource,
-                    ref _themeDisplayNames
-                );
+                return entry.Labels;
             }
 
-            return _themeDisplayNames;
+            Dictionary<string, double> ratios = ClassicThemeContrast.ReadRatios(pack);
+            string[] labels = CreateNames(names, name =>
+            {
+                string displayName = FriendlyThemeName(name);
+                if (ratios.TryGetValue(name, out double ratio))
+                {
+                    return FormattableString.Invariant($"{displayName} ({ratio:F2}:1 contrast)");
+                }
+
+                return displayName;
+            });
+            ThemeDisplayNames[pack] = (names, labels);
+            return labels;
         }
 
         private static void HandleComponentAdded(Component addedComponent)
@@ -556,18 +550,23 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         {
             if (cached == null || !ReferenceEquals(cachedSource, source) || cached.Length != source.Count)
             {
-                string[] names = new string[source.Count];
-                int position = 0;
-                foreach (T item in source)
-                {
-                    names[position++] = nameOf(item);
-                }
-
+                cached = CreateNames(source, nameOf);
                 cachedSource = source;
-                cached = names;
             }
 
             return cached;
+        }
+
+        private static string[] CreateNames<T>(List<T> source, Func<T, string> nameOf)
+        {
+            string[] names = new string[source.Count];
+            int position = 0;
+            foreach (T item in source)
+            {
+                names[position++] = nameOf(item);
+            }
+
+            return names;
         }
 
         private static string[] PackNames(List<TerminalThemePack> themePacks)
