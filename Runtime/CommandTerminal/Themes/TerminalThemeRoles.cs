@@ -67,6 +67,37 @@
         [SerializeField]
         private Color _synChoice = new(194f / 255f, 245f / 255f, 216f / 255f);
 
+        internal TerminalThemeRoles() { }
+
+        internal TerminalThemeRoles(
+            Color surface,
+            Color surfaceRaised,
+            Color hover,
+            Color input,
+            Color ink,
+            Color inkBody,
+            Color inkMuted,
+            Color accent,
+            Color accentSoft,
+            Color selection,
+            Color warning,
+            Color errorText
+        )
+        {
+            _surface = surface;
+            _surfaceRaised = surfaceRaised;
+            _hover = hover;
+            _input = input;
+            _ink = ink;
+            _inkBody = inkBody;
+            _inkMuted = inkMuted;
+            _accent = accent;
+            _accentSoft = accentSoft;
+            _selection = selection;
+            _warning = warning;
+            _errorText = errorText;
+        }
+
         private static Color Quantize(Color color)
         {
             return new Color(

@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using Themes;
     using UnityEditor;
     using UnityEngine;
@@ -10,6 +11,8 @@
     [CanEditMultipleObjects]
     internal sealed class TerminalThemeAssetEditor : UnityEditor.Editor
     {
+        private const string ConvertMenu = "Assets/DxTerminal/Convert Legacy Theme";
+
         private static readonly GUIContent RolesLabel = new("Color roles");
         private static readonly string[] LegacyExclusions = { TerminalThemeAsset.SemanticFlagPropertyName, TerminalThemeAsset.RolesPropertyName };
 
@@ -19,6 +22,46 @@
         private static void CreateAsset()
         {
             ProjectWindowUtil.CreateAsset(TerminalThemeAsset.CreateSemantic(), "NewTerminalTheme.asset");
+        }
+
+        [MenuItem(ConvertMenu, true)]
+        private static bool CanConvertLegacyTheme()
+        {
+            return Selection.objects.Length == 1
+                && Selection.activeObject is TerminalThemeAsset asset
+                && asset != null
+                && !asset.UsesSemanticRoles
+                && AssetDatabase.IsMainAsset(asset);
+        }
+
+        [MenuItem(ConvertMenu)]
+        private static void ConvertLegacyTheme()
+        {
+            if (!CanConvertLegacyTheme())
+            {
+                return;
+            }
+
+            TerminalThemeAsset source = (TerminalThemeAsset)Selection.activeObject;
+            string sourcePath = AssetDatabase.GetAssetPath(source);
+            // Installed packages can be read-only. Put copies in the project's Assets folder.
+            string folder = sourcePath.StartsWith("Assets/", StringComparison.Ordinal) ? sourcePath[..sourcePath.LastIndexOf('/')] : "Assets";
+            string stem = $"{folder}/{Path.GetFileNameWithoutExtension(sourcePath)} Semantic";
+            string assetPath = stem + ".asset";
+            for (int suffix = 1; !IsAvailable(assetPath) || !IsAvailable(Path.ChangeExtension(assetPath, ".uss")); ++suffix)
+            {
+                assetPath = FormattableString.Invariant($"{stem} {suffix}.asset");
+            }
+
+            TerminalThemeAsset converted = source.CreateSemanticCopy();
+            converted.name = Path.GetFileNameWithoutExtension(assetPath);
+            AssetDatabase.CreateAsset(converted, assetPath);
+            Selection.activeObject = converted;
+        }
+
+        private static bool IsAvailable(string path)
+        {
+            return !File.Exists(path) && string.Equals(path, AssetDatabase.GenerateUniqueAssetPath(path), StringComparison.Ordinal);
         }
 
         public override void OnInspectorGUI()
