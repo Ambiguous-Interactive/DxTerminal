@@ -72,7 +72,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             }
 
             using ProfilerAllocationTrace trace = new ProfilerAllocationTrace(3);
-            yield return null;
+            yield return trace.WaitUntilReady();
 
             batchAllocation();
             trace.Record(noOp);
