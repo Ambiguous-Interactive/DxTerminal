@@ -11,6 +11,24 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     /// </summary>
     public sealed class AllocationProbeTests
     {
+        private const int ControlStringLength = 40;
+        private const int ControlBatchSize = 256;
+
+        private static string _controlString;
+
+        private static void AllocateOneString()
+        {
+            _controlString = new string('x', ControlStringLength);
+        }
+
+        private static void AllocateStringBatch()
+        {
+            for (int index = 0; index < ControlBatchSize; ++index)
+            {
+                AllocateOneString();
+            }
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -35,6 +53,32 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             }
 
             Assert.AreEqual(AllocationMeasurement.Unavailable, measurement.AllocatedBytes, "An unvalidated byte reader must report unavailability, never a trusted zero");
+        }
+
+        [Test]
+        public void ByteReaderSeparatesKnownStringsFromOutOfWindowAllocations()
+        {
+            AllocationAssertions.EnsureInstrumentValidated();
+            Action noOp = static () => { };
+            for (int index = 0; index < AllocationAssertions.DefaultWarmupIterations; ++index)
+            {
+                AllocationProbe.Measure(noOp);
+                AllocationProbe.Measure(AllocateOneString);
+                AllocationProbe.Measure(AllocateStringBatch);
+            }
+
+            AllocateStringBatch();
+            AllocationMeasurement quiet = AllocationProbe.Measure(noOp);
+            AllocationMeasurement single = AllocationProbe.Measure(AllocateOneString);
+            AllocationMeasurement batch = AllocationProbe.Measure(AllocateStringBatch);
+
+            TestContext.Out.WriteLine($"T11 allocation controls: quiet={quiet.AllocatedBytes}, one={single.AllocatedBytes}, {ControlBatchSize} strings={batch.AllocatedBytes}");
+            Assert.That(quiet.IsZeroAllocation, Is.True, quiet.Describe());
+            Assert.That(quiet.AllocatedBytes, Is.Zero, "Out-of-window allocations must leave the byte count at zero");
+            Assert.That(single.DetectedAllocations, Is.True, single.Describe());
+            Assert.That(single.AllocatedBytes, Is.GreaterThanOrEqualTo(ControlStringLength * sizeof(char)));
+            Assert.That(batch.DetectedAllocations, Is.True, batch.Describe());
+            Assert.That(batch.AllocatedBytes, Is.EqualTo(single.AllocatedBytes * ControlBatchSize));
         }
 
         [Test]

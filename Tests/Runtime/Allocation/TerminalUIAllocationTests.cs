@@ -28,6 +28,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     public sealed class TerminalUIAllocationTests
     {
         private const int CommandCount = 32;
+        private const int IdleFrameCount = 300;
+        private const string HighlightInput = "bench-highlight 123 \"allocation samples\"";
         private const int LogCapacity = 16;
         private const int ProviderCandidateCount = 32;
 
@@ -63,6 +65,80 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             }
 
             Terminal.Shell?.ClearCustomCommands();
+        }
+
+        [UnityTest]
+        public IEnumerator RecordInputEditAndIdleAllocationBaseline()
+        {
+            yield return SpawnTerminal(HintDisplayMode.Always);
+            RegisterTier();
+            CommandBuilder command = CommandBuilder
+                .Create("bench-highlight")
+                .Arg<int>("number", spec =>
+                {
+                    return spec.Required();
+                })
+                .Arg<string>("text", spec =>
+                {
+                    return spec.Required();
+                })
+                .Handler((context, arguments) => { });
+            Assert.That(Terminal.Shell.AddCommand(command, out _), Is.True);
+            AllocationAssertions.EnsureInstrumentValidated();
+
+            TextField field = _terminal._commandInput;
+            int editCount = HighlightInput.Length;
+            Assert.That(editCount, Is.EqualTo(40));
+            string[] edits = new string[editCount];
+            for (int index = 0; index < editCount; ++index)
+            {
+                edits[index] = HighlightInput.Substring(0, index + 1);
+            }
+
+            string nextEdit = string.Empty;
+            Action refresh = _terminal.RefreshUI;
+            Action applyEdit = () =>
+            {
+                field.value = nextEdit;
+                refresh();
+            };
+
+            for (int pass = 0; pass < AllocationAssertions.DefaultWarmupIterations; ++pass)
+            {
+                field.value = string.Empty;
+                foreach (string edit in edits)
+                {
+                    nextEdit = edit;
+                    AllocationProbe.Measure(applyEdit);
+                }
+
+                yield return null;
+                AllocationProbe.Measure(refresh);
+            }
+
+            long[] editBytes = new long[editCount];
+            long[] idleBytes = new long[IdleFrameCount];
+            field.value = string.Empty;
+            for (int index = 0; index < editCount; ++index)
+            {
+                yield return null;
+                nextEdit = edits[index];
+                AllocationMeasurement measurement = AllocationProbe.Measure(applyEdit);
+                Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
+                editBytes[index] = measurement.AllocatedBytes;
+            }
+
+            for (int index = 0; index < IdleFrameCount; ++index)
+            {
+                yield return null;
+                AllocationMeasurement measurement = AllocationProbe.Measure(refresh);
+                idleBytes[index] = measurement.AllocatedBytes;
+            }
+
+            TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
+            TestContext.Out.WriteLine($"T11 idle refresh bytes: {string.Join(",", idleBytes)}");
+            Assert.That(editBytes, Is.All.GreaterThanOrEqualTo(0), "The edit baseline requires a numeric byte reader");
+            Assert.That(idleBytes, Is.All.Zero, "Each idle refresh must allocate zero bytes");
         }
 
         [UnityTest]
