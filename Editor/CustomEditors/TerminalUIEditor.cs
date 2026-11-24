@@ -8,6 +8,7 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
     using Attributes;
     using Backend;
     using DxCommandTerminal.Helper;
+    using Helper;
     using UnityEditor;
     using UnityEngine;
     using UnityEngine.UIElements;
@@ -27,12 +28,12 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         private const string DefaultThemePackGuid = "6dac1d93083d4776a6e29ebef180573a";
 
         private static readonly TimeSpan CycleInterval = TimeSpan.FromSeconds(0.75);
+        private static readonly Dictionary<TerminalThemePack, (List<string> Names, string[] Labels)> ThemeDisplayNames = new();
         private static List<TerminalThemePack> _themePackNamesSource;
         private static string[] _themePackNames;
         private static List<TerminalFontPack> _fontPackNamesSource;
         private static string[] _fontPackNames;
-        private static List<string> _themeDisplayNameSource;
-        private static string[] _themeDisplayNames;
+
         private static bool _fontKeyCacheStale = true;
         private static string[] _fontKeyCache = Array.Empty<string>();
         private static string[] _fontKeyLabels = Array.Empty<string>();
@@ -83,6 +84,30 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         static TerminalUIEditor()
         {
             ObjectFactory.componentWasAdded += HandleComponentAdded;
+            EditorApplication.projectChanged += ThemeDisplayNames.Clear;
+        }
+
+        internal static string[] FriendlyThemeNames(TerminalThemePack pack)
+        {
+            List<string> names = pack._themeNames;
+            if (ThemeDisplayNames.TryGetValue(pack, out (List<string> Names, string[] Labels) entry) && ReferenceEquals(entry.Names, names) && entry.Labels.Length == names.Count)
+            {
+                return entry.Labels;
+            }
+
+            Dictionary<string, double> ratios = ClassicThemeContrast.ReadRatios(pack);
+            string[] labels = CreateNames(names, name =>
+            {
+                string displayName = FriendlyThemeName(name);
+                if (ratios.TryGetValue(name, out double ratio))
+                {
+                    return FormattableString.Invariant($"{displayName} ({ratio:F2}:1 contrast)");
+                }
+
+                return displayName;
+            });
+            ThemeDisplayNames[pack] = (names, labels);
+            return labels;
         }
 
         private static void HandleComponentAdded(Component addedComponent)
@@ -525,18 +550,23 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         {
             if (cached == null || !ReferenceEquals(cachedSource, source) || cached.Length != source.Count)
             {
-                string[] names = new string[source.Count];
-                int position = 0;
-                foreach (T item in source)
-                {
-                    names[position++] = nameOf(item);
-                }
-
+                cached = CreateNames(source, nameOf);
                 cachedSource = source;
-                cached = names;
             }
 
             return cached;
+        }
+
+        private static string[] CreateNames<T>(List<T> source, Func<T, string> nameOf)
+        {
+            string[] names = new string[source.Count];
+            int position = 0;
+            foreach (T item in source)
+            {
+                names[position++] = nameOf(item);
+            }
+
+            return names;
         }
 
         private static string[] PackNames(List<TerminalThemePack> themePacks)
@@ -547,11 +577,6 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         private static string[] PackNames(List<TerminalFontPack> fontPacks)
         {
             return RefreshCache(fontPacks, static pack => LogTextSanitizer.Sanitize(pack.name), ref _fontPackNamesSource, ref _fontPackNames);
-        }
-
-        private static string[] FriendlyThemeNames(List<string> themeNames)
-        {
-            return RefreshCache(themeNames, static name => FriendlyThemeName(name), ref _themeDisplayNameSource, ref _themeDisplayNames);
         }
 
         /*
@@ -1161,7 +1186,7 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
                         GUILayout.Label("Select Theme:");
                     }
 
-                    int selectedThemeIndex = EditorGUILayout.Popup(_themeIndex.GetValueOrDefault(-1), FriendlyThemeNames(terminal._themePack._themeNames));
+                    int selectedThemeIndex = EditorGUILayout.Popup(_themeIndex.GetValueOrDefault(-1), FriendlyThemeNames(terminal._themePack));
                     _themeIndex = selectedThemeIndex < 0 ? null : selectedThemeIndex;
 
                     if (_themeIndex is int themeIndex && 0 <= themeIndex && themeIndex < terminal._themePack._themeNames.Count)
