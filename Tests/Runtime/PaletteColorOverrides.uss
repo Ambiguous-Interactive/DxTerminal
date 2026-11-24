@@ -6,3 +6,7 @@
     --dxt-surface: #0D1117;
     --dxt-selection: #12301F;
 }
+
+.partial-legacy .palette-row {
+    transition-duration: 0s;
+}
