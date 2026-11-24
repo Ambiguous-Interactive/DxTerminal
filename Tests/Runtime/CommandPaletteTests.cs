@@ -112,6 +112,7 @@
             /* Pick validates styles in batch mode. A styles callback can invalidate them once more. */
             panel.Pick(Vector2.zero);
             panel.Pick(Vector2.zero);
+            Assert.AreEqual(1f, selected.resolvedStyle.borderTopWidth, "BaseStyles must style the selected row");
             Assert.AreEqual(expected, (Color32)selected.resolvedStyle.backgroundColor);
         }
 #endif
@@ -255,13 +256,16 @@
         [UnityTest]
         public IEnumerator PartialLegacyPaletteColorsYieldToSemanticRoles()
         {
-            ThemeStyleSheet theme = LoadPack<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
-            Assert.That(theme != null, "The package panel theme must import");
-            yield return SpawnPalette(theme: theme);
+            yield return SpawnPalette();
             RegisterPair();
             _palette.Open();
             _palette.SetQuery("paletteping");
 
+            StyleSheet baseStyles = LoadPack<StyleSheet>("Styles/BaseStyles.uss");
+            StyleSheet legacyColors = LoadPack<StyleSheet>("Styles/LegacyColors.uss");
+            Assert.That(baseStyles != null && legacyColors != null, "The shipped palette styles must import");
+            _palette._paletteRoot.styleSheets.Add(baseStyles);
+            _palette._paletteRoot.styleSheets.Add(legacyColors);
             StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
             Assert.That(overrides != null, "The palette override sheet must import");
             _palette._paletteRoot.styleSheets.Add(overrides);
@@ -1818,10 +1822,9 @@
             );
         }
 
-        private IEnumerator SpawnPalette(bool withFont = false, ThemeStyleSheet theme = null)
+        private IEnumerator SpawnPalette(bool withFont = false)
         {
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
-            _panelSettings.themeStyleSheet = theme;
             _paletteObject = new GameObject("CommandPalette");
             _paletteObject.SetActive(false);
             UIDocument document = _paletteObject.AddComponent<UIDocument>();
