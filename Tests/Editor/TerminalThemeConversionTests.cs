@@ -16,6 +16,46 @@
     {
 #if UNITY_EDITOR
         [Test]
+        public void LegacyThemeConversionRepairsAWritableRole()
+        {
+            TerminalThemeAsset source = ScriptableObject.CreateInstance<TerminalThemeAsset>();
+            TerminalThemeAsset defaults = TerminalThemeAsset.CreateSemantic();
+            TerminalThemeAsset converted = null;
+            try
+            {
+                IReadOnlyDictionary<string, Color> roles = defaults.ReadRoleColors();
+                using (SerializedObject serialized = new(source))
+                {
+                    serialized.FindProperty("_terminalBg").colorValue = roles["surface"];
+                    serialized.FindProperty("_buttonBg").colorValue = roles["surface-raised"];
+                    serialized.FindProperty("_buttonHoverBg").colorValue = roles["hover"];
+                    serialized.FindProperty("_inputFieldBg").colorValue = roles["input"];
+                    serialized.FindProperty("_inputTextColor").colorValue = roles["ink"];
+                    serialized.FindProperty("_textMessage").colorValue = roles["ink-body"];
+                    serialized.FindProperty("_textShell").colorValue = new Color(0.2f, 0.2f, 0.2f, 1f);
+                    serialized.FindProperty("_caretColor").colorValue = roles["accent"];
+                    serialized.FindProperty("_textInputEcho").colorValue = roles["accent-soft"];
+                    serialized.FindProperty("_buttonSelectedBg").colorValue = roles["selection"];
+                    serialized.FindProperty("_textWarning").colorValue = roles["warning"];
+                    serialized.FindProperty("_textError").colorValue = roles["error-text"];
+                    serialized.ApplyModifiedPropertiesWithoutUndo();
+                }
+
+                converted = source.CreateSemanticCopy();
+                IReadOnlyDictionary<string, Color> colors = converted.ReadRoleColors();
+                (double ratio, string backdrop) = ThemeContrast.Measure(colors["ink-muted"], colors["surface"], colors["input"]);
+                Assert.That(ratio, Is.GreaterThanOrEqualTo(4.5), backdrop);
+                Assert.That(source.BuildUss(), Does.Contain("--text-shell: rgba(51, 51, 51, 1);"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(converted);
+                UnityEngine.Object.DestroyImmediate(defaults);
+                UnityEngine.Object.DestroyImmediate(source);
+            }
+        }
+
+        [Test]
         public void AssetsMenuConvertsAndImportsACopyWithoutReplacingExistingFiles()
         {
             string folder = $"Assets/DxTerminalThemeTest-{Guid.NewGuid():N}";
