@@ -6,8 +6,8 @@
 
     internal static class ThemeContrastRepair
     {
-        private const int LightnessSteps = 2048;
-        private const int RefinementSteps = 12;
+        private const int BelowSrgb = -1;
+        private const int AboveSrgb = 256;
         private const double GamutTolerance = 0.000001;
 
         internal static bool TryRepair(IReadOnlyDictionary<string, Color> original, out IReadOnlyDictionary<string, Color> repaired)
@@ -27,17 +27,13 @@
                     continue;
                 }
 
-                Color source = colors[foreground];
-                (double L, double A, double B) lab = ToLab(source);
-                bool foundDark = TryFindPassingColor(colors, foreground, source.a, lab, -1, out (double Distance, Color Color) dark);
-                bool foundLight = TryFindPassingColor(colors, foreground, source.a, lab, 1, out (double Distance, Color Color) light);
-                if (!foundDark && !foundLight)
+                if (!TryFindPassingColor(colors, foreground, colors[foreground], out Color passing))
                 {
                     repaired = original;
                     return false;
                 }
 
-                colors[foreground] = foundDark && (!foundLight || dark.Distance <= light.Distance) ? dark.Color : light.Color;
+                colors[foreground] = passing;
             }
 
             repaired = colors;
@@ -46,8 +42,13 @@
 
         internal static (double L, double A, double B) ToLab(Color color)
         {
-            // sRGB matrices from Bjorn Ottosson's Oklab specification.
+            // sRGB matrices from https://bottosson.github.io/posts/oklab/.
             double red = ThemeContrast.Linearize(color.r);
+            if (color.r.Equals(color.g) && color.r.Equals(color.b))
+            {
+                return (Math.Pow(red, 1.0 / 3.0), 0, 0);
+            }
+
             double green = ThemeContrast.Linearize(color.g);
             double blue = ThemeContrast.Linearize(color.b);
             double l = Math.Pow(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue, 1.0 / 3.0);
@@ -80,106 +81,143 @@
             return true;
         }
 
-        private static bool TryFindPassingColor(
-            IReadOnlyDictionary<string, Color> colors,
-            string role,
-            float alpha,
-            (double L, double A, double B) lab,
-            int direction,
-            out (double Distance, Color Color) result
-        )
+        private static bool TryFindPassingColor(IReadOnlyDictionary<string, Color> colors, string role, Color source, out Color result)
         {
-            (double originalL, double a, double b) = lab;
-            double previousL = originalL;
-            double extent = direction < 0 ? originalL : 1.0 - originalL;
-            for (int step = 1; step <= LightnessSteps; ++step)
+            (double lightness, double a, double b) = ToLab(source);
+            // Fixed a and b preserve OKLCH chroma and hue along each channel's cubic.
+            double l = 0.3963377774 * a + 0.2158037573 * b;
+            double m = -0.1055613458 * a - 0.0638541728 * b;
+            double s = -0.0894841775 * a - 1.2914855480 * b;
+            SrgbChannel red = new(4.0767416621, -3.3077115913, 0.2309699292, l, m, s);
+            SrgbChannel green = new(-1.2684380046, 2.6097574011, -0.3413193965, l, m, s);
+            SrgbChannel blue = new(-0.0041960863, -0.7034186147, 1.7076147010, l, m, s);
+
+            SortedSet<double> boundaries = new() { 0, lightness, 1 };
+            red.AddBoundaries(boundaries);
+            green.AddBoundaries(boundaries);
+            blue.AddBoundaries(boundaries);
+
+            double bestDistance = double.PositiveInfinity;
+            Color best = source;
+            double previous = 0;
+            foreach (double boundary in boundaries)
             {
-                double nextL = originalL + direction * Math.Min((double)step / LightnessSteps, extent);
-                Color? candidate = FromLab(nextL, a, b, alpha);
-                bool reachedGamutEdge = candidate == null;
-                if (reachedGamutEdge)
+                // Every open interval has one emitted RGB value, even if it is very narrow.
+                double nearest = Math.Clamp(lightness, previous, boundary);
+                Consider((previous + boundary) * 0.5, Math.Abs(nearest - lightness));
+                Consider(boundary, Math.Abs(boundary - lightness));
+                previous = boundary;
+            }
+
+            result = best;
+            return bestDistance < double.PositiveInfinity;
+
+            void Consider(double at, double distance)
+            {
+                if (bestDistance <= distance)
                 {
-                    // A passing quantized color can lie between the last step and the gamut edge.
-                    double outsideL = nextL;
-                    nextL = previousL;
-                    for (int i = 0; i < RefinementSteps; ++i)
+                    return;
+                }
+
+                int r = red.ReadCode(at);
+                int g = green.ReadCode(at);
+                int bCode = blue.ReadCode(at);
+                if (r is BelowSrgb or AboveSrgb || g is BelowSrgb or AboveSrgb || bCode is BelowSrgb or AboveSrgb)
+                {
+                    return;
+                }
+
+                Color candidate = new(r / 255f, g / 255f, bCode / 255f, source.a);
+                if (Passes(colors, role, candidate))
+                {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+        }
+
+        private readonly struct SrgbChannel
+        {
+            private readonly double _quadratic;
+            private readonly double _linear;
+            private readonly double _constant;
+
+            internal SrgbChannel(double lWeight, double mWeight, double sWeight, double l, double m, double s)
+            {
+                // The inverse matrix rows sum to 1, so the cubic coefficient is 1.
+                _quadratic = 3 * (lWeight * l + mWeight * m + sWeight * s);
+                _linear = 3 * (lWeight * l * l + mWeight * m * m + sWeight * s * s);
+                _constant = lWeight * l * l * l + mWeight * m * m * m + sWeight * s * s * s;
+            }
+
+            internal int ReadCode(double lightness)
+            {
+                double linear = ((lightness + _quadratic) * lightness + _linear) * lightness + _constant;
+                if (linear < -GamutTolerance)
+                {
+                    return BelowSrgb;
+                }
+
+                if (1.0 + GamutTolerance < linear)
+                {
+                    return AboveSrgb;
+                }
+
+                float encoded = (float)(linear <= 0.0031308 ? 12.92 * linear : 1.055 * Math.Pow(linear, 1.0 / 2.4) - 0.055);
+                return TerminalThemeRoles.QuantizeChannel(encoded);
+            }
+
+            internal void AddBoundaries(SortedSet<double> boundaries)
+            {
+                // The derivative roots divide the cubic into monotone segments.
+                double discriminant = _quadratic * _quadratic - 3 * _linear;
+                if (discriminant <= 0)
+                {
+                    AddCrossings(boundaries, 0, 1);
+                    return;
+                }
+
+                double root = Math.Sqrt(discriminant);
+                double first = Math.Clamp((-_quadratic - root) / 3, 0, 1);
+                double second = Math.Clamp((-_quadratic + root) / 3, 0, 1);
+                boundaries.Add(first);
+                boundaries.Add(second);
+                AddCrossings(boundaries, 0, first);
+                AddCrossings(boundaries, first, second);
+                AddCrossings(boundaries, second, 1);
+            }
+
+            private void AddCrossings(SortedSet<double> boundaries, double from, double to)
+            {
+                int first = ReadCode(from);
+                int last = ReadCode(to);
+                bool rising = first < last;
+                int upper = Math.Max(first, last);
+                for (int code = Math.Min(first, last) + 1; code <= upper; ++code)
+                {
+                    double low = from;
+                    double high = to;
+                    while (true)
                     {
-                        double middle = (nextL + outsideL) * 0.5;
-                        if (FromLab(middle, a, b, alpha).HasValue)
+                        double middle = (low + high) * 0.5;
+                        if (middle == low || middle == high)
                         {
-                            nextL = middle;
+                            break;
+                        }
+
+                        if (rising == (code <= ReadCode(middle)))
+                        {
+                            high = middle;
                         }
                         else
                         {
-                            outsideL = middle;
+                            low = middle;
                         }
                     }
 
-                    candidate = FromLab(nextL, a, b, alpha);
+                    boundaries.Add(high);
                 }
-
-                if (candidate is Color passing && Passes(colors, role, passing))
-                {
-                    for (int i = 0; i < RefinementSteps; ++i)
-                    {
-                        double middle = (previousL + nextL) * 0.5;
-                        if (FromLab(middle, a, b, alpha) is Color closer && Passes(colors, role, closer))
-                        {
-                            nextL = middle;
-                            passing = closer;
-                        }
-                        else
-                        {
-                            previousL = middle;
-                        }
-                    }
-
-                    result = (Math.Abs(nextL - originalL), passing);
-                    return true;
-                }
-
-                if (reachedGamutEdge || nextL == 0 || nextL == 1)
-                {
-                    break;
-                }
-
-                previousL = nextL;
             }
-
-            result = default;
-            return false;
-        }
-
-        private static Color? FromLab(double lightness, double a, double b, float alpha)
-        {
-            // Fixed a and b keep OKLCH chroma and hue fixed.
-            double l = Cube(lightness + 0.3963377774 * a + 0.2158037573 * b);
-            double m = Cube(lightness - 0.1055613458 * a - 0.0638541728 * b);
-            double s = Cube(lightness - 0.0894841775 * a - 1.2914855480 * b);
-            double red = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-            double green = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-            double blue = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
-            if (!InGamut(red) || !InGamut(green) || !InGamut(blue))
-            {
-                return null;
-            }
-
-            return TerminalThemeRoles.Quantize(new Color(Encode(red), Encode(green), Encode(blue), alpha));
-        }
-
-        private static double Cube(double value)
-        {
-            return value * value * value;
-        }
-
-        private static bool InGamut(double value)
-        {
-            return -GamutTolerance <= value && value <= 1.0 + GamutTolerance;
-        }
-
-        private static float Encode(double linear)
-        {
-            return (float)(linear <= 0.0031308 ? 12.92 * linear : 1.055 * Math.Pow(linear, 1.0 / 2.4) - 0.055);
         }
     }
 }

@@ -98,14 +98,14 @@
             _errorText = errorText;
         }
 
-        internal static Color Quantize(Color color)
+        internal static int QuantizeChannel(float channel)
         {
-            return new Color(
-                Mathf.RoundToInt(Mathf.Clamp01(color.r) * 255f) / 255f,
-                Mathf.RoundToInt(Mathf.Clamp01(color.g) * 255f) / 255f,
-                Mathf.RoundToInt(Mathf.Clamp01(color.b) * 255f) / 255f,
-                (float)Math.Round(Mathf.Clamp01(color.a), 3)
-            );
+            return Mathf.RoundToInt(Mathf.Clamp01(channel) * 255f);
+        }
+
+        private static Color Quantize(Color color)
+        {
+            return new Color(QuantizeChannel(color.r) / 255f, QuantizeChannel(color.g) / 255f, QuantizeChannel(color.b) / 255f, (float)Math.Round(Mathf.Clamp01(color.a), 3));
         }
 
         internal void RepairContrast()
