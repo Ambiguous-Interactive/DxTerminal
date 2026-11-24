@@ -291,6 +291,18 @@
             Assert.AreSame(inputBefore, _terminal._commandInput, "The pack swap must not rebuild the visual tree");
         }
 
+        [UnityTest]
+        public IEnumerator JetBrainsMonoPackAppliesBothFaces()
+        {
+            yield return VerifyShippedFontPack("JetBrains Mono", "JetBrainsMono-Regular", "JetBrainsMono-Bold");
+        }
+
+        [UnityTest]
+        public IEnumerator IBMPlexSansPackAppliesAllThreeFaces()
+        {
+            yield return VerifyShippedFontPack("IBM Plex Sans", "IBMPlexSans-Regular", "IBMPlexSans-Medium", "IBMPlexSans-SemiBold");
+        }
+
         /*
             A scene change unloads the owning component entirely (not just a
             disable): the shared session must survive with its buffer
@@ -1070,6 +1082,47 @@
             SerializedObject serializedObject = new(_terminal);
             serializedObject.FindProperty(nameof(TerminalUI.showGUIButtons)).boolValue = value;
             serializedObject.ApplyModifiedProperties();
+        }
+
+        private IEnumerator VerifyShippedFontPack(string packName, params string[] faceNames)
+        {
+#if UNITY_EDITOR
+            string packPath = $"Packs/Fonts/{packName}.asset";
+            string packGuid = AssetDatabase.AssetPathToGUID($"{PackageRoot}/{packPath}");
+            string[] packGuids = AssetDatabase.FindAssets($"t:{nameof(TerminalFontPack)}", new[] { $"{PackageRoot}/Packs/Fonts" });
+            Assert.That(packGuids, Does.Contain(packGuid), $"Unity must discover the {packName} pack");
+
+            TerminalFontPack pack = LoadAsset<TerminalFontPack>(packPath);
+            Assert.That(pack != null, $"{packName} must import as a font pack");
+            Assert.AreEqual(packName, pack.name);
+            Assert.AreEqual(faceNames.Length, pack.Fonts.Count);
+
+            yield return SpawnTerminalWithDocument();
+            SwapFontPackInInspector(pack);
+            _terminal.SetState(TerminalState.OpenFull);
+            yield return WaitForInputVisible("Opening the terminal must build the visual tree");
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Font regular = pack.Fonts[0];
+            Assert.That(regular != null, $"{packName} must reference its Regular face");
+            Assert.AreEqual(regular, _terminal.CurrentFont, $"{packName} must default to Regular");
+            Assert.AreEqual(regular, root.style.unityFontDefinition.value.font);
+
+            for (int i = 0; i < faceNames.Length; ++i)
+            {
+                Font face = pack.Fonts[i];
+                Assert.That(face != null, $"{packName} must reference {faceNames[i]}");
+                Assert.AreEqual(faceNames[i], face.name);
+                Assert.That(face.HasCharacter('A'), $"{face.name} must provide terminal glyphs");
+
+                _terminal.SetFont(face);
+                Assert.AreEqual(face, _terminal.CurrentFont);
+                Assert.AreEqual(face, root.style.unityFontDefinition.value.font);
+            }
+#else
+            Assert.Ignore("Shipped font pack discovery requires the Unity Editor.");
+            yield break;
+#endif
         }
 
         private void SwapFontPackInInspector(TerminalFontPack pack)
