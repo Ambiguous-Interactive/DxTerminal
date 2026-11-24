@@ -106,6 +106,16 @@ test("BaseStyles requires semantic roles in both surfaces", () => {
   ]);
 });
 
+test("BaseStyles validates the complete custom property name", () => {
+  const source = [
+    ".palette-row { color: var( --dxt-ink ); }",
+    ".palette-row { color: var(--dxt-ink_body); }",
+  ].join("\n");
+  assert.deepStrictEqual(ussViolations(source, "BaseStyles.uss"), [
+    { line: 2, token: "--dxt-ink_body", reason: "unknown style token" },
+  ]);
+});
+
 test("shipped styles reject a fallback even when the role is known", () => {
   const source = ".palette-panel { background-color: var(--dxt-surface, black); }";
   assert.deepStrictEqual(ussViolations(source, "BaseStyles.uss"), [

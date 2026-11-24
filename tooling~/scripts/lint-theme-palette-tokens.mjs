@@ -128,7 +128,7 @@ export function themeViolations(block) {
   return missing;
 }
 
-const VAR_PATTERN = /var\(\s*(--[a-zA-Z0-9-]+)\s*(,)?/g;
+const VAR_PATTERN = /var\(\s*(--[a-zA-Z0-9_-]+)\s*(?:(,)|(?=\)))/g;
 const SEMANTIC_TOKENS = new Set([
   "surface", "surface-raised", "hover", "input", "line", "ink", "ink-body",
   "ink-muted", "accent", "accent-soft", "on-accent", "selection", "selection-line",
