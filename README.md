@@ -164,7 +164,10 @@ require the package's `BaseStyles.uss` on the panel settings; without it the bar
 ## Themes and Settings Assets
 
 Choose `Assets > Create > Wallstop Studios > DxTerminal > Theme Asset` to start with Dx Dark colors. Edit the semantic roles in the Inspector. The contrast check reports any text
-below 4.5:1 or outline below 3:1 across black, mid gray, and white game backdrops. Existing theme assets still use their widget color fields.
+below 4.5:1 or outline below 3:1 across black, mid gray, and white game backdrops.
+
+Select a legacy theme asset and choose `Assets > DxTerminal > Convert Legacy Theme`. The new asset uses your input and log colors where widgets share a role. Roles that have no
+legacy color use Dx Dark defaults. Review the contrast warnings in the new asset's Inspector.
 
 The Editor writes a sibling `.uss` and keeps it in sync. Add the sheet to a `TerminalThemePack` to make it available to `set-theme`. If you rename the asset, reassign the new sheet
 in the pack. Hand-written `.uss` themes also work. Use the full class name if the `set-theme` shorthand is ambiguous, such as for `Cool Theme 2`.

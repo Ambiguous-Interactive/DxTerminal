@@ -316,7 +316,23 @@ namespace WallstopStudios.DxCommandTerminal.Themes
 
         internal TerminalThemeAsset CreateSemanticCopy()
         {
-            return CreateSemantic();
+            // Input and log colors take priority where several widgets share one role.
+            TerminalThemeAsset converted = CreateSemantic();
+            converted._roles = new TerminalThemeRoles(
+                surface: _terminalBg,
+                surfaceRaised: _buttonBg,
+                hover: _buttonHoverBg,
+                input: _inputFieldBg,
+                ink: _inputTextColor,
+                inkBody: _textMessage,
+                inkMuted: _textShell,
+                accent: _caretColor,
+                accentSoft: _textInputEcho,
+                selection: _buttonSelectedBg,
+                warning: _textWarning,
+                errorText: _textError
+            );
+            return converted;
         }
 
         private void AppendSemanticColors(StringBuilder builder)
