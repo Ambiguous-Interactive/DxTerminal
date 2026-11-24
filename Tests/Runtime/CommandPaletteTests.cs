@@ -256,15 +256,15 @@
         [UnityTest]
         public IEnumerator PartialLegacyPaletteColorsYieldToSemanticRoles()
         {
-            yield return SpawnPalette();
+            ThemeStyleSheet theme = LoadPack<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
+            Assert.That(theme != null, "The package panel theme must import");
+            yield return SpawnPalette(theme: theme);
             RegisterPair();
             _palette.Open();
             _palette.SetQuery("paletteping");
 
-            StyleSheet baseStyles = LoadPack<StyleSheet>("Styles/BaseStyles.uss");
             StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
-            Assert.That(baseStyles != null && overrides != null, "Both palette stylesheets must import");
-            _palette._paletteRoot.styleSheets.Add(baseStyles);
+            Assert.That(overrides != null, "The palette override sheet must import");
             _palette._paletteRoot.styleSheets.Add(overrides);
             _palette._paletteRoot.AddToClassList("partial-legacy");
 
@@ -1819,9 +1819,10 @@
             );
         }
 
-        private IEnumerator SpawnPalette(bool withFont = false)
+        private IEnumerator SpawnPalette(bool withFont = false, ThemeStyleSheet theme = null)
         {
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            _panelSettings.themeStyleSheet = theme;
             _paletteObject = new GameObject("CommandPalette");
             _paletteObject.SetActive(false);
             UIDocument document = _paletteObject.AddComponent<UIDocument>();
