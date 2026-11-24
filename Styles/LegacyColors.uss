@@ -1,3 +1,22 @@
+/* Older Unity cannot resolve var() fallbacks for defined colors. */
+:root {
+    --text-shell: rgba(174, 174, 174, 1);
+    --text-error: rgba(230, 115, 115, 1);
+    --text-message: rgba(235, 235, 235, 1);
+    --button-selected-text: rgba(255, 255, 255, 1);
+    --button-hover-text: rgba(242, 242, 247, 1);
+    --button-text: rgba(235, 235, 235, 1);
+    --button-selected-bg: rgba(69, 79, 92, 1);
+    --button-hover-bg: rgba(72, 72, 74, 1);
+    --scroll-active-bg: rgba(110, 110, 110, 1);
+    --scroll-color: rgba(235, 235, 235, 1);
+    --button-bg: rgba(77, 77, 77, 1);
+    --input-field-bg: rgba(44, 44, 46, 0.8);
+    --caret-color: rgba(235, 235, 235, 1);
+    --input-text-color: rgba(235, 235, 235, 1);
+    --terminal-bg: rgba(31, 31, 31, 0.96);
+}
+
 /* Keep widget-specific colors for legacy theme sheets. */
 
 .dxt-legacy .terminal-header,
@@ -167,73 +186,73 @@
 }
 
 .dxt-legacy .palette-panel {
-    background-color: var(--terminal-bg, rgba(31, 31, 31, 0.96));
-    border-color: var(--button-bg, rgba(77, 77, 77, 1));
+    background-color: var(--terminal-bg);
+    border-color: var(--button-bg);
 }
 
 .dxt-legacy .palette-input > #unity-text-input,
 .dxt-legacy .palette-input > #unity-text-input > .unity-text-element {
-    color: var(--input-text-color, rgba(235, 235, 235, 1));
+    color: var(--input-text-color);
 }
 
 .dxt-legacy .palette-input > #unity-text-input {
-    --unity-cursor-color: var(--caret-color, rgba(235, 235, 235, 1));
-    background-color: var(--input-field-bg, rgba(44, 44, 46, 0.8));
+    --unity-cursor-color: var(--caret-color);
+    background-color: var(--input-field-bg);
 }
 
 .dxt-legacy .palette-divider {
-    background-color: var(--button-bg, rgba(77, 77, 77, 1));
+    background-color: var(--button-bg);
 }
 
 .dxt-legacy .palette-results .unity-scroller .unity-base-slider__dragger {
-    background-color: var(--scroll-color, rgba(235, 235, 235, 1));
+    background-color: var(--scroll-color);
 }
 
 .dxt-legacy .palette-results .unity-scroller .unity-base-slider__dragger:hover,
 .dxt-legacy .palette-results .unity-scroller .unity-base-slider__tracker:hover,
 .dxt-legacy .palette-results .unity-scroller .unity-base-slider__dragger:active,
 .dxt-legacy .palette-results .unity-scroller .unity-base-slider__tracker:active {
-    background-color: var(--scroll-active-bg, rgba(110, 110, 110, 1));
+    background-color: var(--scroll-active-bg);
 }
 
 .dxt-legacy .palette-row:hover {
-    background-color: var(--button-hover-bg, rgba(72, 72, 74, 1));
+    background-color: var(--button-hover-bg);
 }
 
 .dxt-legacy .palette-row-selected:hover {
-    background-color: var(--button-selected-bg, rgba(69, 79, 92, 1));
+    background-color: var(--button-selected-bg);
 }
 
 .dxt-legacy .palette-row-selected {
-    background-color: var(--button-selected-bg, rgba(69, 79, 92, 1));
+    background-color: var(--button-selected-bg);
 }
 
 .dxt-legacy .palette-row-name {
-    color: var(--button-text, rgba(235, 235, 235, 1));
+    color: var(--button-text);
 }
 
 .dxt-legacy .palette-row:hover .palette-row-name {
-    color: var(--button-hover-text, rgba(242, 242, 247, 1));
+    color: var(--button-hover-text);
 }
 
 .dxt-legacy .palette-row-selected .palette-row-name {
-    color: var(--button-selected-text, rgba(255, 255, 255, 1));
+    color: var(--button-selected-text);
 }
 
 .dxt-legacy .palette-row-help {
-    color: var(--text-shell, rgba(174, 174, 174, 1));
+    color: var(--text-shell);
 }
 
 .dxt-legacy .palette-output {
-    color: var(--text-message, rgba(235, 235, 235, 1));
+    color: var(--text-message);
 }
 
 .dxt-legacy .palette-feedback {
-    color: var(--text-error, rgba(230, 115, 115, 1));
+    color: var(--text-error);
 }
 
 .dxt-legacy .palette-footer {
-    color: var(--text-shell, rgba(158, 158, 158, 1));
+    color: var(--text-shell);
 }
 
 .dxt-legacy .terminal-header .terminal-button:focus,

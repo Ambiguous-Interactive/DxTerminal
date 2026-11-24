@@ -96,14 +96,29 @@ test("a non-theme, non-palette rule is untouched", () => {
 test("BaseStyles requires semantic roles in both surfaces", () => {
   const source = [
     ".terminal-header { background-color: var(--terminal-bg); }",
-    ".palette-panel { background-color: var(--dxt-surface, black); }",
+    ".palette-panel { background-color: var(--dxt-surface); }",
     ".palette-row { color: var(--button-text, white); }",
     ".terminal-button { color: var(--dxt-ink); }",
   ].join("\n");
-  assert.deepStrictEqual(ussViolations(source, true).map(({ token }) => token), [
+  assert.deepStrictEqual(ussViolations(source, "BaseStyles.uss").map(({ token }) => token), [
     "--terminal-bg",
     "--button-text",
   ]);
+});
+
+test("shipped styles reject a fallback even when the role is known", () => {
+  const source = ".palette-panel { background-color: var(--dxt-surface, black); }";
+  assert.deepStrictEqual(ussViolations(source, "BaseStyles.uss"), [
+    { line: 1, token: "--dxt-surface", reason: "var() fallback breaks defined colors on older Unity" },
+  ]);
+});
+
+test("legacy palette defaults cover bare references", () => {
+  const source = ".dxt-legacy .palette-panel { background-color: var(--terminal-bg); }";
+  assert.deepStrictEqual(ussViolations(source, "LegacyColors.uss"), [
+    { line: 1, token: "--terminal-bg", reason: "legacy palette token needs a root default" },
+  ]);
+  assert.deepStrictEqual(ussViolations(":root { --terminal-bg: black; }\n" + source, "LegacyColors.uss"), []);
 });
 
 test("a file without theme classes owes no required tokens", () => {

@@ -279,12 +279,14 @@
             StyleSheet overrides = LoadPack<StyleSheet>("Tests/Runtime/PaletteColorOverrides.uss");
             Assert.That(overrides != null, "The palette override sheet must import");
             root.styleSheets.Add(overrides);
-            root.AddToClassList("partial-legacy");
-
             root.panel.Pick(Vector2.zero);
             _palette.SetQuery("paletteping");
             VisualElement selected = root.Q(className: "palette-row-selected");
             Assert.That(selected != null, "Opening the palette selects a result");
+            AssertSelectionColor(root, selected, new Color32(69, 79, 92, 255));
+
+            root.AddToClassList("partial-legacy");
+            root.panel.Pick(Vector2.zero);
             CustomStyleProperty<Color> legacySelection = new("--button-selected-bg");
             Assert.That(root.customStyle.TryGetValue(legacySelection, out Color legacy), Is.True, "The legacy color must reach the palette root");
             Assert.AreEqual(new Color32(197, 81, 34, 255), (Color32)legacy);

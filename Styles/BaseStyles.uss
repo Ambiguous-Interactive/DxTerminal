@@ -389,7 +389,7 @@
 }
 
 .autocomplete-item-selected {
-    border-color: var(--dxt-selection-line, transparent);
+    border-color: var(--dxt-selection-line);
     background-color: var(--dxt-selection);
     color: var(--dxt-ink);
 }
@@ -474,8 +474,8 @@
 /* -- Command palette -- */
 
 .palette-panel {
-    background-color: var(--dxt-surface, rgba(31, 31, 31, 0.96));
-    border-color: var(--dxt-line, rgba(77, 77, 77, 1));
+    background-color: var(--dxt-surface);
+    border-color: var(--dxt-line);
     border-width: 1px;
     border-radius: 10px;
     padding: 10px 12px 8px 12px;
@@ -489,12 +489,12 @@
 
 .palette-input > #unity-text-input,
 .palette-input > #unity-text-input > .unity-text-element {
-    color: var(--dxt-ink, rgba(235, 235, 235, 1));
+    color: var(--dxt-ink);
 }
 
 .palette-input > #unity-text-input {
-    --unity-cursor-color: var(--dxt-accent, rgba(235, 235, 235, 1));
-    background-color: var(--dxt-input, rgba(44, 44, 46, 0.8));
+    --unity-cursor-color: var(--dxt-accent);
+    background-color: var(--dxt-input);
     border-width: 0;
     border-radius: 6px;
     font-size: 14px;
@@ -506,7 +506,7 @@
     height: 1px;
     margin-top: 6px;
     align-self: stretch;
-    background-color: var(--dxt-line, rgba(77, 77, 77, 1));
+    background-color: var(--dxt-line);
 }
 
 .palette-results {
@@ -543,7 +543,7 @@
     min-width: 0;
     width: 10px;
     left: 0;
-    background-color: var(--dxt-ink-muted, rgba(235, 235, 235, 1));
+    background-color: var(--dxt-ink-muted);
     transition: background-color 0.1s ease;
 }
 
@@ -551,7 +551,7 @@
 .palette-results .unity-scroller .unity-base-slider__tracker:hover,
 .palette-results .unity-scroller .unity-base-slider__dragger:active,
 .palette-results .unity-scroller .unity-base-slider__tracker:active {
-    background-color: var(--dxt-ink-body, rgba(110, 110, 110, 1));
+    background-color: var(--dxt-ink-body);
 }
 
 .palette-results .unity-scroller .unity-scroller__low-button,
@@ -571,51 +571,51 @@
 }
 
 .palette-row:hover {
-    background-color: var(--dxt-hover, rgba(72, 72, 74, 1));
+    background-color: var(--dxt-hover);
 }
 
 .palette-row-selected,
 .palette-row-selected:hover {
-    background-color: var(--dxt-selection, rgba(69, 79, 92, 1));
-    border-color: var(--dxt-selection-line, transparent);
+    background-color: var(--dxt-selection);
+    border-color: var(--dxt-selection-line);
 }
 
 .palette-row-name {
     flex-shrink: 0;
     min-width: 140px;
-    color: var(--dxt-ink-body, rgba(235, 235, 235, 1));
+    color: var(--dxt-ink-body);
 }
 
 .palette-row:hover .palette-row-name {
-    color: var(--dxt-ink, rgba(242, 242, 247, 1));
+    color: var(--dxt-ink);
 }
 
 .palette-row-selected .palette-row-name {
-    color: var(--dxt-ink, rgba(255, 255, 255, 1));
+    color: var(--dxt-ink);
 }
 
 .palette-row-help {
     flex-grow: 1;
     white-space: normal;
-    color: var(--dxt-ink-muted, rgba(174, 174, 174, 1));
+    color: var(--dxt-ink-muted);
 }
 
 .palette-output {
     margin-top: 4px;
     white-space: normal;
-    color: var(--dxt-ink-body, rgba(235, 235, 235, 1));
+    color: var(--dxt-ink-body);
 }
 
 .palette-feedback {
     margin-top: 4px;
     white-space: normal;
-    color: var(--dxt-error-text, rgba(230, 115, 115, 1));
+    color: var(--dxt-error-text);
 }
 
 .palette-footer {
     margin-top: 6px;
     font-size: 10px;
-    color: var(--dxt-ink-muted, rgba(158, 158, 158, 1));
+    color: var(--dxt-ink-muted);
 }
 
 .terminal-header .terminal-button:focus,

@@ -10,10 +10,9 @@
        (TerminalThemeStyleSheetHelper.RequiredVariables) already rejects incomplete
        theme packs in the inspector; this lint adds Unity-independent CI coverage so
        a broken theme cannot land unnoticed.
-    2. BaseStyles reads semantic roles. Every `var(--token)` inside a
-       `.palette-*` rule carries a fallback value. A palette rule without one renders with
-       engine defaults (invisible text, transparent panel) whenever no theme sheet
-       is attached, so a bare `var()` in a palette rule is a silent styling bug.
+    2. BaseStyles reads only semantic roles. BaseStyles and LegacyColors use bare
+       references because Unity 2021.3 and 2022.3 reject fallback tokens after a
+       successful variable lookup. LegacyColors supplies palette defaults on :root.
 
     Detection is block-aware: USS selector blocks are split the same way the Editor
     helper splits them, so a theme class that is missing tokens fails even when a
@@ -33,7 +32,7 @@ const REPO_ROOT = path.resolve(
 // Overridable so the contract tests can point the scan at a fixture tree. Nothing in CI sets it.
 const SCAN_ROOTS = process.env.THEME_TOKEN_ROOTS
   ? process.env.THEME_TOKEN_ROOTS.split(path.delimiter).filter(Boolean)
-  : ["Styles/Themes", "Styles/BaseStyles.uss"];
+  : ["Styles/Themes", "Styles/BaseStyles.uss", "Styles/LegacyColors.uss"];
 
 const REQUIRED_TOKENS = [
   "--terminal-bg",
@@ -114,9 +113,7 @@ function isThemeSelector(selector) {
 }
 
 function isPaletteSelector(selector) {
-  return selectorParts(selector).some(
-    (part) => part.startsWith(".palette") && 8 < part.length
-  );
+  return selectorParts(selector).some((part) => /^(?:\.dxt-legacy )?\.palette-/.test(part));
 }
 
 /** Returns the required tokens a theme block fails to define. */
@@ -221,11 +218,22 @@ function lineAt(text, index) {
 }
 
 /** Returns violations for one stripped USS file: theme blocks missing tokens and palette rules with bad var()s. */
-export function ussViolations(rawText, semanticBase = false) {
+export function ussViolations(rawText, fileName = "") {
   const text = stripComments(rawText);
   const violations = [];
+  const semanticBase = fileName === "BaseStyles.uss";
+  const legacyColors = fileName === "LegacyColors.uss";
   const known = semanticBase ? SEMANTIC_TOKENS : new Set(REQUIRED_TOKENS);
-  for (const block of extractBlocks(text)) {
+  const blocks = extractBlocks(text);
+  const defaults = new Set();
+  if (legacyColors) {
+    for (const root of blocks.filter(({ selector }) => selector === ":root")) {
+      for (const [, token] of root.contents.matchAll(/(--[a-z-]+)\s*:/g)) {
+        defaults.add(token);
+      }
+    }
+  }
+  for (const block of blocks) {
     if (isThemeSelector(block.selector)) {
       for (const token of themeViolations(block)) {
         violations.push({
@@ -237,8 +245,22 @@ export function ussViolations(rawText, semanticBase = false) {
     }
 
     const palette = isPaletteSelector(block.selector);
-    if (semanticBase || palette) {
-      for (const violation of styleTokenViolations(block, known, palette)) {
+    if (semanticBase || legacyColors) {
+      for (const [, token, comma] of block.contents.matchAll(VAR_PATTERN)) {
+        let reason;
+        if (!known.has(token)) {
+          reason = "unknown style token";
+        } else if (comma) {
+          reason = "var() fallback breaks defined colors on older Unity";
+        } else if (legacyColors && palette && !defaults.has(token)) {
+          reason = "legacy palette token needs a root default";
+        }
+        if (reason) {
+          violations.push({ line: lineAt(text, block.start), token, reason });
+        }
+      }
+    } else if (palette) {
+      for (const violation of styleTokenViolations(block, known, true)) {
         violations.push({
           line: lineAt(text, block.start),
           token: violation.token,
@@ -291,7 +313,7 @@ function main() {
 
   let violations = 0;
   for (const file of files) {
-    const fileViolations = ussViolations(fs.readFileSync(file, "utf8"), path.basename(file) === "BaseStyles.uss");
+    const fileViolations = ussViolations(fs.readFileSync(file, "utf8"), path.basename(file));
     if (fileViolations.length === 0) {
       continue;
     }
