@@ -13,6 +13,7 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add semantic color roles and contrast checks to new theme assets ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Add a selection outline to Dx theme palette results and completion hints ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Add the Dx theme pack with Dx Dark, Dx Paper, and Phosphor ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Add serialized PlayerInput action names and custom-map routing through C# events ([#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
