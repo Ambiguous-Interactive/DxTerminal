@@ -28,6 +28,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     public sealed class TerminalUIAllocationTests
     {
         private const int CommandCount = 32;
+        private const int IdleFrameCount = 300;
+        private const string HighlightInput = "bench-highlight 123 \"allocation samples\"";
         private const int LogCapacity = 16;
         private const int ProviderCandidateCount = 32;
 
@@ -64,6 +66,90 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
             Terminal.Shell?.ClearCustomCommands();
         }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator RecordInputEditAndIdleAllocationBaseline()
+        {
+            yield return SpawnTerminal(HintDisplayMode.Always);
+            RegisterTier();
+            CommandBuilder command = CommandBuilder
+                .Create("bench-highlight")
+                .Arg<int>("number", spec =>
+                {
+                    return spec.Required();
+                })
+                .Arg<string>("text", spec =>
+                {
+                    return spec.Required();
+                })
+                .Handler((context, arguments) => { });
+            Assert.That(Terminal.Shell.AddCommand(command, out _), Is.True);
+
+            TextField field = _terminal._commandInput;
+            int editCount = HighlightInput.Length;
+            Assert.That(editCount, Is.EqualTo(40));
+            string[] edits = new string[editCount];
+            for (int index = 0; index < editCount; ++index)
+            {
+                edits[index] = HighlightInput.Substring(0, index + 1);
+            }
+
+            string nextEdit = string.Empty;
+            Action refresh = _terminal.RefreshUI;
+            Action applyEdit = () =>
+            {
+                field.value = nextEdit;
+                refresh();
+            };
+
+            for (int pass = 0; pass < AllocationAssertions.DefaultWarmupIterations; ++pass)
+            {
+                field.value = string.Empty;
+                foreach (string edit in edits)
+                {
+                    nextEdit = edit;
+                    applyEdit();
+                }
+
+                yield return null;
+                refresh();
+            }
+
+            long[] editBytes = new long[editCount];
+            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(editCount))
+            {
+                field.value = string.Empty;
+                yield return null;
+                for (int index = 0; index < editCount; ++index)
+                {
+                    nextEdit = edits[index];
+                    trace.Record(applyEdit);
+                    Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
+                }
+
+                yield return trace.WaitForSamples(editCount);
+                for (int index = 0; index < editCount; ++index)
+                {
+                    editBytes[index] = trace.Samples[index].Bytes;
+                }
+            }
+
+            AllocationAssertions.EnsureInstrumentValidated();
+            long[] idleBytes = new long[IdleFrameCount];
+            for (int index = 0; index < IdleFrameCount; ++index)
+            {
+                yield return null;
+                AllocationMeasurement measurement = AllocationProbe.Measure(refresh);
+                Assert.That(measurement.IsZeroAllocation, Is.True, $"Idle refresh {index} must allocate zero bytes: {measurement.Describe()}");
+                // An event-free window is zero even when Mono cannot supply a thread byte count.
+                idleBytes[index] = 0;
+            }
+
+            TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
+            TestContext.Out.WriteLine($"T11 idle refresh bytes: {string.Join(",", idleBytes)}");
+        }
+#endif
 
         [UnityTest]
         public IEnumerator PerKeystrokeHintSweepIsAllocationFree()
