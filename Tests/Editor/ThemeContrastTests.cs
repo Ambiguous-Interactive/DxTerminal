@@ -298,6 +298,45 @@
         }
 
 #if UNITY_EDITOR
+        [TestCase("ClassicThemes", 126)]
+        [TestCase("Large", 63)]
+        [TestCase("Medium", 26)]
+        public void ClassicThemePacksExposeOneChoicePerStylesheet(string packName, int count)
+        {
+            string packPath = PackageRoot + $"Packs/Themes/{packName}.asset";
+            TerminalThemePack pack = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(packPath);
+            Assert.That(pack != null, Is.True, packPath);
+            Assert.That(pack.Themes.Count, Is.EqualTo(count));
+            Assert.That(pack.ThemeNames.Count, Is.EqualTo(count));
+            Assert.That(pack.ThemeNames, Is.Unique);
+            PackageInfo package = PackageInfo.FindForAssetPath(packPath);
+            for (int index = 0; index < count; ++index)
+            {
+                StyleSheet sheet = pack.Themes[index];
+                Assert.That(sheet != null, Is.True, $"Missing stylesheet {index}");
+                string sheetPath = AssetDatabase.GetAssetPath(sheet);
+                string filePath = Path.Combine(package.resolvedPath, sheetPath.Substring(PackageRoot.Length));
+                string css = File.ReadAllText(filePath);
+                Match rule = Regex.Match(css, @"^\.([a-z0-9-]+)\s*\{", RegexOptions.Multiline);
+                Assert.That(rule.Success, Is.True, sheetPath);
+                Assert.That(pack.ThemeNames[index], Is.EqualTo(rule.Groups[1].Value), sheetPath);
+            }
+
+            Assert.That(pack.ThemeNames, Does.Contain("dracula-theme"));
+            Assert.That(pack.ThemeNames, Does.Contain("one-dark-pro-theme"));
+        }
+
+        [Test]
+        public void ClassicPackKeepsTheExistingPackGuid()
+        {
+            const string existingPackGuid = "5c84fcacc1618bf44aecf333887191e1";
+            string path = AssetDatabase.GUIDToAssetPath(existingPackGuid);
+            Assert.That(path, Is.EqualTo(PackageRoot + "Packs/Themes/ClassicThemes.asset"));
+            TerminalThemePack pack = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(path);
+            Assert.That(pack != null, Is.True);
+            Assert.That(pack.name, Is.EqualTo("Classic Themes"));
+        }
+
         [Test]
         public void DxPackReferencesTheMeasuredStylesheet()
         {
