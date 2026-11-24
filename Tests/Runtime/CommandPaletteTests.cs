@@ -105,14 +105,13 @@
         }
 
 #if UNITY_EDITOR
-        private static IEnumerator WaitForSelectionColor(VisualElement selected, Color32 expected)
+        private static void AssertSelectionColor(VisualElement selected, Color32 expected)
         {
-            int frameBudget = FrameBudget;
-            while (0 < frameBudget-- && !expected.Equals((Color32)selected.resolvedStyle.backgroundColor))
-            {
-                yield return null;
-            }
-
+            IPanel panel = selected.panel;
+            Assert.That(panel, Is.Not.Null, "The selected row must be attached to a panel");
+            /* Pick validates styles in batch mode. A styles callback can invalidate them once more. */
+            panel.Pick(Vector2.zero);
+            panel.Pick(Vector2.zero);
             Assert.AreEqual(expected, (Color32)selected.resolvedStyle.backgroundColor);
         }
 #endif
@@ -270,10 +269,10 @@
 
             VisualElement selected = _palette._paletteRoot.Q(className: "palette-row-selected");
             Assert.That(selected != null, "Opening the palette selects a result");
-            yield return WaitForSelectionColor(selected, new Color32(197, 81, 34, 255));
+            AssertSelectionColor(selected, new Color32(197, 81, 34, 255));
 
             _palette._paletteRoot.AddToClassList("semantic-override");
-            yield return WaitForSelectionColor(selected, new Color32(18, 48, 31, 255));
+            AssertSelectionColor(selected, new Color32(18, 48, 31, 255));
         }
 #endif
 
