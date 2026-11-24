@@ -14,6 +14,25 @@
 
     public sealed class TerminalThemeConversionTests
     {
+        private static Dictionary<string, Color> CreatePalette(Color surface, Color input, Color ink, Color onAccent)
+        {
+            Dictionary<string, Color> colors = new(StringComparer.Ordinal)
+            {
+                ["surface"] = surface,
+                ["input"] = input,
+                ["selection"] = surface,
+                ["hover"] = surface,
+                ["surface-raised"] = surface,
+                ["on-accent"] = onAccent,
+            };
+            foreach ((string foreground, _, _) in ThemeContrast.Pairs)
+            {
+                colors.TryAdd(foreground, ink);
+            }
+
+            return colors;
+        }
+
 #if UNITY_EDITOR
         [Test]
         public void LegacyThemeConversionRepairsLowContrastText()
@@ -122,29 +141,27 @@
         {
             Color surface = new(background / 255f, background / 255f, background / 255f);
             Color ink = new(original / 255f, original / 255f, original / 255f);
-            Dictionary<string, Color> colors = new(StringComparer.Ordinal)
-            {
-                ["surface"] = surface,
-                ["input"] = surface,
-                ["selection"] = surface,
-                ["hover"] = surface,
-                ["surface-raised"] = surface,
-                ["ink"] = ink,
-            };
-            foreach ((string foreground, _, _) in ThemeContrast.Pairs)
-            {
-                Color passing = background == 0 ? Color.white : Color.black;
-                if (string.Equals(foreground, "on-accent", StringComparison.Ordinal))
-                {
-                    passing = surface;
-                }
-
-                colors.TryAdd(foreground, passing);
-            }
+            Color passing = background == 0 ? Color.white : Color.black;
+            Dictionary<string, Color> colors = CreatePalette(surface, surface, passing, surface);
+            colors["ink"] = ink;
 
             Assert.That(ThemeContrastRepair.TryRepair(colors, out IReadOnlyDictionary<string, Color> repaired), Is.True);
             Assert.That(repaired["ink"], Is.EqualTo(new Color(expected / 255f, expected / 255f, expected / 255f)));
             Assert.That(colors["ink"], Is.EqualTo(ink));
+        }
+
+        [Test]
+        public void RepairFindsAnExportedColorBetweenTwoFailingLightnessSamples()
+        {
+            Color surface = new(10f / 255f, 4f / 255f, 6f / 255f);
+            Color passing = new(168f / 255f, 99f / 255f, 108f / 255f);
+            Dictionary<string, Color> colors = CreatePalette(surface, Color.white, passing, Color.black);
+            colors["ink-muted"] = new Color(117f / 255f, 53f / 255f, 64f / 255f);
+
+            Assert.That(ThemeContrast.Measure(passing, surface, null).Ratio, Is.GreaterThanOrEqualTo(4.5));
+            Assert.That(ThemeContrast.Measure(passing, surface, Color.white).Ratio, Is.GreaterThanOrEqualTo(4.5));
+            Assert.That(ThemeContrastRepair.TryRepair(colors, out IReadOnlyDictionary<string, Color> repaired), Is.True);
+            Assert.That(repaired["ink-muted"], Is.EqualTo(passing));
         }
 
         [Test]
