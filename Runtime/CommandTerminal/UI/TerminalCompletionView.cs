@@ -102,7 +102,8 @@
             }
 
             List.RefreshItems();
-            if (selectedIndex is int selected && 0 <= selected && selected < count)
+            int selected = selectedIndex ?? 0;
+            if (0 <= selected && selected < count)
             {
                 List.ScrollToItem(selected);
             }
