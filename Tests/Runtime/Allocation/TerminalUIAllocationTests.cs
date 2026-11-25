@@ -134,7 +134,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             long[] controlBytes = new long[editCount];
             long[] editBytes = new long[editCount];
             int[] extraEvents = new int[editCount];
-            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(2 * editCount, captureLargeAllocationStacks: true))
+            int unityLabelCopies;
+            int editWindows = 2 * editCount;
+            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(editWindows + 1, captureLargeAllocationStacks: true))
             {
                 yield return trace.WaitUntilReady();
                 _terminal._commandInputHighlight = null;
@@ -156,7 +158,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                     Assert.That(label.text, Is.Not.EqualTo(previous), "Each edit must update the renderer");
                 }
 
-                yield return trace.WaitForSamples(2 * editCount);
+                // Unity 2022 adds a zero-width space by copying the string passed to the label.
+                INotifyValueChanged<string> display = label;
+                string renderedText = display.value;
+                display.SetValueWithoutNotify(string.Empty);
+                trace.Record(() =>
+                {
+                    display.SetValueWithoutNotify(renderedText);
+                });
+
+                yield return trace.WaitForSamples(editWindows + 1);
+                unityLabelCopies = trace.Samples[editWindows].Events;
                 for (int index = 0; index < editCount; ++index)
                 {
                     (long baseline, int baselineEvents) = trace.Samples[index];
@@ -170,7 +182,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             TestContext.Out.WriteLine($"T11 control edit bytes: {string.Join(",", controlBytes)}");
             TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
             TestContext.Out.WriteLine($"T11 extra events: {string.Join(",", extraEvents)}");
-            Assert.That(extraEvents, Is.All.LessThanOrEqualTo(1), "One rendered-text allocation per edit");
+            TestContext.Out.WriteLine($"T11 Unity label copy events: {unityLabelCopies}");
+            Assert.That(unityLabelCopies, Is.InRange(0, 1), "The engine label may make one display copy");
+#if UNITY_6000_0_OR_NEWER
+            Assert.That(unityLabelCopies, Is.Zero, "The pinned T11 baseline allows one total allocation above master");
+#endif
+            Assert.That(extraEvents, Is.All.LessThanOrEqualTo(1 + unityLabelCopies), "One rendered-text allocation per edit, plus the calibrated engine copy");
 
             AllocationAssertions.EnsureInstrumentValidated();
             long[] idleBytes = new long[IdleFrameCount];

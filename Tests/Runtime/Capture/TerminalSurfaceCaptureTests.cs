@@ -308,10 +308,12 @@
         [UnityTest]
         public IEnumerator CapturesHighlightedCommandInput()
         {
-            yield return SpawnTerminal(fontPackPath: "Packs/Fonts/JetBrains Mono.asset", useEditorDefaults: true);
+            yield return SpawnTerminal(useEditorDefaults: true);
+            TerminalFontPack fontPack = LoadPack<TerminalFontPack>("Packs/Fonts/JetBrains Mono.asset");
+            _terminal.SetFont(fontPack._fonts[0]);
             _terminal.SetState(TerminalState.OpenSmall);
             yield return WaitForTerminalInputVisible();
-            yield return WaitForTheme("Dx Dark");
+            Assert.That(_terminal.CurrentTheme, Is.EqualTo("dx-dark-theme"));
             CommandBuilder example = CommandBuilder.Create("syntax-capture").Arg<int>("number").Arg<string>("text").Arg<bool>("enabled").Handler((_, _) => { });
             Assert.That(Terminal.Shell.AddCommand(example, out _), Is.True);
             Terminal.Log("Command input highlighting");
