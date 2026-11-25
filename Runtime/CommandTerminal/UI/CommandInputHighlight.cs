@@ -156,17 +156,25 @@ namespace WallstopStudios.DxCommandTerminal.UI
             {
                 _shell = shell;
                 _line = line;
-                if (hasInput)
+                if (!hasInput)
                 {
-                    _classifier.Classify(line, shell, _nextSpans);
+                    _labelDirty |= lineChanged || 0 < _spans.Count;
+                    _spans.Clear();
+                }
+                else if (lineChanged)
+                {
+                    _classifier.Classify(line, shell, _spans);
+                    _labelDirty = true;
                 }
                 else
                 {
-                    _nextSpans.Clear();
+                    _classifier.Classify(line, shell, _nextSpans);
+                    if (!SpansMatch(_spans, _nextSpans))
+                    {
+                        (_spans, _nextSpans) = (_nextSpans, _spans);
+                        _labelDirty = true;
+                    }
                 }
-
-                _labelDirty |= lineChanged || !SpansMatch(_spans, _nextSpans);
-                (_spans, _nextSpans) = (_nextSpans, _spans);
 
                 _commandsVersion = shell?.CommandsVersion ?? 0;
                 _variablesVersion = shell?.VariablesVersion ?? 0;

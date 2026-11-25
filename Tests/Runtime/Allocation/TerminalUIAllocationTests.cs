@@ -252,6 +252,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             Assert.That(highlight.text, Does.Contain("<noparse><</noparse>/noparse<noparse>></noparse>"));
             Assert.That(field.value, Is.EqualTo("help </noparse><b>"));
 
+            const string literal = @"help a\nb";
+            field.value = literal;
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain(@"a\nb"));
+            Assert.That(field.value, Is.EqualTo(literal));
+
             field.value = string.Empty;
             _terminal.RefreshUI();
             Assert.That(highlight.text, Is.Empty);
