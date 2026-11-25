@@ -3997,6 +3997,13 @@
                 return keyboard.UsesCompletionBinding(key) && (key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true);
             }
 
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetComponent(out TerminalPlayerInputController playerInput) && playerInput.isActiveAndEnabled && playerInput.OwnsCompletionKey(key))
+            {
+                return true;
+            }
+#endif
+
             if (TryCompletionKey(key))
             {
                 return true;
