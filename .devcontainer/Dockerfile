@@ -111,6 +111,41 @@ RUN test "$(node -p 'process.versions.node.split(".")[0]')" = 26 \
     && npm --version
 
 # ------------------------------------------------------------------------------
+# The user prefix leads PATH so the self-updating Antigravity CLI and the
+# lifecycle's npm installs win over any system copy. NPM_CONFIG_PREFIX below
+# points at the same tree.
+# ------------------------------------------------------------------------------
+ENV PATH="/home/vscode/.local/bin:${PATH}"
+
+# ------------------------------------------------------------------------------
+# Antigravity CLI: a native single binary, not an npm package. Install the
+# vendor manifest's latest payload for the target architecture with checksum
+# verification. It lives in the user-owned prefix so the lifecycle's
+# `agy update` can replace it at runtime.
+# ------------------------------------------------------------------------------
+# The global ARG before FROM only feeds FROM; a stage must re-declare a
+# platform ARG before reading it.
+ARG TARGETARCH
+RUN arch="$(case "${TARGETARCH:-$(dpkg --print-architecture)}" in \
+        amd64) printf '%s' amd64 ;; \
+        arm64) printf '%s' arm64 ;; \
+        *) printf '%s' unsupported ;; \
+    esac)" \
+    && test "${arch}" != unsupported \
+    && manifest="$(curl -fsSL "https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_${arch}.json")" \
+    && version="$(printf '%s' "${manifest}" | jq -er '.version')" \
+    && payload="$(printf '%s' "${manifest}" | jq -er '.url')" \
+    && checksum="$(printf '%s' "${manifest}" | jq -er '.sha512')" \
+    && test -n "${version}" && test -n "${payload}" && test -n "${checksum}" \
+    && curl -fsSL -o /tmp/antigravity-cli.tar.gz "${payload}" \
+    && printf '%s  /tmp/antigravity-cli.tar.gz\n' "${checksum}" | sha512sum -c - \
+    && tar -xzf /tmp/antigravity-cli.tar.gz -C /tmp antigravity \
+    && install -d -m 0755 -o vscode -g vscode /home/vscode/.local/bin \
+    && install -m 0755 -o vscode -g vscode /tmp/antigravity /home/vscode/.local/bin/agy \
+    && rm -f /tmp/antigravity-cli.tar.gz /tmp/antigravity \
+    && agy --version
+
+# ------------------------------------------------------------------------------
 # Agent CLIs + MCP adapters baked into the image. The user-scoped lifecycle
 # refresh moves them to their configured npm lines; these copies keep offline
 # launches working.
@@ -223,6 +258,7 @@ RUN echo "=== Environment Verification ===" \
     && claude --version && codex --version \
     && bash /tmp/verify-opencode.sh \
     && nanocoder --version \
+    && agy --version \
     && echo "--- MCP executables ---" \
     && command -v mcp-server-git && command -v mcp-server-fetch \
     && command -v zai-mcp-server && command -v mcp-remote \

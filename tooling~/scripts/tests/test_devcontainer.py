@@ -9,7 +9,9 @@ regression fails here before a container build does.
 """
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import os
 import re
 import shutil
@@ -19,7 +21,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Tuple
 
 REPO_ROOT = Path(__file__).parents[3]
 DEVCONTAINER = REPO_ROOT / ".devcontainer" / "devcontainer.json"
@@ -39,6 +41,7 @@ LIFECYCLE_UNSET = (
     "Z_AI_API_KEY",
     "ZHIPU_API_KEY",
     "OPENROUTER_API_KEY",
+    "GEMINI_API_KEY",
     "GITHUB_TOKEN",
     "GH_TOKEN",
     "GITHUB_PERSONAL_ACCESS_TOKEN",
@@ -87,6 +90,20 @@ printf '%s\\n' "${DXT_FAKE_NPM_VIEW:-[\\"2.0.0\\",\\"2.0.16\\",\\"2.0.15\\"]}"
 """
 
 STUB_NPM_OK = """#!/bin/bash
+exit 0
+"""
+
+# Mirrors `agy`: a bare version line, and an `update` subcommand whose
+# result decides whether the installed copy survives.
+FAKE_AGY = """#!/usr/bin/env bash
+if [[ "${1:-}" == "--version" ]]; then
+    printf '%s\\n' "${DXT_FAKE_AGY_VERSION:-1.5.17}"
+    exit 0
+fi
+if [[ "${1:-}" == "update" ]]; then
+    printf '%s\\n' "$*" >> "${DXT_FAKE_AGY_LOG}"
+    exit "${DXT_FAKE_AGY_UPDATE_RESULT:-0}"
+fi
 exit 0
 """
 
@@ -324,6 +341,26 @@ class BakedConfigurationContract(unittest.TestCase):
         # The live regex is the guard the retired fixed-string grep never
         # was: any "2." version pin in the Dockerfile fails this suite.
 
+    def test_dockerfile_bakes_the_antigravity_cli_for_the_target_arch(self) -> None:
+        text = DOCKERFILE.read_text(encoding="utf-8")
+        # The vendor manifest is the artifact channel its installer uses; the
+        # image selects the target architecture itself so a cross-build never
+        # ships the build host's binary.
+        self.assertIn("antigravity-cli-auto-updater-974169037036.us-central1.run.app", text)
+        self.assertIn("sha512sum -c -", text, "the native binary is installed without checksum verification")
+        self.assertIn(
+            "/home/vscode/.local/bin/agy",
+            text,
+            "agy must live in the user-owned prefix so `agy update` can replace it",
+        )
+        lines = text.splitlines()
+        stage_start = next(index for index, line in enumerate(lines) if line.startswith("FROM "))
+        self.assertIn(
+            "ARG TARGETARCH",
+            [line.strip() for line in lines[stage_start:]],
+            "a platform ARG must be re-declared inside the stage before use",
+        )
+
 
 @SKIP_ON_WINDOWS
 class EnvExportParsingContract(unittest.TestCase):
@@ -437,6 +474,75 @@ class NpmRangeResolverContract(unittest.TestCase):
 
     def test_exact_spec_passes_through(self) -> None:
         self.assertEqual(self.resolve('"2.0.16"'), "2.0.16")
+
+
+@SKIP_ON_WINDOWS
+class AntigravityRefreshContract(unittest.TestCase):
+    """The native CLI refreshes through its own updater, never through npm."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        spec = importlib.util.spec_from_file_location("dxt_install_agent_clis_agy", INSTALLER_PY)
+        assert spec is not None and spec.loader is not None
+        cls.installer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.installer)
+
+    def setUp(self) -> None:
+        self.work = Path(tempfile.mkdtemp(prefix="dxt-agy-"))
+        self.addCleanup(shutil.rmtree, self.work, True)
+        self.bin = self.work / "bin"
+        self.bin.mkdir()
+        write_script(self.bin / "agy", FAKE_AGY)
+        self.log = self.work / "agy-calls.txt"
+
+    def run_refresh(self, include_fake: bool = True, **env_overrides: str) -> Tuple[int, str]:
+        saved = {key: os.environ.get(key) for key in ("PATH", "DXT_FAKE_AGY_LOG", "DXT_FAKE_AGY_UPDATE_RESULT", "DXT_FAKE_AGY_VERSION")}
+        os.environ["PATH"] = f"{self.bin}:/usr/bin:/bin" if include_fake else str(self.work / "empty")
+        os.environ["DXT_FAKE_AGY_LOG"] = str(self.log)
+        for key, value in env_overrides.items():
+            os.environ[key] = value
+        stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(stderr):
+                code = self.installer.refresh_antigravity()
+        finally:
+            for key, value in saved.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+        return code, stderr.getvalue()
+
+    def calls(self) -> List[str]:
+        return self.log.read_text(encoding="utf-8").splitlines() if self.log.exists() else []
+
+    def test_version_parsing_reads_the_bare_semantic_version(self) -> None:
+        saved = os.environ.get("PATH")
+        os.environ["PATH"] = f"{self.bin}:/usr/bin:/bin"
+        try:
+            self.assertEqual(self.installer.command_version("agy"), "1.5.17")
+        finally:
+            if saved is None:
+                os.environ.pop("PATH", None)
+            else:
+                os.environ["PATH"] = saved
+
+    def test_update_runs_the_vendor_updater(self) -> None:
+        code, stderr = self.run_refresh()
+        self.assertEqual(code, 0, stderr)
+        self.assertEqual(self.calls(), ["update"], "the refresh must use agy's own updater")
+
+    def test_a_missing_binary_is_a_warning_not_a_failure(self) -> None:
+        (self.work / "empty").mkdir()
+        code, stderr = self.run_refresh(include_fake=False)
+        self.assertEqual(code, 0)
+        self.assertIn("not installed", stderr)
+
+    def test_a_failed_update_keeps_the_installed_copy_and_warns(self) -> None:
+        code, stderr = self.run_refresh(DXT_FAKE_AGY_UPDATE_RESULT="1")
+        self.assertEqual(code, 0, "an updater failure must not fail the CLI refresh")
+        self.assertIn("failed", stderr)
+        self.assertIn("1.5.17", stderr, "the warning should name the copy that remains usable")
 
 
 @SKIP_ON_WINDOWS
@@ -931,6 +1037,7 @@ class PostCreateContract(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("    claude:        N/A", result.stdout, "a missing CLI left an empty summary cell")
         self.assertIn("    nanocoder:     N/A", result.stdout)
+        self.assertIn("    agy:           N/A", result.stdout)
         self.assertIn("    .NET SDK:      9.0.100", result.stdout)
         self.assertIn("    Node.js:       v24.0.0", result.stdout)
         self.assertIn("    opencode:      opencode v2.0.16", result.stdout)

@@ -47,15 +47,15 @@ envelope that read as a broken eval schema (#211). Prefixes that carry meaning s
 
 ## configure behavior
 
-One transaction writes seven configs with rollback and mode 0600: `.mcp.json` (Claude), `.codex/config.toml`, `opencode.jsonc`, `.nanocoder/mcp.json`, `.vscode/mcp.json`,
-`.cursor/mcp.json`, `.copilot/mcp-config.json`. All are gitignored. Servers: `unity-mcp`, `github` (remote, PAT from
-`GITHUB_TOKEN`/`GH_TOKEN`/`GITHUB_PERSONAL_ACCESS_TOKEN`/`GITHUB_PAT`/ `GITHUB_MCP_PAT`; OpenCode references the alias that supplied the value, and `ai-backends.sh env` exports
-that alias so the `{env:NAME}` lookup resolves outside the devcontainer too), `git`, `fetch`, `context7` (library docs), and when a Z.AI key exists (`Z_AI_API_KEY` or
-`ZAI_API_KEY`): `web-search-prime`, `web-reader`, `zread`, `zai-mcp-server` (vision). No key -> the four Z.AI entries are removed. A running bridge that rejected the token aborts
-configure before writing anything: copy `UNITY_MCP_BEARER_TOKEN` from the host `.env.local` instead of minting a second one. In the devcontainer, `UNITY_PROJECT_PATH` remains the
-host identity used for port discovery, while `UNITY_PROJECT_CONTAINER_PATH=/unity-project` is used for local capture files. After editing `.env.local`, run
-`npm run unity:mcp:configure -- --offline`, then reconnect MCP or restart agents. Credential loading, scrubbing, and the OpenCode v2 readiness gate are covered in
-[devcontainer-lifecycle](../devcontainer-lifecycle/SKILL.md).
+One transaction writes eight configs with rollback and mode 0600: `.mcp.json` (Claude), `.codex/config.toml`, `opencode.jsonc`, `.nanocoder/mcp.json`, `.vscode/mcp.json`,
+`.cursor/mcp.json`, `.copilot/mcp-config.json`, `.agents/mcp_config.json` (Antigravity CLI: `serverUrl` for HTTP, `command` for stdio, no `type` field). All are gitignored.
+Servers: `unity-mcp`, `github` (remote, PAT from `GITHUB_TOKEN`/`GH_TOKEN`/`GITHUB_PERSONAL_ACCESS_TOKEN`/`GITHUB_PAT`/ `GITHUB_MCP_PAT`; OpenCode references the alias that
+supplied the value, and `ai-backends.sh env` exports that alias so the `{env:NAME}` lookup resolves outside the devcontainer too), `git`, `fetch`, `context7` (library docs), and
+when a Z.AI key exists (`Z_AI_API_KEY` or `ZAI_API_KEY`): `web-search-prime`, `web-reader`, `zread`, `zai-mcp-server` (vision). No key -> the four Z.AI entries are removed. A
+running bridge that rejected the token aborts configure before writing anything: copy `UNITY_MCP_BEARER_TOKEN` from the host `.env.local` instead of minting a second one. In the
+devcontainer, `UNITY_PROJECT_PATH` remains the host identity used for port discovery, while `UNITY_PROJECT_CONTAINER_PATH=/unity-project` is used for local capture files. After
+editing `.env.local`, run `npm run unity:mcp:configure -- --offline`, then reconnect MCP or restart agents. Credential loading, scrubbing, and the OpenCode v2 readiness gate are
+covered in [devcontainer-lifecycle](../devcontainer-lifecycle/SKILL.md).
 
 ## OpenRouter backends (API key, any model)
 

@@ -58,15 +58,16 @@ this process can read and write, used to install the capture script and to pick 
 | VS Code / Copilot Chat | `.vscode/mcp.json`         | `servers`     |
 | Cursor                 | `.cursor/mcp.json`         | `mcpServers`  |
 | Copilot CLI            | `.copilot/mcp-config.json` | `mcpServers`  |
+| Antigravity CLI        | `.agents/mcp_config.json`  | `mcpServers`  |
 
-All seven are written as one transaction with rollback, mode `0600`, and are gitignored. Unrelated keys and servers survive; malformed files abort configure before anything is
+All eight are written as one transaction with rollback, mode `0600`, and are gitignored. Unrelated keys and servers survive; malformed files abort configure before anything is
 written. OpenCode receives the published schema, native v2 `mcp.servers` entries, a 30-second catalog timeout, a 300-second execution timeout, Code Mode, and the shared
 `.llm/skills` catalog. The execution timeout is raised because a Play Mode suite over this bridge outlasts the 30-second default. Generated OpenCode credentials use `{env:NAME}`
 references, naming the variable that supplied each credential: the accepted alias itself (`GITHUB_MCP_PAT`, `Z_AI_API_KEY`) when it supplied the value, else the canonical name. The
 devcontainer lifecycle and interactive shell normalize accepted aliases before OpenCode starts, and `configure` names any reference it cannot resolve, plus a loud hint when the
 github server would be written without any token. Existing v1 MCP fields and skill sources convert in place. The catalog also includes `context7` (library docs,
 `@upstash/context7-mcp`). Z.AI remote servers go through `mcp-remote` for Codex only (its HTTP client rejects Z.AI's empty 200s on `initialized` notifications); the key travels via
-the child's `ZAI_AUTH_HEADER` env var, never argv.
+the child's `ZAI_AUTH_HEADER` env var, never argv. Antigravity CLI entries use `serverUrl` for Streamable HTTP and a bare `command`/`args` pair for stdio, with no `type` field.
 
 ## State capture
 

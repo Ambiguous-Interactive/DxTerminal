@@ -1,4 +1,9 @@
-"""Refresh the user-scoped agent CLIs so an offline launch keeps the image copy while an online launch tracks npm."""
+"""Refresh the user-scoped agent CLIs so an offline launch keeps the image copy while an online launch tracks npm.
+
+The npm-managed CLIs refresh from the registry. Antigravity CLI is a native
+single binary with its own updater, so it refreshes through `agy update`
+instead; a missing copy is an old image's warning, never a failure.
+"""
 from __future__ import annotations
 
 from typing import BinaryIO
@@ -19,9 +24,11 @@ PACKAGES = (
     "@anthropic-ai/claude-code@latest",
 )
 COMMANDS = ("codex", "opencode", "nanocoder", "claude")
-KNOWN_VERSION_COMMANDS = frozenset((*COMMANDS, "opencode2"))
+KNOWN_VERSION_COMMANDS = frozenset((*COMMANDS, "opencode2", "agy"))
 INSTALL_ALLOW_SCRIPTS = "@opencode/cli,@anthropic-ai/claude-code"
 LOCK_NAME = "dxt-install-agent-clis.lock"
+ANTIGRAVITY_COMMAND = "agy"
+ANTIGRAVITY_UPDATE_TIMEOUT_SECONDS = 300
 VERSION_PATTERN = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?")
 
 
@@ -148,6 +155,29 @@ def refresh_package(package_spec: str, command_name: str) -> int:
     return 1
 
 
+def refresh_antigravity() -> int:
+    """Refresh the native CLI through the updater it ships.
+
+    The baked copy lives in the user's prefix so this write is allowed; an
+    update failure keeps the installed copy usable, and a missing copy means
+    the image predates the bake. Neither changes the npm refresh verdict.
+    """
+    if shutil.which(ANTIGRAVITY_COMMAND) is None:
+        warn(f"antigravity CLI ({ANTIGRAVITY_COMMAND}) is not installed; rebuild the image to bake it.")
+        return 0
+    installed = command_version(ANTIGRAVITY_COMMAND)
+    result = run([ANTIGRAVITY_COMMAND, "update"], timeout=ANTIGRAVITY_UPDATE_TIMEOUT_SECONDS)
+    current = command_version(ANTIGRAVITY_COMMAND)
+    if result.returncode != 0:
+        warn(f"antigravity CLI update failed; keeping {current or installed or 'the installed copy'}.")
+        return 0
+    if installed and current and installed != current:
+        log(f"antigravity CLI updated {installed} -> {current}.")
+    else:
+        log(f"antigravity CLI {current or installed or 'is'} is current.")
+    return 0
+
+
 def verify_opencode() -> int:
     opencode_version = command_version("opencode")
     if not opencode_version.startswith("2."):
@@ -163,6 +193,7 @@ def refresh_all() -> int:
     remove_legacy_package()
     failures = sum(refresh_package(package_spec, command_name)
                    for package_spec, command_name in zip(PACKAGES, COMMANDS))
+    refresh_antigravity()
     failures += verify_opencode()
     if failures:
         warn(f"{failures} agent CLI refresh(es) failed; see messages above.")

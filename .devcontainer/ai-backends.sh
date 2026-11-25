@@ -28,7 +28,7 @@ resolve_action() {
     local invoked_as
     invoked_as="$(basename "$0")"
     case "${invoked_as}" in
-        codex-zai|claude-zai|codex-openrouter|claude-openrouter)
+        codex-zai|claude-zai|codex-openrouter|claude-openrouter|agy-gemini)
             printf '%s\n' "${invoked_as}"
             ;;
         *)
@@ -251,7 +251,7 @@ install_launchers() {
     script_path="$(realpath "${BASH_SOURCE[0]}")"
     mkdir -p "${bin_dir}"
 
-    for launcher in codex-zai claude-zai codex-openrouter claude-openrouter; do
+    for launcher in codex-zai claude-zai codex-openrouter claude-openrouter agy-gemini; do
         target="${bin_dir}/${launcher}"
         if [ -e "${target}" ] && [ ! -L "${target}" ]; then
             die "Refusing to replace non-symlink launcher: ${target}"
@@ -264,7 +264,7 @@ install_backend_support() {
     install_codex_profile
     install_openrouter_codex_profile
     install_launchers
-    printf '[ai-backends] Installed codex-zai, claude-zai, codex-openrouter, and claude-openrouter launchers.\n'
+    printf '[ai-backends] Installed codex-zai, claude-zai, codex-openrouter, claude-openrouter, and agy-gemini launchers.\n'
 }
 
 # OpenRouter resolves the key from the environment first, then from the checkout's
@@ -542,6 +542,25 @@ launch_claude_openrouter() {
     exec claude ${claude_args[@]+"${claude_args[@]}"} "$@"
 }
 
+# Antigravity CLI's Gemini API key mode. The provider selector is passed with
+# --settings so it applies to this process only: persisting modelProvider in
+# ~/.gemini/antigravity-cli/settings.json makes the CLI refuse to start once
+# the key is removed.
+launch_agy_gemini() {
+    local gemini_key model
+    command -v agy >/dev/null 2>&1 || die "agy is not installed."
+    if ! gemini_key="$(find_credential GEMINI_API_KEY)"; then
+        die "Set GEMINI_API_KEY (environment or the checkout's .env.local) before launching agy-gemini."
+    fi
+    export GEMINI_API_KEY="${gemini_key}"
+    model="$(find_credential AGY_GEMINI_MODEL || true)"
+    prepare_scrubbed_agent_environment
+    if [ -n "${model}" ]; then
+        exec agy --settings '{"modelProvider":"gemini"}' --model "${model}" "$@"
+    fi
+    exec agy --settings '{"modelProvider":"gemini"}' "$@"
+}
+
 # Emits `export KEY='value'` lines for every managed credential that resolves
 # from the environment or .env.local; keys absent from both are omitted. The
 # output is safe to eval: values are single-quoted with embedded quotes escaped.
@@ -567,6 +586,8 @@ print_env_exports() {
     # Native opencode's built-in "Z.AI Coding Plan" provider reads ZHIPU_API_KEY.
     emit_export ZHIPU_API_KEY ZHIPU_API_KEY ZAI_API_KEY Z_AI_API_KEY
     emit_export OPENROUTER_API_KEY OPENROUTER_API_KEY
+    # Antigravity CLI's Gemini-API-key mode (agy-gemini) reads this name only.
+    emit_export GEMINI_API_KEY GEMINI_API_KEY
     emit_export GITHUB_TOKEN GITHUB_TOKEN GH_TOKEN GITHUB_PERSONAL_ACCESS_TOKEN GITHUB_PAT GITHUB_MCP_PAT
     emit_export UNITY_MCP_BEARER_TOKEN UNITY_MCP_BEARER_TOKEN
     emit_export UNITY_MCP_ENABLED UNITY_MCP_ENABLED
@@ -582,14 +603,16 @@ Usage:
   claude-zai [claude arguments...]
   codex-openrouter [codex arguments...]
   claude-openrouter [claude arguments...]
+  agy-gemini [agy arguments...]
 
-The ordinary `codex` and `claude` commands retain their native backends.
+The ordinary `codex`, `claude`, and `agy` commands retain their native backends.
 
 `env` prints `export KEY='value'` lines for every managed credential found in
 the environment or the checkout's .env.local (never sourced, parsed as data):
 ZAI_API_KEY, ZHIPU_API_KEY (for native opencode's Z.AI Coding Plan provider),
-OPENROUTER_API_KEY, GITHUB_TOKEN (from any GitHub alias), UNITY_MCP_BEARER_TOKEN,
-UNITY_MCP_ENABLED, and UNITY_PROJECT_PATH. A credential an alias supplied is exported under the
+OPENROUTER_API_KEY, GEMINI_API_KEY (for agy-gemini), GITHUB_TOKEN (from any
+GitHub alias), UNITY_MCP_BEARER_TOKEN, UNITY_MCP_ENABLED, and
+UNITY_PROJECT_PATH. A credential an alias supplied is exported under the
 alias's own name as well, because generated OpenCode configs reference that
 name ({env:GITHUB_MCP_PAT}, {env:Z_AI_API_KEY}) and the lookup resolves only
 against the exact exported key. Native tools can pick the credentials up with:
@@ -613,6 +636,11 @@ CLAUDE_OPENROUTER_SUBAGENT_MODEL, CLAUDE_OPENROUTER_CONFIG_DIR,
 CLAUDE_OPENROUTER_GATEWAY_DISCOVERY (0 or 1, default 1),
 OPENROUTER_API_TIMEOUT_MS, AI_BACKENDS_CONTAINER_MODE,
 CLAUDE_OPENROUTER_SUBPROCESS_ENV_SCRUB (auto, 0, or 1).
+
+Antigravity CLI: set GEMINI_API_KEY in the environment or the checkout's
+.env.local, then run agy-gemini. The launcher applies modelProvider=gemini for
+that session only, so plain `agy` keeps Google sign-in and no setting is
+persisted. Optional override: AGY_GEMINI_MODEL (passed as --model).
 HELP
 }
 
@@ -621,6 +649,7 @@ if [ "$(basename "$0")" != "codex-zai" ] \
     && [ "$(basename "$0")" != "claude-zai" ] \
     && [ "$(basename "$0")" != "codex-openrouter" ] \
     && [ "$(basename "$0")" != "claude-openrouter" ] \
+    && [ "$(basename "$0")" != "agy-gemini" ] \
     && [ "$#" -gt 0 ]; then
     shift
 fi
@@ -632,6 +661,7 @@ case "${action}" in
     claude-zai) launch_claude_zai "$@" ;;
     codex-openrouter) launch_codex_openrouter "$@" ;;
     claude-openrouter) launch_claude_openrouter "$@" ;;
+    agy-gemini) launch_agy_gemini "$@" ;;
     help|-h|--help) print_help ;;
     *) die "Unknown action: ${action}" ;;
 esac

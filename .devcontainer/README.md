@@ -43,24 +43,24 @@ The old `sst-dev.opencode` extension is not installed: it launches the removed v
 
 ## What the image bakes in
 
-| Layer        | Contents                                                                                                                                                                                                                     |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Base         | `mcr.microsoft.com/devcontainers/dotnet:3-11.0-resolute` + SDK from `global.json` + .NET 10 (C# Dev Kit)                                                                                                                     |
-| Repo tooling | PowerShell (lint scripts), CSharpier, pre-commit, yamllint, git-lfs                                                                                                                                                          |
-| Node LTS     | NodeSource LTS; user-global npm prefix is `~/.local` (no sudo, ever)                                                                                                                                                         |
-| Agent CLIs   | `@anthropic-ai/claude-code`, `@openai/codex`, `@opencode/cli` v2, `@nanocollective/nanocoder` (configured npm lines; refreshed on every start)                                                                               |
-| MCP servers  | `mcp-server-git`, `mcp-server-fetch` (uv), `@z_ai/mcp-server` (vision), `@upstash/context7-mcp` (docs), `mcp-remote` (Z.AI↔Codex adapter), baked MCP TypeScript SDK v2, `smol-toml`, and `jsonc-parser` under `/opt/dxt-mcp` |
+| Layer        | Contents                                                                                                                                                                                                                                                                     |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base         | `mcr.microsoft.com/devcontainers/dotnet:3-11.0-resolute` + SDK from `global.json` + .NET 10 (C# Dev Kit)                                                                                                                                                                     |
+| Repo tooling | PowerShell (lint scripts), CSharpier, pre-commit, yamllint, git-lfs                                                                                                                                                                                                          |
+| Node LTS     | NodeSource LTS; user-global npm prefix is `~/.local` (no sudo, ever)                                                                                                                                                                                                         |
+| Agent CLIs   | `@anthropic-ai/claude-code`, `@openai/codex`, `@opencode/cli` v2, `@nanocollective/nanocoder` (configured npm lines; refreshed on every start), Antigravity CLI (`agy`, native binary from the vendor manifest with SHA-512 verification; self-updates through `agy update`) |
+| MCP servers  | `mcp-server-git`, `mcp-server-fetch` (uv), `@z_ai/mcp-server` (vision), `@upstash/context7-mcp` (docs), `mcp-remote` (Z.AI↔Codex adapter), baked MCP TypeScript SDK v2, `smol-toml`, and `jsonc-parser` under `/opt/dxt-mcp`                                                 |
 
 Offline launches keep working: configure uses the baked dependencies, and the image copies of the CLIs remain until a refresh succeeds.
 
 ## Lifecycle
 
-| Hook                   | Script                    | Work                                                                                                                                                               |
-| ---------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `updateContentCommand` | `post-start.sh --prepare` | Repair caches, verify OpenCode v2, and configure MCP offline                                                                                                       |
-| `postCreateCommand`    | `post-create.sh`          | npm prefix, agent CLI refresh, `dotnet tool restore`, `npm install`, MCP configure, Z.AI launcher install, pre-commit, welcome panel; VS Code waits for completion |
-| `postStartCommand`     | `post-start.sh`           | Ownership repair, offline MCP configure, OpenCode service credential refresh, and background CLI refresh                                                           |
-| `postAttachCommand`    | `post-start.sh --attach`  | Refresh credentials, MCP config, and an existing OpenCode service after reattach                                                                                   |
+| Hook                   | Script                    | Work                                                                                                                                                                          |
+| ---------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `updateContentCommand` | `post-start.sh --prepare` | Repair caches, verify OpenCode v2, and configure MCP offline                                                                                                                  |
+| `postCreateCommand`    | `post-create.sh`          | npm prefix, agent CLI refresh (npm plus native `agy update`), `dotnet tool restore`, `npm install`, MCP configure, launcher install, pre-commit, welcome panel; VS Code waits |
+| `postStartCommand`     | `post-start.sh`           | Ownership repair, offline MCP configure, OpenCode service credential refresh, and background CLI refresh (npm plus `agy update`)                                              |
+| `postAttachCommand`    | `post-start.sh --attach`  | Refresh credentials, MCP config, and an existing OpenCode service after reattach                                                                                              |
 
 `post-start.sh` and `post-create.sh` are shims over the typed flows in `post_start.py` and `post_create.py` (stdlib only, covered by the pinned pyright gate). The shared contracts
 stay in their single implementations and are invoked through their tracked entries: `ai-backends.sh env` and `ai-backends.sh install`, `cache-contract.sh`,
@@ -82,10 +82,11 @@ Logs for the background refresh: `/tmp/dxt-agent-cli-refresh.log`.
 - GitHub: `GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_PERSONAL_ACCESS_TOKEN`, `GITHUB_PAT`, `GITHUB_MCP_PAT`
 - Z.AI: `Z_AI_API_KEY`, `ZAI_API_KEY`
 - OpenRouter: `OPENROUTER_API_KEY`
+- Google Antigravity CLI: `GEMINI_API_KEY` (used by `agy-gemini`; plain `agy` keeps Google sign-in)
 - Unity bridge: `UNITY_PROJECT_PATH`, `UNITY_PROJECT_CONTAINER_PATH`, `UNITY_MCP_BRIDGE_PORT`, `UNITY_MCP_BEARER_TOKEN`
 
-Every launcher reads `.env.local` (parsed as data, never sourced), so a key placed in the file works for `claude-zai`, `codex-zai`, `claude-openrouter`, `codex-openrouter`, and the
-MCP config generator alike.
+Every launcher reads `.env.local` (parsed as data, never sourced), so a key placed in the file works for `claude-zai`, `codex-zai`, `claude-openrouter`, `codex-openrouter`,
+`agy-gemini`, and the MCP config generator alike.
 
 **Interactive shell loading:** post-create installs a guarded shell block, and trusted lifecycle scripts source `.devcontainer/env-autoload.sh` explicitly. The container does not
 set `BASH_ENV`, so arbitrary Bash subprocesses do not inherit credentials. Native agents launched from the integrated terminal (`claude`, `codex`, `opencode`, `nanocoder`, and
@@ -99,17 +100,18 @@ eval "$(bash .devcontainer/ai-backends.sh env)"
 
 The loader prints one `export KEY='value'` line per credential found (single-quote escaped) and omits keys absent from both the environment and `.env.local`.
 
-`configure --offline` writes all seven client configs (Claude Code, Codex, OpenCode, Nanocoder, VS Code, Cursor, Copilot CLI) in one transaction with rollback, mode 0600. Generated
-configs are gitignored. The OpenCode v2 config adds the published schema, uses native `mcp.servers` entries, enables Code Mode, and registers the shared `.llm/skills` catalog. The
-300-second execution timeout covers a Play Mode suite over the bridge. Generated OpenCode credentials use `{env:NAME}` references; they are not written into the config. It also
-converts existing v1 MCP and skill fields without replacing explicit values. Session `share` stays `disabled` so transcripts never sync to a public URL. OpenCode references the
-variable that supplied each credential: the accepted alias itself when it supplied the value, else the canonical `GITHUB_TOKEN` / `ZAI_API_KEY` names. `ai-backends.sh env` exports
-that supplying name as well as the canonical one, so `{env:NAME}` resolves outside the devcontainer too. After editing `.env.local`, run `npm run unity:mcp:configure -- --offline`
-and restart the agents' MCP connections.
+`configure --offline` writes all eight client configs (Claude Code, Codex, OpenCode, Nanocoder, VS Code, Cursor, Copilot CLI, Antigravity CLI) in one transaction with rollback,
+mode 0600. Antigravity reads the workspace-scoped `.agents/mcp_config.json`; its remote entries use `serverUrl` (Streamable HTTP only) and its stdio entries use a bare
+`command`/`args` pair. Generated configs are gitignored. The OpenCode v2 config adds the published schema, uses native `mcp.servers` entries, enables Code Mode, and registers the
+shared `.llm/skills` catalog. The 300-second execution timeout covers a Play Mode suite over the bridge. Generated OpenCode credentials use `{env:NAME}` references; they are not
+written into the config. It also converts existing v1 MCP and skill fields without replacing explicit values. Session `share` stays `disabled` so transcripts never sync to a public
+URL. OpenCode references the variable that supplied each credential: the accepted alias itself when it supplied the value, else the canonical `GITHUB_TOKEN` / `ZAI_API_KEY` names.
+`ai-backends.sh env` exports that supplying name as well as the canonical one, so `{env:NAME}` resolves outside the devcontainer too. After editing `.env.local`, run
+`npm run unity:mcp:configure -- --offline` and restart the agents' MCP connections.
 
-## Alternate agent backends (`claude-zai` / `codex-zai` / `claude-openrouter` / `codex-openrouter`)
+## Alternate agent backends (`claude-zai` / `codex-zai` / `claude-openrouter` / `codex-openrouter` / `agy-gemini`)
 
-`.devcontainer/ai-backends.sh install` installs process-scoped launchers that never touch the native `claude`/`codex` defaults:
+`.devcontainer/ai-backends.sh install` installs process-scoped launchers that never touch the native `claude`/`codex`/`agy` defaults:
 
 - `claude-zai` — isolated `CLAUDE_CONFIG_DIR`, `ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic`, model defaults `glm-5.3[1m]` / `glm-5.3-flash[1m]`, sandbox handling tuned for
   running inside (sandbox off, container is the boundary) vs outside (scrubber on). `ZAI_API_KEY`/`Z_AI_API_KEY` resolve from the environment or `.env.local`.
@@ -134,6 +136,25 @@ Put `OPENROUTER_API_KEY` in the environment or `.env.local` (the launcher parses
 More overrides: `OPENROUTER_API_TIMEOUT_MS`, `CLAUDE_OPENROUTER_CONFIG_DIR`, `CLAUDE_OPENROUTER_GATEWAY_DISCOVERY` (0/1), `CLAUDE_OPENROUTER_SUBPROCESS_ENV_SCRUB`,
 `AI_BACKENDS_CONTAINER_MODE`.
 
+### Google Antigravity CLI (`agy-gemini`)
+
+The image bakes the latest `agy` from Google's per-platform manifest (SHA-512 verified) into `/home/vscode/.local/bin`, and every start runs `agy update`. Plain `agy` keeps Google
+sign-in: a browser flow locally, or the printed URL/code loop over a remote terminal. Set `AGY_ADC_AUTH=true` for Application Default Credentials in enterprise headless runs.
+
+For a browser-free or CI path, put `GEMINI_API_KEY` in the environment or `.env.local` (create it in Google AI Studio), then:
+
+```bash
+agy-gemini              # interactive TUI
+agy-gemini -p "..."     # headless, prints the response
+```
+
+`agy-gemini` exports the key, then passes `--settings '{"modelProvider":"gemini"}'` for that process only. The provider is never written to
+`~/.gemini/antigravity-cli/settings.json`, so plain `agy` is unaffected and the CLI never refuses to start after the key is removed. `AGY_GEMINI_MODEL` is forwarded as `--model`;
+`GOOGLE_GEMINI_BASE_URL` passes through for a custom Gemini-compatible endpoint.
+
+Antigravity's MCP server is configured per workspace in `.agents/mcp_config.json` (gitignored). If a user-global server of the same name is already running, keep the names
+distinct: Antigravity keeps the server that started first.
+
 ## Caches and mounts
 
 The container uses `tooling~/.venv-container-linux` for uv, so container and host environments stay separate. On a native host, `uv run --project tooling~` shares one
@@ -147,7 +168,8 @@ for direct access to files on the Editor machine. For an explicitly mounted proj
 
 ```bash
 npm test                                   # node --test tooling~/scripts/mcp/__tests__
-python3 -m unittest discover -s tooling~/scripts/tests -p test_ai_backends.py   # Z.AI launcher regression suite
-python3 -m unittest discover -s tooling~/scripts/tests -p test_devcontainer.py   # OpenCode v2 build contract
+python3 -m unittest discover -s tooling~/scripts/tests -p test_ai_backends.py   # provider launcher regression suite
+python3 -m unittest discover -s tooling~/scripts/tests -p test_devcontainer.py   # image, installer, and lifecycle contract
+agy --version                              # baked Antigravity CLI from the user prefix
 npm run unity:mcp:probe                    # host editor readiness (bridge running)
 ```

@@ -59,6 +59,16 @@ A background OpenCode service outlives the shell that started it, so `post-start
 - **Only destroy state on positive evidence.** Stop the service when the unity-mcp row is explicitly rejected. Unrecognized or empty output is reported and left running; a reworded
   log line must never cost the user their service.
 
+## Native CLI self-update contract
+
+`agy` (Antigravity CLI) is a native single binary, not an npm package. The image installs it into `/home/vscode/.local/bin` and owns that file as `vscode`, because `agy update`
+replaces the running binary in place; a root-owned `/usr/local/bin` copy fails every background refresh. `install_agent_clis.py` runs `agy update` with a timeout and treats a
+failed update or a missing copy as a warning: it is not part of the npm failure count, and an image that predates the bake still opens.
+
+`agy-gemini` passes `--settings '{"modelProvider":"gemini"}'` for one process instead of writing `modelProvider` into `~/.gemini/antigravity-cli/settings.json`. A persisted
+provider makes the CLI refuse to start once `GEMINI_API_KEY` is gone. `GEMINI_API_KEY` is another managed producer name: add it to `print_env_exports` in `ai-backends.sh` and to
+`MANAGED_CREDENTIALS` in `test_ai_backends.py` in the same change.
+
 ## Host path versus container path
 
 `UNITY_PROJECT_PATH` is the identity the host Unity editor and the bridge need: the port hash and the capture output path. It usually does not exist in the container.

@@ -299,10 +299,12 @@ def print_summary(workspace: Path) -> None:
     print(f"    codex:         {version_probe(['codex', '--version'])}")
     print(f"    opencode:      {version_probe(['opencode', '--version'])}")
     print(f"    nanocoder:     {version_probe(['nanocoder', '--version'])}")
+    print(f"    agy:           {version_probe(['agy', '--version'])}")
     print()
     print(f"  {BOLD}Quick Commands{NC}")
     print(f"    {CYAN}claude-zai{NC} / {CYAN}codex-zai{NC}            # Agents on the Z.AI subscription")
     print(f"    {CYAN}claude-openrouter{NC} / {CYAN}codex-openrouter{NC}  # Agents on any OpenRouter model")
+    print(f"    {CYAN}agy-gemini{NC}                   # Antigravity CLI on a Gemini API key")
     print(f"    {CYAN}npm run test:logic{NC}               # Run engine-independent NUnit tests")
     print(f"    {CYAN}npm run unity:mcp:probe{NC}          # Check the host Unity bridge")
     print(f"    {CYAN}npm run unity:capture{NC}            # Capture Unity editor/game state")
@@ -341,7 +343,7 @@ def main() -> int:
         return 1
 
     # Step 2: refresh the agent CLIs, but fail readiness if no usable v2 exists.
-    log_header("Refreshing Agent CLIs (claude, codex, opencode, nanocoder)")
+    log_header("Refreshing Agent CLIs (claude, codex, opencode, nanocoder, agy)")
     if not install_agent_clis(devcontainer):
         log_error("OpenCode v2 readiness check failed")
         return 1

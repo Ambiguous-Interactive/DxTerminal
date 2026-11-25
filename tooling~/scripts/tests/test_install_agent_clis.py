@@ -138,7 +138,7 @@ class RefreshFlowTests(unittest.TestCase):
         self.addCleanup(self.work.cleanup)
         self.bin_dir = Path(self.work.name) / "bin"
         self.bin_dir.mkdir()
-        for name in ("npm", "codex", "opencode", "opencode2", "nanocoder", "claude"):
+        for name in ("npm", "codex", "opencode", "opencode2", "nanocoder", "claude", "agy"):
             stub = self.bin_dir / name
             stub.write_text(NPM_STUB if name == "npm" else CLI_STUB)
             stub.chmod(0o755)
@@ -290,7 +290,20 @@ class RefreshFlowTests(unittest.TestCase):
             for package in ("@openai/codex", "@opencode/cli", "@nanocollective/nanocoder",
                             "@anthropic-ai/claude-code"):
                 self.assertIn(f"{package}@2.1.0 is current.", out)
+            self.assertIn("antigravity CLI 2.1.0 is current.", out)
             self.assertEqual(err, "")
+
+    def test_local_antigravity_refreshes_through_its_own_updater(self) -> None:
+        with self.refresh({"DXT_FAKE_NPM_VIEW": '"2.1.0"'}) as (status, out, err, _):
+            self.assertEqual(status, 0)
+            self.assertIn("antigravity CLI 2.1.0 is current.", out)
+            self.assertEqual(err, "")
+
+    def test_missing_antigravity_is_a_warning_not_a_failure(self) -> None:
+        (self.bin_dir / "agy").unlink()
+        with self.refresh({"DXT_FAKE_NPM_VIEW": '"2.1.0"'}) as (status, out, err, _):
+            self.assertEqual(status, 0, "a missing native CLI must not fail the npm refresh")
+            self.assertIn("antigravity CLI (agy) is not installed", err)
 
 
 if __name__ == "__main__":

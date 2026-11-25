@@ -1108,7 +1108,8 @@ export function clientConfigPaths(repoRoot) {
     vscode: path.join(repoRoot, ".vscode", "mcp.json"),
     codex: path.join(repoRoot, ".codex", "config.toml"),
     openCode: path.join(repoRoot, "opencode.jsonc"),
-    nanocoder: path.join(repoRoot, ".nanocoder", "mcp.json")
+    nanocoder: path.join(repoRoot, ".nanocoder", "mcp.json"),
+    antigravity: path.join(repoRoot, ".agents", "mcp_config.json")
   };
 }
 const ZAI_SERVERS = ["web-search-prime", "web-reader", "zread", "zai-mcp-server"];
@@ -1248,6 +1249,13 @@ function clientServers(kind, options, url) {
           disabled: false,
           timeout: { catalog: 30000, execution: 300000 }
         });
+      } else if (kind === "antigravity") {
+        // Antigravity CLI infers the transport: a command is stdio and a
+        // serverUrl is Streamable HTTP. It has no documented type field, and
+        // its remote transport rejects the legacy HTTP+SSE shape.
+        config = url
+          ? { serverUrl: url, ...(headers ? { headers } : {}) }
+          : { command, args, ...(env ? { env } : {}) };
       } else {
         config = url
           ? { url, ...(headers ? { headers } : {}) }
