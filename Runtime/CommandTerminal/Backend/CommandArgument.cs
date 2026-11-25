@@ -87,6 +87,18 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         internal abstract string FormatParseError(CommandArg input);
 
+        internal bool TryValidateArgument(CommandArg input, out object parsed, out string errorMessage)
+        {
+            if (!TryParse(input, out parsed))
+            {
+                errorMessage = FormatParseError(input);
+                return false;
+            }
+
+            errorMessage = ValidateParsed(parsed);
+            return errorMessage == null;
+        }
+
         internal abstract void AppendUsage(StringBuilder builder);
 
         internal abstract void AppendCompletions(in CommandCompletionContext context, List<CommandCompletion> results);

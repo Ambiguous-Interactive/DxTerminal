@@ -304,8 +304,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 #endif
 
         [TestCase("spawn goblin 80", "count must be 1–50. You typed 80.")]
+        [TestCase("spawn dragon", "prefab must be one of: goblin, ghoul, golem. You typed dragon.")]
+        [TestCase("spawn goblin abc", "count must be int. You typed abc.")]
+        [TestCase("spawn goblin $tooHigh", "count must be 1–50. You typed 80.")]
         [TestCase("spwan goblin", "No command spwan. Did you mean spawn")]
+        [TestCase("spwn goblin", "No command spwn. Did you mean spawn")]
         [TestCase("xyzzy goblin", "No command xyzzy.")]
+        [TestCase("spxyz goblin", "No command spxyz.")]
         public void LoggedValidationErrorMatchesT13Text(string line, string expectedMessage)
         {
             CommandShell shell = new(new CommandHistory(16));
@@ -333,11 +338,97 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 ),
                 Is.True
             );
+            Assert.That(shell.SetVariable("tooHigh", "80"), Is.True);
+
+            CommandShell.LineValidation inlineValidation = shell.ValidateLine(line, CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(inlineValidation.IsError, Is.True);
+            Assert.That(inlineValidation.Message, Is.EqualTo(expectedMessage));
 
             shell.RunCommand(line);
             Assert.That(runs, Is.Zero);
             Assert.That(shell.TryConsumeErrorMessage(out string error), Is.True);
-            Assert.That(error, Is.EqualTo(expectedMessage));
+            Assert.That(error, Is.EqualTo(inlineValidation.Message));
+        }
+
+        [Test]
+        public void UnclosedQuoteProducesNoteAndStillRuns()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            string spoken = null;
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("say", "Prints text")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("message", spec =>
+                        {
+                            return spec.Required();
+                        })
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                spoken = arguments.Get<string>("message");
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+
+            const string line = "say \"hello wor";
+            CommandShell.LineValidation validation = shell.ValidateLine(line, CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(validation.IsNote, Is.True);
+            Assert.That(validation.IsError, Is.False);
+            Assert.That(validation.UnclosedQuote, Is.EqualTo('"'));
+            Assert.That(validation.Message, Is.EqualTo("Quote not closed. The rest of the line is one argument."));
+
+            Assert.That(shell.RunCommand(line), Is.True);
+            Assert.That(spoken, Is.EqualTo("hello wor"));
+            Assert.That(shell.TryConsumeErrorMessage(out _), Is.False);
+        }
+
+        [TestCase("spwn", "spawn")]
+        [TestCase("spwan", "spawn")]
+        [TestCase("SPAW", "spawn")]
+        [TestCase("spxyz", null)]
+        [TestCase("sp", null)]
+        public void DidYouMeanSuggestsOnlyWithinEditDistanceTwo(string typed, string expectedSuggestion)
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.That(shell.AddCommand("spawn", _ => { }), Is.True);
+
+            CommandShell.LineValidation validation = shell.ValidateLine(typed, CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(validation.IsError, Is.True);
+            Assert.That(validation.Suggestion, Is.EqualTo(expectedSuggestion));
+        }
+
+        [Test]
+        public void IncompleteRequiredArgumentsStaySilentWhileTypingAndFailOnEnter()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required();
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            CommandShell.LineValidation typing = shell.ValidateLine("spawn", CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(typing.IsValid, Is.True);
+
+            CommandShell.LineValidation submit = shell.ValidateLine("spawn", CommandExecutionContext.Current, allowIncomplete: false);
+            Assert.That(submit.IsError, Is.True);
+            shell.RunCommand("spawn");
+            Assert.That(shell.TryConsumeErrorMessage(out string error), Is.True);
+            Assert.That(error, Is.EqualTo(submit.Message));
         }
     }
 }

@@ -161,7 +161,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.IsTrue(shell.RunCommand("buff 5 0 7"));
             string error = ConsumeError(shell);
             Assert.That(error != null, "An out-of-range element rejects the invocation");
-            Assert.That(error, Does.Contain("out of range"));
+            Assert.That(error, Is.EqualTo("levels must be 1–10. You typed 0."));
             Assert.AreEqual(1, observed.Count, "The rejected invocation skips the handler");
         }
 
@@ -275,12 +275,10 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 shell.AddCommand(
                     CommandBuilder
                         .Create("inventory")
-                        .Subcommand(
-                            "add",
-                            add =>
-                                add.Arg<string>("item", spec => spec.Required())
-                                    .Remaining<string>("extras")
-                                    .Handler((context, arguments) => dropped = arguments.Get<string[]>("extras"))
+                        .Subcommand("add", add =>
+                            add.Arg<string>("item", spec => spec.Required())
+                                .Remaining<string>("extras")
+                                .Handler((context, arguments) => dropped = arguments.Get<string[]>("extras"))
                         )
                         .Subcommand("count", count => count.Arg<string>("item", spec => spec.Required()).Handler((context, arguments) => { }))
                         .Handler((context, arguments) => { }),
@@ -346,12 +344,10 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 shell.AddCommand(
                     CommandBuilder
                         .Create("inventory")
-                        .Subcommand(
-                            "add",
-                            add =>
-                                add.Arg<string>("item", spec => spec.Required().Choices("pickaxe"))
-                                    .Remaining<string>("tags", spec => spec.Choices("red", "blue"))
-                                    .Handler((context, arguments) => { })
+                        .Subcommand("add", add =>
+                            add.Arg<string>("item", spec => spec.Required().Choices("pickaxe"))
+                                .Remaining<string>("tags", spec => spec.Choices("red", "blue"))
+                                .Handler((context, arguments) => { })
                         )
                         .Handler((context, arguments) => { }),
                     out _

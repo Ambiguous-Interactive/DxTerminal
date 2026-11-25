@@ -39,6 +39,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private readonly string[] _tags = new string[(int)CommandSyntaxRole.Invalid + 1];
         private string _line;
         private string _ghost;
+        private char? _unclosedQuote;
         private string _ghostTag;
         private CommandShell _shell;
         private long _commandsVersion;
@@ -142,11 +143,17 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return true;
         }
 
-        internal void Refresh(string line, CommandShell shell, bool inputOwnsFocus, string ghost = null)
+        internal void Refresh(string line, CommandShell shell, bool inputOwnsFocus, string ghost = null, char? unclosedQuote = null)
         {
             if (!string.Equals(_ghost, ghost, StringComparison.Ordinal))
             {
                 _ghost = ghost;
+                _labelDirty = true;
+            }
+
+            if (_unclosedQuote != unclosedQuote)
+            {
+                _unclosedQuote = unclosedQuote;
                 _labelDirty = true;
             }
 
@@ -412,11 +419,32 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
 
             AppendLiteral(builder, _line, start, _line.Length);
-            if (!string.IsNullOrEmpty(_ghost))
+            bool hasGhost = !string.IsNullOrEmpty(_ghost);
+            if (hasGhost || _unclosedQuote.HasValue)
             {
                 builder.Append(_ghostTag);
-                string safeGhost = LogTextSanitizer.Sanitize(_ghost);
-                AppendLiteral(builder, safeGhost, 0, safeGhost.Length);
+                if (hasGhost)
+                {
+                    string safeGhost = LogTextSanitizer.Sanitize(_ghost);
+                    AppendLiteral(builder, safeGhost, 0, safeGhost.Length);
+                }
+
+                if (_unclosedQuote is char closingQuote)
+                {
+                    switch (closingQuote)
+                    {
+                        case '<':
+                            builder.Append("<noparse><</noparse>");
+                            break;
+                        case '>':
+                            builder.Append("<noparse>></noparse>");
+                            break;
+                        default:
+                            builder.Append(closingQuote);
+                            break;
+                    }
+                }
+
                 if (_ghostTag != null)
                 {
                     builder.Append("</color></i>");
