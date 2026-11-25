@@ -152,6 +152,29 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 #endif
 
         [UnityTest]
+        public IEnumerator CommandInputHighlightsEachDisplayedValue()
+        {
+            yield return SpawnTerminal(HintDisplayMode.Always);
+            TextField field = _terminal._commandInput;
+            Label highlight = field.Q<Label>("CommandInputHighlight");
+            Assert.That(highlight, Is.Not.Null, "The command field needs a syntax label");
+            Assert.That(highlight.pickingMode, Is.EqualTo(PickingMode.Ignore));
+
+            field.value = "unknown-highlight";
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain("unknown-highlight").And.Contain("<color="));
+            Assert.That(field.value, Is.EqualTo("unknown-highlight"));
+
+            field.value = "help";
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain("help").And.Not.Contain("unknown-highlight"));
+
+            field.value = string.Empty;
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.Empty);
+        }
+
+        [UnityTest]
         public IEnumerator PerKeystrokeHintSweepIsAllocationFree()
         {
             yield return SpawnTerminal(HintDisplayMode.Always);
