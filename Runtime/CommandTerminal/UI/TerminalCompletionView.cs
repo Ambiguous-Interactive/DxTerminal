@@ -6,6 +6,7 @@
     using Backend;
     using Extensions;
     using Helper;
+    using Input;
     using UnityEngine;
     using UnityEngine.UIElements;
 
@@ -17,6 +18,7 @@
         private const int BodyPadding = 3;
         private const int DetailsHeight = 36;
         private const int SignatureHeight = 30;
+        private const KeyHints DefaultKeyHints = KeyHints.Previous | KeyHints.Next | KeyHints.Accept | KeyHints.Dismiss;
 
         private static readonly CustomStyleProperty<Color> AccentSoft = new("--dxt-accent-soft");
         private static readonly Comparison<Row> CompareRows = CompareRank;
@@ -86,6 +88,8 @@
         private bool _clickable;
         private VisualElement _focusedRow;
         private bool _previewAllowed;
+        private KeyHints _boundHints;
+        private KeyHints _footerHints;
 
         internal TerminalCompletionView(VisualElement root, VisualElement parent, Action<int> accept)
         {
@@ -154,7 +158,52 @@
             return label;
         }
 
-        internal void Refresh(CommandShell shell, string line, int? fieldCaret, HintDisplayMode mode, bool clickable, bool previewAllowed, List<string> prefixCandidates)
+        private static KeyHints ReadBindings(TerminalKeyboardController keyboard)
+        {
+            if (keyboard == null || !keyboard.isActiveAndEnabled)
+            {
+                return DefaultKeyHints;
+            }
+
+            KeyHints keys = default;
+            if (keyboard.UsesCompletionBinding(KeyCode.UpArrow))
+            {
+                keys |= KeyHints.Previous;
+            }
+            if (keyboard.UsesCompletionBinding(KeyCode.DownArrow))
+            {
+                keys |= KeyHints.Next;
+            }
+            if (keyboard.UsesCompletionBinding(KeyCode.Tab))
+            {
+                keys |= KeyHints.Accept;
+            }
+            if (keyboard.UsesCompletionBinding(KeyCode.Escape))
+            {
+                keys |= KeyHints.Dismiss;
+            }
+            return keys;
+        }
+
+        private static void AppendHint(StringBuilder builder, string hint)
+        {
+            if (0 < builder.Length)
+            {
+                builder.Append("   ");
+            }
+            builder.Append(hint);
+        }
+
+        internal void Refresh(
+            CommandShell shell,
+            string line,
+            int? fieldCaret,
+            HintDisplayMode mode,
+            bool clickable,
+            bool previewAllowed,
+            List<string> prefixCandidates,
+            TerminalKeyboardController keyboard
+        )
         {
             if (shell == null || mode is not (HintDisplayMode.Always or HintDisplayMode.AutoCompleteOnly))
             {
@@ -174,6 +223,9 @@
             bool sameLine = string.Equals(line, _line, StringComparison.Ordinal);
             int caret = line.SnapToTextBoundary(fieldCaret ?? (sameLine ? _caret : line.Length));
             bool sameInput = sameLine && caret == _caret;
+            KeyHints boundHints = ReadBindings(keyboard);
+            bool changedBindings = _boundHints != boundHints;
+            _boundHints = boundHints;
             if (
                 sameInput
                 && ReferenceEquals(shell, _shell)
@@ -184,6 +236,10 @@
                 && _variablesVersion == shell.VariablesVersion
             )
             {
+                if (changedBindings)
+                {
+                    RefreshSelection();
+                }
                 return;
             }
 
@@ -483,17 +539,11 @@
             _suggestions.style.display = showSuggestions ? DisplayStyle.Flex : DisplayStyle.None;
             _details.style.display = showDetails ? DisplayStyle.Flex : DisplayStyle.None;
             _list.style.height = Math.Min(count, VisibleRows) * RowHeight;
-            _keys.text = (1 < count, _ghost != null) switch
-            {
-                (true, true) => "↑↓ select   Tab accept   → accept word   Esc dismiss",
-                (true, false) => "↑↓ select   Tab accept   Esc dismiss",
-                (false, true) => "Tab accept   → accept word   Esc dismiss",
-                _ => "Tab accept   Esc dismiss",
-            };
+            int footerHeight = RefreshFooter(count);
             int bodyHeight = 0;
             if (showSuggestions)
             {
-                bodyHeight = RowHeight + FooterHeight;
+                bodyHeight = RowHeight + footerHeight;
             }
             if (showDetails)
             {
@@ -508,6 +558,57 @@
             Panel.style.minHeight = bodyHeight + signatureHeight;
             Panel.style.display = bodyHeight + signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _list.RefreshItems();
+        }
+
+        private int RefreshFooter(int count)
+        {
+            KeyHints visible = default;
+            if (0 < count)
+            {
+                visible = _boundHints;
+                if (count == 1)
+                {
+                    visible &= ~(KeyHints.Previous | KeyHints.Next);
+                }
+                if (_ghost != null)
+                {
+                    visible |= KeyHints.Word;
+                }
+            }
+
+            _keys.style.display = visible == default ? DisplayStyle.None : DisplayStyle.Flex;
+            if (visible != _footerHints)
+            {
+                _footerHints = visible;
+                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(64);
+                StringBuilder text = scope.Builder;
+                switch (visible & (KeyHints.Previous | KeyHints.Next))
+                {
+                    case KeyHints.Previous | KeyHints.Next:
+                        AppendHint(text, "↑↓ select");
+                        break;
+                    case KeyHints.Previous:
+                        AppendHint(text, "↑ select");
+                        break;
+                    case KeyHints.Next:
+                        AppendHint(text, "↓ select");
+                        break;
+                }
+                if ((visible & KeyHints.Accept) != 0)
+                {
+                    AppendHint(text, "Tab accept");
+                }
+                if ((visible & KeyHints.Word) != 0)
+                {
+                    AppendHint(text, "→ accept word");
+                }
+                if ((visible & KeyHints.Dismiss) != 0)
+                {
+                    AppendHint(text, "Esc dismiss");
+                }
+                _keys.text = text.ToString();
+            }
+            return visible == default ? 0 : FooterHeight;
         }
 
         private void ApplyColors(CustomStyleResolvedEvent evt)
@@ -695,6 +796,18 @@
                 ? string.Empty
                 : LogTextSanitizer.Sanitize(description ?? string.Empty);
             ((Label)element[3]).text = LogTextSanitizer.Sanitize(row.Hint ?? string.Empty);
+        }
+
+        [Flags]
+        private enum KeyHints
+        {
+            [Obsolete("Use default or a valid key hint")]
+            None = 0,
+            Previous = 1 << 0,
+            Next = 1 << 1,
+            Accept = 1 << 2,
+            Dismiss = 1 << 3,
+            Word = 1 << 4,
         }
 
         private readonly struct Row

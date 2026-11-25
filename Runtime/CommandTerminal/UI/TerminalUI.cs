@@ -4004,12 +4004,12 @@
 
             if (TryGetComponent(out TerminalKeyboardController keyboard) && keyboard.isActiveAndEnabled)
             {
-                if (keyboard.UsesCompletionBinding(key))
+                if (!keyboard.UsesCompletionBinding(key))
                 {
-                    return key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true;
+                    return false;
                 }
 
-                return TryCompletionKey(key);
+                return key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true;
             }
 
 #if ENABLE_INPUT_SYSTEM
@@ -4054,6 +4054,7 @@
             int? caret = _pendingCaretIndex ?? (InputOwnsFocus ? _commandInput.cursorIndex : null);
             List<string> prefixCandidates =
                 hintDisplayMode == HintDisplayMode.Always && string.Equals(line, _lastKnownCommandText, StringComparison.Ordinal) ? _lastCompletionBuffer : null;
+            TryGetComponent(out TerminalKeyboardController keyboard);
             _completionView.Refresh(
                 Terminal.Shell,
                 line,
@@ -4061,7 +4062,8 @@
                 IsOpenState(_state) ? hintDisplayMode : HintDisplayMode.Never,
                 makeHintsClickable,
                 _commandInput.cursorIndex == _commandInput.selectIndex,
-                prefixCandidates
+                prefixCandidates,
+                keyboard
             );
         }
 
