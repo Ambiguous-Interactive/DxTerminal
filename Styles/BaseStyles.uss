@@ -131,7 +131,7 @@
     min-height: 44px;
 }
 
-.terminal-root--narrow .completion-body {
+.completion-body {
     flex-direction: row;
     align-items: flex-end;
     flex-shrink: 1;
@@ -191,6 +191,15 @@
     font-size: 12.5px;
 }
 
+.completion-detail-description {
+    color: var(--dxt-ink-body);
+}
+
+.completion-signature-name,
+.completion-signature-part {
+    color: var(--dxt-ink);
+}
+
 .completion-signature-name {
     -unity-font-style: bold;
     margin-right: 5px;
@@ -225,7 +234,7 @@
     color: var(--dxt-syn-choice);
 }
 
-.input-container {
+.terminal-root--narrow .input-container {
     flex-wrap: wrap;
     height: auto;
     min-height: 44px;
