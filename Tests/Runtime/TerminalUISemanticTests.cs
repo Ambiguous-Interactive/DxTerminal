@@ -290,20 +290,20 @@
             }
 
             yield return SetInputText(query);
-            _terminal.CompleteCommand();
+            yield return SetInputCaret(query.Length);
             yield return WaitForHintCount(8);
-            ListView list = _terminal._autoCompleteContainer;
+            ListView list = _terminal.CompletionList;
             Assert.AreEqual(6 * list.fixedItemHeight, list.style.height.value.value);
             for (int index = 1; index < 8; ++index)
             {
-                _terminal.CompleteCommand();
+                Assert.That(_terminal.TryCompletionKey(KeyCode.DownArrow), Is.True);
                 yield return null;
             }
 
             yield return WaitForSelectedHint(list, query + "7", "Selection scrolls to the eighth result", requireVisible: true);
             VisualElement row = list.Q<VisualElement>(className: "autocomplete-item-selected");
             Assert.That(row.Q<Label>("CompletionDescription").text, Is.EqualTo("Description 7"));
-            Assert.That(row.Q<Label>("CompletionGroup").text, Is.EqualTo("Example"));
+            Assert.That(row.Q<Label>("CompletionHint").text, Is.EqualTo("Example"));
             Assert.That(row.Q<Label>("CompletionName").text, Does.Contain("<u>" + query + "</u>"));
         }
 
@@ -316,11 +316,12 @@
             Assert.That(Terminal.Shell.AddCommand("submitcandidate", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
 
             yield return SetInputText("submitc");
+            yield return SetInputCaret(7);
             yield return WaitForSingleHintText("submitcandidate", "The list renders the hint");
-            VisualElement row = _terminal._autoCompleteContainer.Q<VisualElement>(className: "completion-row");
+            VisualElement row = _terminal.CompletionList.Q<VisualElement>(className: "completion-row");
             row.Focus();
             int remaining = FrameBudget;
-            ListView list = _terminal._autoCompleteContainer;
+            ListView list = _terminal.CompletionList;
             bool ListOwnsFocus()
             {
                 VisualElement focused = list.panel.focusController.focusedElement as VisualElement;
@@ -340,38 +341,105 @@
         }
 
         [UnityTest]
-        public IEnumerator CompletionHintsRenderAndSelectionFollowsCycling()
+        public IEnumerator RankedCompletionSelectsWithoutWritingAndAppliesTheActiveToken()
         {
             yield return SpawnOpenTerminal();
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("zpspawn", "Spawns enemies")
+                        .Arg<string>("enemy", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(Terminal.Shell.AddCommand("zpspawn-wave", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("set-zpspawn-point", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            yield return SetInputText("zpspawn");
+            yield return SetInputCaret(7);
+            yield return WaitForHintCount(3);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "zpspawn", "Exact matches rank first");
+            Assert.That(_terminal.TryCompletionKey(KeyCode.DownArrow), Is.True);
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("zpspawn"));
+            yield return WaitForSelectedHint(_terminal.CompletionList, "zpspawn-wave", "Prefixes rank before fuzzy matches");
+            Assert.That(_terminal.TryCompletionKey(KeyCode.DownArrow), Is.True);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "set-zpspawn-point", "Fuzzy names follow prefixes");
+            Assert.That(_terminal.TryCompletionKey(KeyCode.Escape), Is.True);
+            Assert.That(_terminal.TryCompletionKey(KeyCode.DownArrow), Is.False);
 
-            Assert.IsTrue(Terminal.Shell.AddCommand("alphacmd", _ => { }, minArgs: 0, maxArgs: 0, help: "test"), "Sanity: the first completion candidate registers");
-            Assert.IsTrue(Terminal.Shell.AddCommand("alphabet", _ => { }, minArgs: 0, maxArgs: 0, help: "test"), "Sanity: the second completion candidate registers");
+            yield return SetInputText("zpspawn ");
+            yield return SetInputCaret(8);
+            yield return WaitForHintCount(3);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "goblin", "A trailing space opens the next argument");
 
-            yield return SetInputText("alph");
+            yield return SetInputText("zpspawn g");
+            yield return SetInputCaret(9);
+            yield return WaitForHintCount(3);
+            Assert.That(_terminal._commandInput.Q<Label>("CommandInputHighlight").text, Does.Contain("oblin"));
+            Assert.That(_terminal.TryCompletionKey(KeyCode.RightArrow), Is.True);
+            yield return WaitForInputText("zpspawn goblin", "Right accepts the next word");
 
-            _terminal.CompleteCommand(true);
+            yield return SetInputText("zpspawn G");
+            yield return SetInputCaret(9);
+            yield return WaitForHintCount(3);
+            Assert.That(_terminal.TryCompletionKey(KeyCode.RightArrow), Is.False, "A suffix alone cannot correct the typed case");
+            Assert.That(_terminal.TryCompletionKey(KeyCode.Tab), Is.True);
+            yield return WaitForInputText("zpspawn goblin", "Tab applies the case-sensitive choice");
 
-            ListView hints = null;
-            int frameBudget = FrameBudget;
-            while (0 < frameBudget--)
-            {
-                hints = _terminal._autoCompleteContainer;
-                if (hints != null && hints.itemsSource.Count == 2)
-                {
-                    break;
-                }
+            yield return SetInputText("zpspawn g trailing");
+            yield return SetInputCaret(9);
+            Assert.That(_terminal.TryCompletionKey(KeyCode.Tab), Is.True);
+            yield return WaitForInputText("zpspawn goblin trailing", "Tab replaces only the active token");
 
-                yield return null;
-            }
+            yield return SetInputText("zpspawn gob");
+            yield return SetInputCaret(11);
+            yield return WaitForHintCount(1);
+            Assert.That(_terminal.TryCompletionKey(KeyCode.UpArrow), Is.True, "A single result owns the navigation key");
+            Assert.That(_terminal.TryCompletionKey(KeyCode.DownArrow), Is.True);
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("zpspawn gob"));
+        }
 
-            Assert.That(hints != null && hints.itemsSource.Count == 2, "Completion must render one hint per candidate");
-            yield return WaitForInputText("alphabet", "The first completion must apply the first candidate");
-            yield return WaitForSelectedHint(hints, "alphabet", "The selected hint must match the applied candidate");
+        [UnityTest]
+        public IEnumerator ExactVariableRanksAheadOfCommandPrefix()
+        {
+            yield return SpawnOpenTerminal();
+            Assert.That(Terminal.Shell.AddCommand("rankvar-prefix", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.SetVariable("rankvar", "value"), Is.True);
+            yield return SetInputText("rankvar");
+            yield return SetInputCaret(7);
+            yield return WaitForHintCount(2);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "$rankvar", "The exact variable ranks first");
+            VisualElement row = _terminal.CompletionList.Q(className: "autocomplete-item-selected");
+            Assert.That(row.Q<Label>("CompletionKind").text, Is.EqualTo("var"));
+        }
 
-            _terminal.CompleteCommand(true);
-
-            yield return WaitForInputText("alphacmd", "Cycling must apply the next candidate to the input");
-            yield return WaitForSelectedHint(hints, "alphacmd", "The selection must follow the cycled candidate");
+        [UnityTest]
+        public IEnumerator CompletionProviderKeepsItsOwnCandidateOrder()
+        {
+            yield return SpawnOpenTerminal();
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    new CommandDefinition
+                    {
+                        Name = "suggest-file",
+                        LegacyHandler = _ => { },
+                        CompletionProvider = (in CommandCompletionContext _, List<CommandCompletion> values) =>
+                        {
+                            values.Add(new CommandCompletion("preferred.txt"));
+                            values.Add(new CommandCompletion("abc.txt"));
+                        },
+                    }
+                ),
+                Is.True
+            );
+            yield return SetInputText("suggest-file ab");
+            yield return SetInputCaret(15);
+            yield return WaitForHintCount(2);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "preferred.txt", "The provider owns matching and ordering");
         }
 
         /*
@@ -416,10 +484,13 @@
             Assert.IsTrue(Terminal.Shell.AddCommand("zapt", _ => { }, minArgs: 0, maxArgs: 0, help: "test"), "Sanity: the second candidate registers");
 
             yield return SetInputText("zap");
+            yield return SetInputCaret(3);
             yield return WaitForHintCount(2);
             yield return SetInputText("zapo");
+            yield return SetInputCaret(4);
             yield return WaitForHintCount(1);
             yield return SetInputText("zapt");
+            yield return SetInputCaret(4);
             yield return WaitForSingleHintText("zapt", "The bar shows the candidate the current input resolves to");
 
             /*
@@ -430,9 +501,8 @@
                 below can only hold if the row placed it.
              */
             yield return SetInputText("zap");
+            yield return SetInputCaret(3);
             yield return WaitForHintCount(2);
-            yield return SetInputCaret(0);
-            Assert.AreEqual(0, _terminal._commandInput.cursorIndex, "Sanity: the caret starts at the head of the line");
 
             _terminal.ApplyHint(1);
 
@@ -455,6 +525,7 @@
             RunThroughInput("uniarg a\u202Eb");
 
             yield return SetInputText("uniarg a");
+            yield return SetInputCaret(8);
             yield return WaitForSingleHintText("uniarg a\\u202Eb", "The row shows the escaped history line");
 
             _terminal.ApplyHint(0);
@@ -615,18 +686,18 @@
                 yield return null;
             }
 
-            Assert.IsTrue(IsSingleHint(expectedText), $"{message}. List bounds: {_terminal._autoCompleteContainer?.worldBound}");
+            Assert.IsTrue(IsSingleHint(expectedText), message);
         }
 
         private int HintRowCount()
         {
-            ListView hints = _terminal._autoCompleteContainer;
+            ListView hints = _terminal.CompletionList;
             return hints == null ? 0 : hints.itemsSource.Count;
         }
 
         private bool IsSingleHint(string expectedText)
         {
-            ListView hints = _terminal._autoCompleteContainer;
+            ListView hints = _terminal.CompletionList;
             if (hints == null || hints.itemsSource.Count != 1)
             {
                 return false;

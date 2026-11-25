@@ -603,6 +603,32 @@
             yield return WaitForClosed("A binding that types no character must keep working while the field has focus");
         }
 
+        [UnityTest]
+        public IEnumerator ConfiguredCompletionKeysSelectAndAcceptInTheFocusedTerminal()
+        {
+            yield return SpawnTerminal(open: true, withHotkeyController: true);
+            yield return WaitForFocusedInput("The terminal field owns focus");
+            Assert.That(Terminal.Shell.AddCommand("keyprobe-a", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("keyprobe-b", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            TextField field = _terminal._commandInput;
+            field.value = "keyprobe";
+            TextSelectionFixture.PrepareCaret(field);
+            int remaining = FrameBudget;
+            while (0 < remaining-- && field.cursorIndex != field.value.Length)
+            {
+                field.SelectRange(field.value.Length, field.value.Length);
+                yield return null;
+            }
+
+            Assert.That(field.cursorIndex, Is.EqualTo(field.value.Length));
+            _hotkeyController.PressedHotkey = _hotkeyController.nextHotkey;
+            _hotkeyController.DriveUpdate();
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("keyprobe"));
+            _hotkeyController.PressedHotkey = _hotkeyController.completeHotkey;
+            _hotkeyController.DriveUpdate();
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("keyprobe-b"));
+        }
+
         /*
             The reservation costs the character: the press reaches the focused
             field and the poll in the same frame, and the close that answers

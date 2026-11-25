@@ -38,6 +38,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private List<CommandSyntaxSpan> _nextSpans = new();
         private readonly string[] _tags = new string[(int)CommandSyntaxRole.Invalid + 1];
         private string _line;
+        private string _ghost;
+        private string _ghostTag;
         private CommandShell _shell;
         private long _commandsVersion;
         private long _variablesVersion;
@@ -140,8 +142,14 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return true;
         }
 
-        internal void Refresh(string line, CommandShell shell, bool inputOwnsFocus)
+        internal void Refresh(string line, CommandShell shell, bool inputOwnsFocus, string ghost = null)
         {
+            if (!string.Equals(_ghost, ghost, StringComparison.Ordinal))
+            {
+                _ghost = ghost;
+                _labelDirty = true;
+            }
+
             long commandsVersion = shell?.CommandsVersion ?? 0;
             long variablesVersion = shell?.VariablesVersion ?? 0;
             bool lineChanged = !string.Equals(_line, line, StringComparison.Ordinal);
@@ -283,6 +291,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             ICustomStyle styles = evt.customStyle;
             Color ink = Read(styles, Ink, Read(styles, LegacyInk, Color.white));
             Color muted = Read(styles, Muted, ink);
+            _ghostTag = "<i><color=#" + ColorUtility.ToHtmlStringRGBA(muted) + ">";
             Color choice = Read(styles, Choice, ink);
             _error = Read(styles, Error, Read(styles, LegacyError, ink));
             _label.style.color = ink;
@@ -403,6 +412,17 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
 
             AppendLiteral(builder, _line, start, _line.Length);
+            if (!string.IsNullOrEmpty(_ghost))
+            {
+                builder.Append(_ghostTag);
+                string safeGhost = LogTextSanitizer.Sanitize(_ghost);
+                AppendLiteral(builder, safeGhost, 0, safeGhost.Length);
+                if (_ghostTag != null)
+                {
+                    builder.Append("</color></i>");
+                }
+            }
+
             display.SetValueWithoutNotify(builder.ToString());
         }
 

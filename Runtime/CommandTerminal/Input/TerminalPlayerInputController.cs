@@ -5,6 +5,7 @@ namespace WallstopStudios.DxCommandTerminal.Input
     using UI;
     using UnityEngine;
     using UnityEngine.InputSystem;
+    using UnityEngine.InputSystem.Controls;
     using UnityEngine.UIElements;
 
     [DisallowMultipleComponent]
@@ -69,6 +70,12 @@ namespace WallstopStudios.DxCommandTerminal.Input
         private float? _nextNavigationRepeat;
         private long _navigationCancellationVersion;
         private bool _navigationNeedsNeutral;
+
+        private static bool IsDirectBinding(InputAction action, KeyControl control)
+        {
+            int index = action.GetBindingIndexForControl(control);
+            return 0 <= index && !action.bindings[index].isPartOfComposite;
+        }
 
         public virtual void OnHandlePrevious(InputValue inputValue)
         {
@@ -140,7 +147,10 @@ namespace WallstopStudios.DxCommandTerminal.Input
             {
                 return;
             }
-            terminal.HandlePrevious();
+            if (!TryCompletionKey(KeyCode.UpArrow))
+            {
+                terminal.HandlePrevious();
+            }
         }
 
         protected virtual void HandleNext()
@@ -149,7 +159,10 @@ namespace WallstopStudios.DxCommandTerminal.Input
             {
                 return;
             }
-            terminal.HandleNext();
+            if (!TryCompletionKey(KeyCode.DownArrow))
+            {
+                terminal.HandleNext();
+            }
         }
 
         protected virtual void Close()
@@ -158,7 +171,10 @@ namespace WallstopStudios.DxCommandTerminal.Input
             {
                 return;
             }
-            terminal.Close();
+            if (!TryCompletionKey(KeyCode.Escape))
+            {
+                terminal.Close();
+            }
         }
 
         protected virtual void ToggleSmall()
@@ -191,7 +207,10 @@ namespace WallstopStudios.DxCommandTerminal.Input
             {
                 return;
             }
-            terminal.CompleteCommand(searchForward: true);
+            if (!TryCompletionKey(KeyCode.Tab))
+            {
+                terminal.CompleteCommand(searchForward: true);
+            }
         }
 
         protected virtual void ReverseCompleteCommand()
@@ -334,6 +353,25 @@ namespace WallstopStudios.DxCommandTerminal.Input
             }
         }
 
+        internal bool OwnsCompletionKey(KeyCode key)
+        {
+            InputAction action = GetCompletionAction(key, out Key expected);
+            if (action == null || !action.enabled)
+            {
+                return false;
+            }
+
+            foreach (InputControl control in action.controls)
+            {
+                if (control is KeyControl keyboardKey && keyboardKey.keyCode == expected && IsDirectBinding(action, keyboardKey))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private bool PrepareNavigationInput()
         {
             if (!IsLive())
@@ -452,6 +490,36 @@ namespace WallstopStudios.DxCommandTerminal.Input
             _navigationNeedsNeutral |= _navigationDirection != Vector2.zero;
             _navigationDirection = Vector2.zero;
             _nextNavigationRepeat = null;
+        }
+
+        private bool TryCompletionKey(KeyCode key)
+        {
+            InputAction action = GetCompletionAction(key, out Key expected);
+            return terminal.InputOwnsFocus
+                && action?.activeControl is KeyControl keyboardKey
+                && keyboardKey.keyCode == expected
+                && keyboardKey.device is Keyboard keyboard
+                && !keyboard.shiftKey.isPressed
+                && !keyboard.ctrlKey.isPressed
+                && !keyboard.altKey.isPressed
+                && !keyboard.leftMetaKey.isPressed
+                && !keyboard.rightMetaKey.isPressed
+                && IsDirectBinding(action, keyboardKey)
+                && terminal.TryCompletionKey(key);
+        }
+
+        private InputAction GetCompletionAction(KeyCode key, out Key expected)
+        {
+            (string name, Key boundKey) = key switch
+            {
+                KeyCode.UpArrow => (handlePreviousActionName, Key.UpArrow),
+                KeyCode.DownArrow => (handleNextActionName, Key.DownArrow),
+                KeyCode.Tab => (completeCommandActionName, Key.Tab),
+                KeyCode.Escape => (closeActionName, Key.Escape),
+                _ => (null, Key.None),
+            };
+            expected = boundKey;
+            return FindAction(name);
         }
 
         private bool OwnsNavigation(string actionName)

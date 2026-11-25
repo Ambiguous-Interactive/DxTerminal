@@ -333,6 +333,40 @@
             Assert.AreEqual(StagedText, DefaultTerminalInput.Instance.CommandText, "A character key must not complete or navigate the staged text either");
         }
 
+        [UnityTest]
+        public IEnumerator PlayerInputMovesAndAcceptsOneRankedRowPerKeystroke()
+        {
+            yield return SpawnTerminal(open: true);
+            yield return WaitForFocusedInput("The terminal field owns focus");
+            Bind("HandleNext", "<Keyboard>/downArrow");
+            Bind("CompleteCommand", "<Keyboard>/tab");
+            Assert.That(Terminal.Shell.AddCommand("actionprobe-a", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("actionprobe-b", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("actionprobe-c", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+
+            TextField field = _terminal._commandInput;
+            field.value = "actionprobe";
+            TextSelectionFixture.PrepareCaret(field);
+            yield return Settle();
+            field.SelectRange(field.value.Length, field.value.Length);
+            yield return Settle();
+            Assert.That(field.cursorIndex, Is.EqualTo(field.value.Length));
+            Assert.That(_terminal.CompletionList.itemsSource.Count, Is.EqualTo(3));
+
+            PressKey(Key.DownArrow);
+            yield return Settle();
+            using (KeyDownEvent evt = KeyDownEvent.GetPooled('\0', KeyCode.DownArrow, EventModifiers.None))
+            {
+                evt.target = field.focusController.focusedElement;
+                field.SendEvent(evt);
+            }
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("actionprobe"));
+            PressKey(Key.Tab);
+            yield return Settle();
+            Assert.That(_performedControls, Is.EqualTo(new[] { "downArrow", "tab" }));
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("actionprobe-b"));
+        }
+
         /*
             The control: the queue reaches the poll, the action fires, and a
             key that types no character still runs its message while the
@@ -1069,35 +1103,26 @@
 
             protected override void Navigate(Vector2 value)
             {
-                CaptureRoute(
-                    nameof(Navigate),
-                    () =>
-                    {
-                        base.Navigate(value);
-                    }
-                );
+                CaptureRoute(nameof(Navigate), () =>
+                {
+                    base.Navigate(value);
+                });
             }
 
             protected override void Submit(bool pressed)
             {
-                CaptureRoute(
-                    nameof(Submit),
-                    () =>
-                    {
-                        base.Submit(pressed);
-                    }
-                );
+                CaptureRoute(nameof(Submit), () =>
+                {
+                    base.Submit(pressed);
+                });
             }
 
             protected override void Cancel(bool pressed)
             {
-                CaptureRoute(
-                    nameof(Cancel),
-                    () =>
-                    {
-                        base.Cancel(pressed);
-                    }
-                );
+                CaptureRoute(nameof(Cancel), () =>
+                {
+                    base.Cancel(pressed);
+                });
             }
 
             protected override void Update() { }

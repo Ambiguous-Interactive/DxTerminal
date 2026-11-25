@@ -95,6 +95,8 @@
         private const string DarkScenarioName = "CapturesDarkThemeSurface";
 
         private const string CompletionQuery = "capture-a";
+        private const int ArgumentCaptureWidth = 960;
+        private const int ArgumentCaptureHeight = 480;
         private const string LongNameQuery = "capture-long-command";
         private const string PaletteQuery = "capture";
         private const string PaletteEmptyQuery = "zzz-matches-nothing";
@@ -397,19 +399,43 @@
             yield return SpawnCalibratedTerminal(TerminalState.OpenSmall);
             RegisterFixtureCommands(CaptureCommandNames);
 
-            /*
-                Tab completion is the surface players see: CompleteCommand
-                fills the suggestion buffer for the typed prefix and the hint
-                popup renders it with the selected row highlighted.
-             */
             _terminal._commandInput.value = CompletionQuery;
             yield return null;
-            _terminal.CompleteCommand();
             yield return WaitForCompletionHints(CompletionQuery);
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesCompletionHintsSurface), CaptureBounds.Default());
             AssertAcceptable(_lastOutcome);
         }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator CapturesArgumentCompletionSurface()
+        {
+            yield return SpawnTerminal(useEditorDefaults: true);
+            _terminal.SetState(TerminalState.OpenFull);
+            yield return WaitForTerminalInputVisible();
+
+            CommandBuilder spawn = CommandBuilder
+                .Create("spawn", "Spawns enemies at a point")
+                .Group("Combat")
+                .Arg<string>("prefab", spec =>
+                {
+                    return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                })
+                .Arg<int>("count", spec =>
+                {
+                    return spec.Range(1, 50).Default(1);
+                })
+                .Arg<Vector3>("at")
+                .Handler((_, _) => { });
+            Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
+            _terminal._commandInput.value = "spawn g";
+            yield return WaitForCompletionHints("spawn g");
+            _terminal.SetCursorBlinkPaused(true);
+            yield return CaptureSurface(nameof(CapturesArgumentCompletionSurface), CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+        }
+#endif
 
         /*
             Scrolling surface: enough log volume to overflow the small-state
@@ -480,7 +506,6 @@
             RegisterFixtureCommands(LongNameCommands);
             _terminal._commandInput.value = LongNameQuery;
             yield return null;
-            _terminal.CompleteCommand();
             yield return WaitForCompletionHints(LongNameQuery);
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesLongNameCompletionSurface), CaptureBounds.Default());
@@ -1245,35 +1270,32 @@
 
         private IEnumerator WaitForCompletionHints(string query)
         {
-            /*
-                Hints render into the AutoCompletePopup container; the popup
-                itself is private, so readiness reads the public visual tree
-                plus the internal completion buffer.
-             */
-            VisualElement hintPopup()
+            TextField field = _terminal._commandInput;
+            TextSelectionFixture.PrepareCaret(field);
+            ListView list = _terminal.CompletionList;
+            string token = query[(query.LastIndexOf(' ') + 1)..];
+            bool HasVisibleMatch()
             {
-                return _terminal._uiDocument.rootVisualElement.Q("AutoCompletePopup");
+                VisualElement row = list.Q(className: "autocomplete-item-selected");
+                Label label = row?.Q<Label>("CompletionName");
+                ScrollView scroll = list.Q<ScrollView>();
+                return list.resolvedStyle.display == DisplayStyle.Flex
+                    && label != null
+                    && scroll != null
+                    && 0f < label.worldBound.width
+                    && scroll.contentViewport.worldBound.Contains(label.worldBound.center)
+                    && label.text.Contains(token, StringComparison.OrdinalIgnoreCase);
             }
 
             int frameBudget = FrameBudget;
-            while (
-                0 < frameBudget--
-                && (
-                    _terminal._lastCompletionBuffer.Count == 0
-                    || hintPopup() == null
-                    || hintPopup().Q<Label>("CompletionName") == null
-                    || DisplayStyle.Flex != hintPopup().resolvedStyle.display
-                )
-            )
+            while (0 < frameBudget-- && (field.cursorIndex != query.Length || !HasVisibleMatch()))
             {
+                field.SelectRange(query.Length, query.Length);
                 yield return null;
             }
 
-            Assert.That(0 < _terminal._lastCompletionBuffer.Count, $"Completion candidates were computed for '{query}'");
-            VisualElement popup = hintPopup();
-            Assert.That(popup != null, "Completion hint popup exists for the query");
-            Assert.That(popup.Q<Label>("CompletionName"), Is.Not.Null, "Completion hint rows were built for the query");
-            Assert.AreEqual(DisplayStyle.Flex, popup.resolvedStyle.display, "Completion hints are visible for the query");
+            Assert.That(field.cursorIndex, Is.EqualTo(query.Length));
+            Assert.That(HasVisibleMatch(), Is.True, $"A visible selected row matches '{query}'");
         }
 
         private IEnumerator WaitForLogScrollSettled()

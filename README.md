@@ -818,17 +818,14 @@ The returned handle removes the assembly from discovery on `Dispose`. A registra
 
 # Hints
 
-AutoComplete has gotten a major upgrade in this fork. Completion is now not only case-insensitive, but it will now also search (unique) commands that have been executed, ignoring
-any irrelevant input. Pressing the complete key multiple times now selects available options in a persistent fashion. Completion can be walked both forward and backwards. Results
-are now presented in a new UI that intelligently adapts to screen space and current selection position. When completion is no longer relevant, the UI is disabled. However, you can
-opt to always show the available commands by setting `Hint Display Mode` to `Always` in the Terminal configuration. Hint colors come from the terminal's stylesheet chain, so they
-follow the active theme.
+The terminal ranks exact matches first, followed by prefixes and fuzzy matches. The selected row can preview the rest of a word in the input.
 
-![png](https://raw.githubusercontent.com/wallstop/DxCommandTerminal/master/Media/AutoComplete.png)
+- Use Up and Down to select a row.
+- Use Tab or click a row to accept it. Enable `Make Hints Clickable` for clicks.
+- Use Right Arrow to accept the next word when the preview shows one.
+- Use Escape to dismiss the list.
 
-**Note**: Currently, if `Make Hints Clickable` is checked, there is a minor bug where, occasionally, for ~1 frame after auto-completing or deleting a character from a completed
-word, the text is selected and then unselected. I think it's something to do with the Layout v Repaint events, but I've tried a lot of solutions and none of them worked. Marking
-this as "won't fix" for now. Open to PRs!
+Set `Hint Display Mode` to Always, While typing, or Off.
 
 # Measured Performance
 

@@ -203,7 +203,10 @@
                 return;
             }
 
-            terminal.Close();
+            if (!terminal.InputOwnsFocus || !terminal.TryCompletionKey(KeyCode.Escape))
+            {
+                terminal.Close();
+            }
         }
 
         protected virtual void EnterCommand()
@@ -221,7 +224,10 @@
             {
                 return;
             }
-            terminal.HandlePrevious();
+            if (!terminal.InputOwnsFocus || !terminal.TryCompletionKey(KeyCode.UpArrow))
+            {
+                terminal.HandlePrevious();
+            }
         }
 
         protected virtual void Next()
@@ -230,7 +236,10 @@
             {
                 return;
             }
-            terminal.HandleNext();
+            if (!terminal.InputOwnsFocus || !terminal.TryCompletionKey(KeyCode.DownArrow))
+            {
+                terminal.HandleNext();
+            }
         }
 
         protected virtual void ToggleFull()
@@ -258,7 +267,10 @@
                 return;
             }
 
-            terminal.CompleteCommand(searchForward: true);
+            if (!terminal.InputOwnsFocus || !terminal.TryCompletionKey(KeyCode.Tab))
+            {
+                terminal.CompleteCommand(searchForward: true);
+            }
         }
 
         protected virtual void CompleteBackward()
@@ -364,6 +376,18 @@
             }
 
             return IsHotkeyDown(hotkey);
+        }
+
+        internal bool UsesCompletionBinding(KeyCode key)
+        {
+            return key switch
+            {
+                KeyCode.Escape => string.Equals(closeHotkey, "escape", StringComparison.OrdinalIgnoreCase),
+                KeyCode.UpArrow => string.Equals(previousHotkey, "up", StringComparison.OrdinalIgnoreCase),
+                KeyCode.DownArrow => string.Equals(nextHotkey, "down", StringComparison.OrdinalIgnoreCase),
+                KeyCode.Tab => string.Equals(completeHotkey, "tab", StringComparison.OrdinalIgnoreCase),
+                _ => false,
+            };
         }
 
         private bool CanHandleControl(TerminalControlTypes controlType)

@@ -23,6 +23,9 @@
         /// <summary>Optional help or description text.</summary>
         public string Description { get; }
 
+        /// <summary>Optional short hint for the right side of a choice row.</summary>
+        public string Hint { get; }
+
         /// <summary>
         ///     Replacement range within the original input, or <c>null</c> to
         ///     replace the active token range reported by the completion
@@ -36,7 +39,11 @@
         public string EffectiveDisplayLabel => DisplayLabel ?? InsertionText;
 
         public CommandCompletion(string insertionText, string displayLabel = null, string description = null, CommandCompletionReplacement? replacement = null)
+            : this(insertionText ?? throw new ArgumentNullException(nameof(insertionText)), displayLabel, description, replacement, hint: null) { }
+
+        public CommandCompletion(string insertionText, string displayLabel, string description, CommandCompletionReplacement? replacement, string hint)
         {
+            Hint = hint;
             InsertionText = insertionText ?? throw new ArgumentNullException(nameof(insertionText));
             DisplayLabel = displayLabel;
             Description = description;
@@ -58,6 +65,7 @@
             return string.Equals(InsertionText, other.InsertionText, StringComparison.Ordinal)
                 && string.Equals(DisplayLabel, other.DisplayLabel, StringComparison.Ordinal)
                 && string.Equals(Description, other.Description, StringComparison.Ordinal)
+                && string.Equals(Hint, other.Hint, StringComparison.Ordinal)
                 && Nullable.Equals(Replacement, other.Replacement);
         }
 
@@ -68,7 +76,7 @@
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(InsertionText, DisplayLabel, Description, Replacement);
+            return HashCode.Combine(InsertionText, DisplayLabel, Description, Replacement, Hint);
         }
     }
 }
