@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections;
@@ -59,6 +59,19 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             return asset;
         }
 #endif
+
+        private static IEnumerator WaitForCompletionLabel(VisualElement root, string name, string fragment)
+        {
+            int remaining = FrameBudget;
+            Label label = root.Q<Label>(name);
+            while (0 < remaining-- && label?.text?.Contains(fragment, StringComparison.Ordinal) != true)
+            {
+                yield return null;
+                label = root.Q<Label>(name);
+            }
+
+            Assert.That(label?.text, Does.Contain(fragment), name);
+        }
 
         [TearDown]
         public void TearDown()
@@ -255,6 +268,52 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             _terminal.HandlePrevious();
             Assert.AreEqual(string.Empty, DefaultTerminalInput.Instance.CommandText, "The repeated entry must not come back a second time while walking backward");
+        }
+
+        [UnityTest]
+        public IEnumerator SpawnCompletionShowsCommandChoicesGhostAndActiveArgument()
+        {
+            yield return SpawnOpenTerminal();
+            _terminal.hintDisplayMode = HintDisplayMode.Always;
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Arg<Vector3>("at", spec =>
+                        {
+                            return spec.Describe("Spawn point");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            yield return SetInputText("sp");
+            yield return SetInputCaret(2);
+            yield return WaitForCompletionLabel(root, "CommandInputHighlight", "awn");
+            Assert.That(root.Q<ListView>("AutoCompleteList")?.itemsSource?.Count, Is.GreaterThan(0));
+
+            yield return SetInputText("spawn g");
+            yield return SetInputCaret(7);
+            yield return WaitForCompletionLabel(root, "CommandInputHighlight", "oblin");
+            Assert.That(root.Q<ListView>("AutoCompleteList")?.itemsSource?.Count, Is.EqualTo(3));
+            Assert.That(root.Q<Label>("CompletionArgument")?.text, Does.Contain("prefab"));
+            Assert.That(root.Q<Label>(className: "completion-argument-active")?.text, Does.Contain("goblin|ghoul|golem"));
+
+            yield return SetInputText("spawn goblin 1");
+            yield return SetInputCaret(14);
+            yield return WaitForCompletionLabel(root, "SignatureDescription", "Spawns enemies at a point");
+            Assert.That(root.Q<Label>(className: "completion-argument-active")?.text, Does.Contain("[count: int 1–50 = 1]"));
         }
 
         [UnityTest]
