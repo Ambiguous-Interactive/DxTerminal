@@ -23,6 +23,7 @@
         private long _commandVersion;
         private int? _selectedIndex;
         private bool _clickable;
+        private VisualElement _focusedRow;
         private string _query;
         private Color? _accent;
         private string _matchOpen = "<u>";
@@ -44,6 +45,7 @@
             };
             List.AddToClassList("autocomplete-popup");
             List.style.display = DisplayStyle.None;
+            List.style.minHeight = RowHeight;
         }
 
         private static void AddLabel(VisualElement row, string name, string className, bool richText = false)
@@ -63,7 +65,12 @@
 
         internal void Refresh(List<string> candidates, string query, int? selectedIndex, bool visible, bool clickable, CommandShell shell)
         {
+            bool focusChanged = _clickable != clickable;
             _clickable = clickable;
+            if (focusChanged)
+            {
+                List.focusable = clickable;
+            }
             int count = visible ? candidates.Count : 0;
             long commandVersion = shell?.CommandsVersion ?? 0;
             bool contentsChanged =
@@ -80,7 +87,7 @@
                 }
             }
 
-            if (!contentsChanged && _selectedIndex == selectedIndex)
+            if (!contentsChanged && !focusChanged && _selectedIndex == selectedIndex)
             {
                 return;
             }
@@ -121,6 +128,11 @@
             return true;
         }
 
+        internal bool TryAcceptFocusedRow(VisualElement target)
+        {
+            return (target == List || List.Contains(target)) && TryAcceptRow(_focusedRow);
+        }
+
         private VisualElement MakeRow()
         {
             VisualElement row = new();
@@ -131,10 +143,36 @@
             row.RegisterCallback<ClickEvent, TerminalCompletionView>(
                 static (evt, view) =>
                 {
-                    if (evt.button == 0 && view._clickable && evt.currentTarget is VisualElement { userData: int index })
+                    if (evt.button == 0 && view.TryAcceptRow(evt.currentTarget as VisualElement))
                     {
-                        view._accept(index);
                         evt.StopPropagation();
+                    }
+                },
+                this
+            );
+            row.RegisterCallback<NavigationSubmitEvent, TerminalCompletionView>(
+                static (evt, view) =>
+                {
+                    if (view.TryAcceptRow(evt.currentTarget as VisualElement))
+                    {
+                        evt.StopPropagation();
+                    }
+                },
+                this
+            );
+            row.RegisterCallback<FocusEvent, TerminalCompletionView>(
+                static (evt, view) =>
+                {
+                    view._focusedRow = evt.currentTarget as VisualElement;
+                },
+                this
+            );
+            row.RegisterCallback<BlurEvent, TerminalCompletionView>(
+                static (evt, view) =>
+                {
+                    if (ReferenceEquals(view._focusedRow, evt.currentTarget))
+                    {
+                        view._focusedRow = null;
                     }
                 },
                 this
@@ -142,10 +180,23 @@
             return row;
         }
 
+        private bool TryAcceptRow(VisualElement row)
+        {
+            if (!_clickable || row?.panel == null || row.userData is not int index)
+            {
+                return false;
+            }
+
+            _accept(index);
+            return true;
+        }
+
         private void BindRow(VisualElement element, int index)
         {
             string candidate = _displayed[index];
             element.userData = index;
+            element.focusable = _clickable;
+            element.EnableInClassList("terminal-button", _clickable);
             bool selected = index == _selectedIndex;
             element.EnableInClassList("autocomplete-item-selected", selected);
             element.EnableInClassList("autocomplete-item", !selected);

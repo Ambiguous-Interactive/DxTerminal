@@ -65,6 +65,12 @@
             return label == null ? null : Regex.Replace(label.text, "</?[^>]+>", string.Empty);
         }
 
+        private static bool IsVisibleInList(VisualElement row, ListView list)
+        {
+            ScrollView scroll = list.Q<ScrollView>();
+            return row != null && 0 < row.worldBound.height && scroll != null && scroll.contentViewport.worldBound.Contains(row.worldBound.center);
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -294,11 +300,43 @@
                 yield return null;
             }
 
-            yield return WaitForSelectedHint(list, query + "7", "Selection scrolls to the eighth result");
+            yield return WaitForSelectedHint(list, query + "7", "Selection scrolls to the eighth result", requireVisible: true);
             VisualElement row = list.Q<VisualElement>(className: "autocomplete-item-selected");
             Assert.That(row.Q<Label>("CompletionDescription").text, Is.EqualTo("Description 7"));
             Assert.That(row.Q<Label>("CompletionGroup").text, Is.EqualTo("Example"));
             Assert.That(row.Q<Label>("CompletionName").text, Does.Contain("<u>" + query + "</u>"));
+        }
+
+        [UnityTest]
+        public IEnumerator FocusedCompletionRowAppliesThroughNavigationSubmit()
+        {
+            yield return SpawnOpenTerminal();
+            _terminal.hintDisplayMode = HintDisplayMode.Always;
+            _terminal.makeHintsClickable = true;
+            Assert.That(Terminal.Shell.AddCommand("submitcandidate", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+
+            yield return SetInputText("submitc");
+            yield return WaitForSingleHintText("submitcandidate", "The list renders the hint");
+            VisualElement row = _terminal._autoCompleteContainer.Q<VisualElement>(className: "completion-row");
+            row.Focus();
+            int remaining = FrameBudget;
+            ListView list = _terminal._autoCompleteContainer;
+            bool ListOwnsFocus()
+            {
+                VisualElement focused = list.panel.focusController.focusedElement as VisualElement;
+                return focused != null && (focused == list || list.Contains(focused));
+            }
+
+            while (0 < remaining-- && !ListOwnsFocus())
+            {
+                row.Focus();
+                yield return null;
+            }
+
+            Assert.That(row.focusable, Is.True);
+            Assert.That(ListOwnsFocus(), Is.True);
+            _terminal.SubmitNavigation();
+            yield return WaitForInputText("submitcandidate", "Navigation submit accepts the focused row");
         }
 
         [UnityTest]
@@ -577,7 +615,7 @@
                 yield return null;
             }
 
-            Assert.IsTrue(IsSingleHint(expectedText), message);
+            Assert.IsTrue(IsSingleHint(expectedText), $"{message}. List bounds: {_terminal._autoCompleteContainer?.worldBound}");
         }
 
         private int HintRowCount()
@@ -640,20 +678,29 @@
             LateUpdate, so the rig polls for it like every other frame-
             coupled surface.
          */
-        private IEnumerator WaitForSelectedHint(ListView hints, string expectedText, string message)
+        private IEnumerator WaitForSelectedHint(ListView hints, string expectedText, string message, bool requireVisible = false)
         {
-            Label Selected()
+            VisualElement Selected()
             {
-                return hints.Q<VisualElement>(className: "autocomplete-item-selected")?.Q<Label>("CompletionName");
+                return hints.Q<VisualElement>(className: "autocomplete-item-selected");
+            }
+
+            string SelectedName()
+            {
+                return RenderedName(Selected()?.Q<Label>("CompletionName"));
             }
 
             int frameBudget = FrameBudget;
-            while (0 < frameBudget-- && !string.Equals(RenderedName(Selected()), expectedText, StringComparison.Ordinal))
+            while (0 < frameBudget-- && (!string.Equals(SelectedName(), expectedText, StringComparison.Ordinal) || (requireVisible && !IsVisibleInList(Selected(), hints))))
             {
                 yield return null;
             }
 
-            Assert.That(RenderedName(Selected()), Is.EqualTo(expectedText), message);
+            Assert.That(SelectedName(), Is.EqualTo(expectedText), $"{message}. List bounds: {hints.worldBound}");
+            if (requireVisible)
+            {
+                Assert.That(IsVisibleInList(Selected(), hints), Is.True, $"{message}. Row bounds: {Selected()?.worldBound}");
+            }
         }
 
         /*

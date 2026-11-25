@@ -1741,7 +1741,10 @@
                 StepLogSearch(true);
                 return;
             }
-            DispatchNavigationEvent(target, NavigationSubmitEvent.GetPooled());
+            if (_completionView?.TryAcceptFocusedRow(target) != true)
+            {
+                DispatchNavigationEvent(target, NavigationSubmitEvent.GetPooled());
+            }
         }
 
         /// <summary>Returns to command input, then closes on the next cancel.</summary>
