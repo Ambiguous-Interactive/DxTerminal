@@ -69,7 +69,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
 #if UNITY_EDITOR
         [UnityTest]
-        public IEnumerator RecordInputEditAndIdleAllocationBaseline()
+        public IEnumerator HighlightedInputStaysWithinEditAndIdleAllocationBudget()
         {
             yield return SpawnTerminal(HintDisplayMode.Always);
             RegisterTier();
@@ -103,37 +103,73 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 refresh();
             };
 
-            for (int pass = 0; pass < AllocationAssertions.DefaultWarmupIterations; ++pass)
+            CommandInputHighlight highlight = _terminal._commandInputHighlight;
+            Assert.That(highlight, Is.Not.Null);
+            Label label = field.Q<Label>("CommandInputHighlight");
+            IEnumerator WarmEdits()
             {
-                field.value = string.Empty;
-                foreach (string edit in edits)
+                for (int pass = 0; pass < AllocationAssertions.DefaultWarmupIterations; ++pass)
                 {
-                    nextEdit = edit;
-                    applyEdit();
+                    field.value = string.Empty;
+                    foreach (string edit in edits)
+                    {
+                        nextEdit = edit;
+                        applyEdit();
+                    }
+
+                    yield return null;
+                    refresh();
                 }
 
-                yield return null;
+                field.value = string.Empty;
                 refresh();
             }
 
+            _terminal._commandInputHighlight = null;
+            yield return WarmEdits();
+            _terminal._commandInputHighlight = highlight;
+            yield return WarmEdits();
+
+            long[] controlBytes = new long[editCount];
             long[] editBytes = new long[editCount];
-            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(editCount))
+            int[] extraEvents = new int[editCount];
+            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(2 * editCount))
             {
-                field.value = string.Empty;
                 yield return trace.WaitUntilReady();
-                for (int index = 0; index < editCount; ++index)
+                _terminal._commandInputHighlight = null;
+                foreach (string edit in edits)
                 {
-                    nextEdit = edits[index];
+                    nextEdit = edit;
                     trace.Record(applyEdit);
-                    Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
                 }
 
-                yield return trace.WaitForSamples(editCount);
+                field.value = string.Empty;
+                refresh();
+                _terminal._commandInputHighlight = highlight;
+                foreach (string edit in edits)
+                {
+                    nextEdit = edit;
+                    string previous = label.text;
+                    trace.Record(applyEdit);
+                    Assert.That(field.value, Is.EqualTo(edit), "The terminal must retain each edit after refresh");
+                    Assert.That(label.text, Is.Not.EqualTo(previous), "Each edit must update the renderer");
+                }
+
+                yield return trace.WaitForSamples(2 * editCount);
                 for (int index = 0; index < editCount; ++index)
                 {
-                    editBytes[index] = trace.Samples[index].Bytes;
+                    (long baseline, int baselineEvents) = trace.Samples[index];
+                    (long rendered, int renderedEvents) = trace.Samples[index + editCount];
+                    controlBytes[index] = baseline;
+                    editBytes[index] = rendered;
+                    extraEvents[index] = renderedEvents - baselineEvents;
                 }
             }
+
+            TestContext.Out.WriteLine($"T11 control edit bytes: {string.Join(",", controlBytes)}");
+            TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
+            TestContext.Out.WriteLine($"T11 extra events: {string.Join(",", extraEvents)}");
+            Assert.That(extraEvents, Is.All.LessThanOrEqualTo(1), "One rendered-text allocation per edit");
 
             AllocationAssertions.EnsureInstrumentValidated();
             long[] idleBytes = new long[IdleFrameCount];
@@ -146,7 +182,6 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 idleBytes[index] = 0;
             }
 
-            TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
             TestContext.Out.WriteLine($"T11 idle refresh bytes: {string.Join(",", idleBytes)}");
         }
 #endif
@@ -168,6 +203,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             field.value = "help";
             _terminal.RefreshUI();
             Assert.That(highlight.text, Does.Contain("help").And.Not.Contain("unknown-highlight"));
+
+            field.value = "help </noparse><b>";
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain("<noparse><</noparse>/noparse<noparse>></noparse>"));
+            Assert.That(field.value, Is.EqualTo("help </noparse><b>"));
 
             field.value = string.Empty;
             _terminal.RefreshUI();
