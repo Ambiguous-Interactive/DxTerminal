@@ -437,6 +437,67 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             );
         }
 
+        [Test]
+        public void HelpCommandPrintsCardWithSignatureGroupAvailabilityTableAndExample()
+        {
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Group("Combat")
+                        .Contexts(CommandExecutionContextSets.Gameplay)
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Arg<Vector3>("at", spec =>
+                        {
+                            return spec.Default(new Vector3(1f, 2f, 3f), "player");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            string error = Run("help spawn");
+
+            Assert.That(error, Is.Null);
+            LogItem entry = Newest(1)[0];
+            Assert.That(entry.type, Is.EqualTo(TerminalLogType.ShellMessage));
+            string text = entry.message;
+            Assert.That(text, Does.Contain("spawn prefab [count] [at]"));
+            Assert.That(text, Does.Contain("Spawns enemies at a point."));
+            Assert.That(text, Does.Contain("Group: Combat."));
+            Assert.That(text, Does.Contain("Play Mode and Player."));
+            Assert.That(text, Does.Contain("prefab").And.Contain("choice").And.Contain("required"));
+            Assert.That(text, Does.Contain("count").And.Contain("int 1–50").And.Contain("= 1"));
+            Assert.That(text, Does.Contain("at").And.Contain("Vector3").And.Contain("= player"));
+            Assert.That(text, Does.Contain("e.g. spawn "));
+            Assert.That(text, Does.Not.Contain("<color="));
+
+            string[] lines = text.Split('\n');
+            string examplePrefixed = lines[lines.Length - 1].Trim();
+            Assert.That(examplePrefixed.StartsWith("e.g. ", StringComparison.Ordinal), Is.True, $"Expected final card line to be an example: '{text}'");
+            string example = examplePrefixed.Substring("e.g. ".Length);
+            CommandSyntaxClassifier classifier = new();
+            List<CommandSyntaxClassifier.CommandSyntaxSpan> spans = new();
+            classifier.Classify(example, _shell, spans);
+            Assert.That(spans.Count, Is.GreaterThanOrEqualTo(3));
+            Assert.That(spans[0].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Command));
+            Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Choice));
+            Assert.That(spans[2].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Number));
+            foreach (CommandSyntaxClassifier.CommandSyntaxSpan span in spans)
+            {
+                Assert.That(span.Role, Is.Not.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Invalid));
+                Assert.That(span.Role, Is.Not.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.UnknownCommand));
+            }
+        }
+
         /*
             Runs a copy command through `Run` and gates the clipboard read on
             the product's own verdict. `TryWrite`'s true answer is a read-back
