@@ -1735,6 +1735,7 @@
                 return LineValidation.Error(boundsError, unclosedQuote: unclosedQuote);
             }
 
+            bool canCache = true;
             if (command.SyntaxRoute != null)
             {
                 LineValidation routeValidation = CommandBuilder.ValidateRoute(
@@ -1744,13 +1745,14 @@
                     allowIncomplete: allowIncomplete,
                     catchExceptions: allowIncomplete
                 );
+                canCache = routeValidation.CanCache;
                 if (routeValidation.IsError)
                 {
                     return routeValidation.WithUnclosedQuote(unclosedQuote);
                 }
             }
 
-            return unclosedQuote != null ? LineValidation.Note(UnclosedQuoteMessage, unclosedQuote) : LineValidation.Valid();
+            return unclosedQuote != null ? LineValidation.Note(UnclosedQuoteMessage, unclosedQuote, canCache) : LineValidation.Valid(canCache: canCache);
         }
 
         internal bool HasCommandPrefix(string prefix)
@@ -2578,6 +2580,7 @@
             public int TokenLength { get; }
             public bool TokenQuoted { get; }
             public char? UnclosedQuote { get; }
+            public bool CanCache { get; }
 
             public bool IsValid
             {
@@ -2604,7 +2607,8 @@
                 int tokenStart,
                 int tokenLength,
                 bool tokenQuoted,
-                char? unclosedQuote
+                char? unclosedQuote,
+                bool canCache
             )
             {
                 Severity = severity;
@@ -2617,24 +2621,33 @@
                 TokenLength = tokenLength;
                 TokenQuoted = tokenQuoted;
                 UnclosedQuote = unclosedQuote;
+                CanCache = canCache;
             }
 
-            public static LineValidation Valid(char? unclosedQuote = null)
+            public static LineValidation Valid(char? unclosedQuote = null, bool canCache = true)
             {
-                return new LineValidation(ValidationSeverity.Valid, null, null, null, null, null, 0, 0, false, unclosedQuote);
+                return new LineValidation(ValidationSeverity.Valid, null, null, null, null, null, 0, 0, false, unclosedQuote, canCache);
             }
 
-            public static LineValidation Note(string message, char? unclosedQuote = null)
+            public static LineValidation Note(string message, char? unclosedQuote = null, bool canCache = true)
             {
-                return new LineValidation(ValidationSeverity.Note, message, null, null, null, null, 0, 0, false, unclosedQuote);
+                return new LineValidation(ValidationSeverity.Note, message, null, null, null, null, 0, 0, false, unclosedQuote, canCache);
             }
 
-            public static LineValidation Error(string message, string argumentName = null, string typedValue = null, char? unclosedQuote = null)
+            public static LineValidation Error(string message, string argumentName = null, string typedValue = null, char? unclosedQuote = null, bool canCache = true)
             {
-                return new LineValidation(ValidationSeverity.Error, message, argumentName, typedValue, null, null, 0, 0, false, unclosedQuote);
+                return new LineValidation(ValidationSeverity.Error, message, argumentName, typedValue, null, null, 0, 0, false, unclosedQuote, canCache);
             }
 
-            public static LineValidation ForUnknownCommand(string commandName, string suggestion, int tokenStart, int tokenLength, bool tokenQuoted, char? unclosedQuote = null)
+            public static LineValidation ForUnknownCommand(
+                string commandName,
+                string suggestion,
+                int tokenStart,
+                int tokenLength,
+                bool tokenQuoted,
+                char? unclosedQuote = null,
+                bool canCache = true
+            )
             {
                 return new LineValidation(
                     ValidationSeverity.Error,
@@ -2646,7 +2659,8 @@
                     tokenStart,
                     tokenLength,
                     tokenQuoted,
-                    unclosedQuote
+                    unclosedQuote,
+                    canCache
                 );
             }
 
@@ -2654,7 +2668,7 @@
             {
                 return UnclosedQuote == unclosedQuote
                     ? this
-                    : new LineValidation(Severity, Message, ArgumentName, TypedValue, UnknownCommand, Suggestion, TokenStart, TokenLength, TokenQuoted, unclosedQuote);
+                    : new LineValidation(Severity, Message, ArgumentName, TypedValue, UnknownCommand, Suggestion, TokenStart, TokenLength, TokenQuoted, unclosedQuote, CanCache);
             }
 
             public bool EqualsContent(in LineValidation other)
@@ -2665,7 +2679,11 @@
                     && string.Equals(TypedValue, other.TypedValue, StringComparison.Ordinal)
                     && string.Equals(UnknownCommand, other.UnknownCommand, StringComparison.Ordinal)
                     && string.Equals(Suggestion, other.Suggestion, StringComparison.Ordinal)
-                    && UnclosedQuote == other.UnclosedQuote;
+                    && TokenStart == other.TokenStart
+                    && TokenLength == other.TokenLength
+                    && TokenQuoted == other.TokenQuoted
+                    && UnclosedQuote == other.UnclosedQuote
+                    && CanCache == other.CanCache;
             }
         }
     }

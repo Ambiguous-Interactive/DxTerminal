@@ -1,6 +1,7 @@
 namespace WallstopStudios.DxCommandTerminal.UI
 {
     using System;
+    using System.Globalization;
     using System.Text;
     using Backend;
     using Helper;
@@ -43,6 +44,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private long _commandsVersion;
         private long _variablesVersion;
         private long _parserVersion;
+        private CultureInfo _culture;
         private bool _visible;
         private bool _colorsDirty = true;
         private string _inkTag;
@@ -146,12 +148,15 @@ namespace WallstopStudios.DxCommandTerminal.UI
             long commandsVersion = shell.CommandsVersion;
             long variablesVersion = shell.VariablesVersion;
             long parserVersion = CommandArg.ParserVersion;
+            CultureInfo culture = CultureInfo.CurrentCulture;
             if (
                 !_colorsDirty
+                && _validation.CanCache
                 && ReferenceEquals(_shell, shell)
                 && _commandsVersion == commandsVersion
                 && _variablesVersion == variablesVersion
                 && _parserVersion == parserVersion
+                && ReferenceEquals(_culture, culture)
                 && string.Equals(_line, line, StringComparison.Ordinal)
             )
             {
@@ -163,10 +168,17 @@ namespace WallstopStudios.DxCommandTerminal.UI
             _commandsVersion = commandsVersion;
             _variablesVersion = variablesVersion;
             _parserVersion = parserVersion;
+            _culture = culture;
 
             CommandShell.LineValidation next = shell.ValidateLine(line, CommandExecutionContext.Current, allowIncomplete: true);
             int tokenEnd = next.TokenStart + next.TokenLength + (next.TokenQuoted && next.UnclosedQuote == null ? 1 : 0);
             bool typingPrefix = next.IsError && !string.IsNullOrEmpty(next.UnknownCommand) && tokenEnd == line.Length && shell.HasCommandPrefix(next.UnknownCommand);
+            if (typingPrefix && next.UnclosedQuote != null)
+            {
+                next = CommandShell.LineValidation.Note(CommandShell.UnclosedQuoteMessage, next.UnclosedQuote, next.CanCache);
+                typingPrefix = false;
+            }
+
             bool nextVisible = !next.IsValid && !typingPrefix;
             if (!_colorsDirty && _visible == nextVisible && _validation.EqualsContent(next))
             {

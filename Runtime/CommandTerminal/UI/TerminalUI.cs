@@ -1784,7 +1784,7 @@
 
             try
             {
-                if (searchForward && TryApplyValidationFix())
+                if (searchForward && TryApplyValidationFix(respectCompletionSelection: true))
                 {
                     return;
                 }
@@ -2203,7 +2203,7 @@
                         return AcceptCompletion(_completionView.SelectedIndex, oneWord: false);
                     }
 
-                    if (TryApplyValidationFix())
+                    if (TryApplyValidationFix(respectCompletionSelection: true))
                     {
                         return true;
                     }
@@ -4116,13 +4116,13 @@
 
         private void ApplyValidationFix()
         {
-            if (TryApplyValidationFix())
+            if (TryApplyValidationFix(respectCompletionSelection: false))
             {
                 FocusInput(allowLogFocus: true);
             }
         }
 
-        private bool TryApplyValidationFix()
+        private bool TryApplyValidationFix(bool respectCompletionSelection)
         {
             if (_validationView == null || _input == null)
             {
@@ -4130,7 +4130,7 @@
             }
 
             RefreshValidation();
-            if (_completionView?.HasSelection == true || !_validationView.TryBuildFix(_input.CommandText, out string fixedLine, out int caret))
+            if ((respectCompletionSelection && _completionView?.HasSelection == true) || !_validationView.TryBuildFix(_input.CommandText, out string fixedLine, out int caret))
             {
                 return false;
             }

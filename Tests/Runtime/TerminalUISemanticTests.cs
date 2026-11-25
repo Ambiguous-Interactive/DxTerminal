@@ -540,6 +540,79 @@
         }
 
         [UnityTest]
+        public IEnumerator InlineValidationHandlesSpanShiftChipClickOpenQuotePrefixAndLiveValidator()
+        {
+            yield return SpawnOpenTerminal();
+            bool allowGate = false;
+            Assert.That(Terminal.Shell.AddCommand("spawn", _ => { }), Is.True);
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("gate")
+                        .Arg<string>("token", spec =>
+                        {
+                            return spec.Required()
+                                .Validate(_ =>
+                                {
+                                    return allowGate ? null : "is locked";
+                                });
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            VisualElement bar = root.Q<VisualElement>("CommandValidation");
+            Label message = root.Q<Label>("CommandValidationMessage");
+            Button suggestion = root.Q<Button>("CommandValidationSuggestion");
+
+            yield return SetInputText("spwan goblin");
+            yield return SetInputCaret(12);
+            yield return null;
+            yield return SetInputText(" spwan goblin");
+            yield return SetInputCaret(13);
+            yield return null;
+            Assert.That(_terminal.TryCompletionKey(KeyCode.Tab), Is.True, "Tab must use the updated token span after leading whitespace changes");
+            yield return WaitForInputText(" spawn goblin", "Leading-space edit keeps the replacement aligned");
+
+            yield return SetInputText("spwan goblin");
+            yield return SetInputCaret(2);
+            yield return null;
+            Assert.That(suggestion.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = suggestion;
+                suggestion.SendEvent(evt);
+            }
+
+            yield return WaitForInputText("spawn goblin", "Clicking the suggestion chip applies the fix even when completions are active");
+
+            yield return SetInputText("\"sp");
+            yield return SetInputCaret(3);
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "An open quote on a command prefix keeps the note visible");
+            Assert.That(RenderedName(message), Is.EqualTo("Quote not closed. The rest of the line is one argument."));
+
+            yield return SetInputText("gate open");
+            yield return SetInputCaret(9);
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(RenderedName(message), Is.EqualTo("token is locked. You typed open."));
+
+            allowGate = true;
+            _terminal.RefreshUI();
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "A live validator passing clears the inline error without editing the line");
+
+            allowGate = false;
+            _terminal.RefreshUI();
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "A live validator failing again restores the inline error");
+        }
+
+        [UnityTest]
         public IEnumerator SubcommandSignatureTracksExactNamesAndVariableRoutes()
         {
             yield return SpawnOpenTerminal();

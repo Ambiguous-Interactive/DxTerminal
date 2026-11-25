@@ -92,6 +92,20 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return ValidateSpecs(leaf.Specs, borrowed, leafOffset, parsed: null, allowIncomplete: allowIncomplete, catchExceptions: catchExceptions);
         }
 
+        private static bool CanCacheSpecs(CommandArgument[] specs, int evaluatedCount)
+        {
+            int limit = Math.Min(specs.Length, evaluatedCount);
+            for (int index = 0; index < limit; ++index)
+            {
+                if (!specs[index].CanCacheSyntax)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static bool TryResolveRoute(
             SubcommandRoute route,
             BorrowedCommandArguments arguments,
@@ -169,6 +183,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             bool catchExceptions
         )
         {
+            bool canCache = CanCacheSpecs(specs, Math.Max(0, arguments.Count - offset));
             int specCount = specs.Length;
             for (int i = 0; i < specCount; ++i)
             {
@@ -180,7 +195,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                         if (!spec.TryParseAll(arguments, offset + i, parsed, i, out CommandArg failedToken, out string validationError))
                         {
                             string message = validationError ?? spec.FormatParseError(failedToken);
-                            return CommandShell.LineValidation.Error(message, spec.Name, failedToken.contents);
+                            return CommandShell.LineValidation.Error(message, spec.Name, failedToken.contents, canCache: canCache);
                         }
 
                         continue;
@@ -190,7 +205,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     for (int argIndex = offset + i; argIndex < argCount; ++argIndex)
                     {
                         CommandArg remainingInput = arguments[argIndex];
-                        CommandShell.LineValidation remainingValidation = ValidateSingleSpec(spec, remainingInput, catchExceptions, out _);
+                        CommandShell.LineValidation remainingValidation = ValidateSingleSpec(spec, remainingInput, catchExceptions, canCache, out _);
                         if (remainingValidation.IsError)
                         {
                             return remainingValidation;
@@ -216,7 +231,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 }
 
                 CommandArg input = arguments[offset + i];
-                CommandShell.LineValidation validation = ValidateSingleSpec(spec, input, catchExceptions, out object value);
+                CommandShell.LineValidation validation = ValidateSingleSpec(spec, input, catchExceptions, canCache, out object value);
                 if (validation.IsError)
                 {
                     return validation;
@@ -228,24 +243,24 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 }
             }
 
-            return CommandShell.LineValidation.Valid();
+            return CommandShell.LineValidation.Valid(canCache: canCache);
         }
 
-        private static CommandShell.LineValidation ValidateSingleSpec(CommandArgument spec, CommandArg input, bool catchExceptions, out object value)
+        private static CommandShell.LineValidation ValidateSingleSpec(CommandArgument spec, CommandArg input, bool catchExceptions, bool canCache, out object value)
         {
             try
             {
                 if (!spec.TryValidateArgument(input, out value, out string errorMessage))
                 {
-                    return CommandShell.LineValidation.Error(errorMessage, spec.Name, input.contents);
+                    return CommandShell.LineValidation.Error(errorMessage, spec.Name, input.contents, canCache: canCache);
                 }
 
-                return CommandShell.LineValidation.Valid();
+                return CommandShell.LineValidation.Valid(canCache: canCache);
             }
             catch (Exception) when (catchExceptions)
             {
                 value = null;
-                return CommandShell.LineValidation.Error(spec.FormatParseError(input), spec.Name, input.contents);
+                return CommandShell.LineValidation.Error(spec.FormatParseError(input), spec.Name, input.contents, canCache: canCache);
             }
         }
 
