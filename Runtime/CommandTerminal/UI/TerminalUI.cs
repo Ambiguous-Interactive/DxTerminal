@@ -117,6 +117,11 @@
             get { return _needsScrollToEnd; }
         }
 
+        internal ListView CompletionList
+        {
+            get { return _completionView?.List; }
+        }
+
         private ConsoleKeyBindings KeyBindings
         {
             get { return keyBindings ??= new ConsoleKeyBindings(); }
@@ -289,7 +294,6 @@
             Internal for test coverage of hint selection (see
             WallstopStudios.DxCommandTerminal.Tests.Runtime).
          */
-        internal ListView _autoCompleteContainer;
         private TerminalCompletionView _completionView;
 
         private TerminalState _state = TerminalState.Closed;
@@ -2030,7 +2034,6 @@
             _lastSearchTotal = null;
             _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
-            _autoCompleteContainer = null;
             _completionView = null;
             _inputContainer = null;
             _runButton = null;
@@ -2103,7 +2106,6 @@
             }
 
             RefreshLogs();
-            RefreshAutoCompleteHints();
             string commandInput = _input.CommandText;
             if (!string.Equals(_commandInput.value, commandInput))
             {
@@ -2149,22 +2151,47 @@
                focused pass.
             */
             ApplyPendingCaret();
-            _commandInputHighlight?.Refresh(_commandInput.value, Terminal.Shell, InputOwnsFocus);
+            RefreshCompletion();
+            _commandInputHighlight?.Refresh(
+                _commandInput.value,
+                Terminal.Shell,
+                InputOwnsFocus,
+                _commandInput.selectIndex == _commandInput.cursorIndex ? _completionView?.Ghost : null
+            );
             RefreshStateButtons();
         }
 
         internal void ApplyHint(int index)
         {
-            if (_completionView == null || !_completionView.TryGetCandidate(index, out string candidate))
+            if (AcceptCompletion(index, oneWord: false))
             {
-                return;
+                FocusInput(allowLogFocus: true);
+            }
+        }
+
+        internal bool TryCompletionKey(KeyCode key)
+        {
+            if (!IsOpenState(_state) || _completionView == null)
+            {
+                return false;
             }
 
-            _input.CommandText = candidate;
-            _pendingCaretIndex = candidate.Length;
-            _lastCompletionIndex = index;
-            _needsFocus = true;
-            FocusInput(allowLogFocus: true);
+            RefreshCompletion();
+            switch (key)
+            {
+                case KeyCode.UpArrow:
+                    return _completionView.Move(-1);
+                case KeyCode.DownArrow:
+                    return _completionView.Move(1);
+                case KeyCode.Tab:
+                    return _completionView.HasSelection ? AcceptCompletion(_completionView.SelectedIndex, oneWord: false) : _completionView.Request();
+                case KeyCode.Escape:
+                    return _completionView.Dismiss();
+                case KeyCode.RightArrow:
+                    return _commandInput.cursorIndex == _commandInput.selectIndex && AcceptCompletion(_completionView.SelectedIndex, oneWord: true);
+                default:
+                    return false;
+            }
         }
 
         /*
@@ -2391,7 +2418,7 @@
                     float controlsHeight =
                         (_logToolbar?.layout.height ?? 0f)
                         + (_inputContainer?.layout.height ?? 0f)
-                        + (_autoCompleteContainer?.layout.height ?? 0f)
+                        + (_completionView?.Panel.layout.height ?? 0f)
                         + (_logCopyStatus?.layout.height ?? 0f);
                     if (float.IsFinite(controlsHeight))
                     {
@@ -2849,9 +2876,7 @@
             /* A fresh view starts at zero, so no earlier pin describes it. */
             _logTail.Attach();
 
-            _completionView = new TerminalCompletionView(root, ApplyHint);
-            _autoCompleteContainer = _completionView.List;
-            _terminalContainer.Add(_autoCompleteContainer);
+            _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint);
 
             _logCopyStatus = new Label("Clipboard copy could not be verified.") { name = "LogCopyStatus", pickingMode = PickingMode.Ignore };
             _logCopyStatus.AddToClassList("terminal-copy-status");
@@ -2999,6 +3024,12 @@
                         way, so a key handled here can never also reach the
                         field below.
                      */
+                    if (context.RouteCompletionKey(evt))
+                    {
+                        KeyEvents.Consume(context._commandInput, evt);
+                        return;
+                    }
+
                     if (context.TryApplyHistoryKey(evt))
                     {
                         KeyEvents.Consume(context._commandInput, evt);
@@ -3943,10 +3974,84 @@
             _logTail.Pin(scroller.value);
         }
 
-        private void RefreshAutoCompleteHints()
+        private bool RouteCompletionKey(KeyDownEvent evt)
         {
-            bool visible = IsOpenState(_state) && hintDisplayMode is HintDisplayMode.Always or HintDisplayMode.AutoCompleteOnly;
-            _completionView?.Refresh(_lastCompletionBuffer, _lastKnownCommandText, _lastCompletionIndex, visible, makeHintsClickable, Terminal.Shell);
+            if (evt.ctrlKey || evt.commandKey || evt.altKey || evt.shiftKey)
+            {
+                return false;
+            }
+
+            KeyCode key = evt.keyCode;
+            if (key is not (KeyCode.UpArrow or KeyCode.DownArrow or KeyCode.Tab or KeyCode.Escape or KeyCode.RightArrow))
+            {
+                return false;
+            }
+
+            if (key == KeyCode.RightArrow)
+            {
+                return TryCompletionKey(key);
+            }
+
+            if (TryGetComponent(out TerminalKeyboardController keyboard) && keyboard.isActiveAndEnabled)
+            {
+                return keyboard.UsesCompletionBinding(key) && (key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true);
+            }
+
+            if (TryCompletionKey(key))
+            {
+                return true;
+            }
+
+            switch (key)
+            {
+                case KeyCode.UpArrow:
+                    HandlePrevious();
+                    return true;
+                case KeyCode.DownArrow:
+                    HandleNext();
+                    return true;
+                case KeyCode.Tab:
+                    CompleteCommand();
+                    return true;
+                case KeyCode.Escape:
+                    Close();
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private void RefreshCompletion()
+        {
+            if (_completionView == null || _commandInput == null || _input == null)
+            {
+                return;
+            }
+
+            string line = _input.CommandText ?? string.Empty;
+            int caret = _pendingCaretIndex ?? _commandInput.cursorIndex;
+            List<string> prefixCandidates =
+                hintDisplayMode == HintDisplayMode.Always && string.Equals(line, _lastKnownCommandText, StringComparison.Ordinal) ? _lastCompletionBuffer : null;
+            _completionView.Refresh(
+                Terminal.Shell,
+                line,
+                caret,
+                IsOpenState(_state) ? hintDisplayMode : HintDisplayMode.Never,
+                makeHintsClickable,
+                _commandInput.cursorIndex == _commandInput.selectIndex,
+                prefixCandidates
+            );
+        }
+
+        private bool AcceptCompletion(int index, bool oneWord)
+        {
+            if (_completionView == null || !_completionView.TryAccept(_input.CommandText, index, oneWord, out string text, out int caret))
+            {
+                return false;
+            }
+
+            SetCommandTextFromCode(text, caret);
+            return true;
         }
 
         private void RefreshStateButtons()

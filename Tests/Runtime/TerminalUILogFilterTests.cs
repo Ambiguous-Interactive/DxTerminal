@@ -697,12 +697,12 @@
             DefaultTerminalInput.Instance.CommandText = "logfocus";
             _terminal.ResetAutoComplete();
             attempts = FrameBudget;
-            while (0 < attempts-- && _terminal._autoCompleteContainer.itemsSource.Count != 2)
+            while (0 < attempts-- && _terminal.CompletionList.itemsSource.Count != 2)
             {
                 yield return null;
             }
 
-            Assert.That(_terminal._autoCompleteContainer.itemsSource.Count, Is.EqualTo(2));
+            Assert.That(_terminal.CompletionList.itemsSource.Count, Is.EqualTo(2));
             row.Focus();
             _terminal.ApplyHint(0);
             attempts = FrameBudget;

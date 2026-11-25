@@ -397,14 +397,8 @@
             yield return SpawnCalibratedTerminal(TerminalState.OpenSmall);
             RegisterFixtureCommands(CaptureCommandNames);
 
-            /*
-                Tab completion is the surface players see: CompleteCommand
-                fills the suggestion buffer for the typed prefix and the hint
-                popup renders it with the selected row highlighted.
-             */
             _terminal._commandInput.value = CompletionQuery;
             yield return null;
-            _terminal.CompleteCommand();
             yield return WaitForCompletionHints(CompletionQuery);
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesCompletionHintsSurface), CaptureBounds.Default());
@@ -480,7 +474,6 @@
             RegisterFixtureCommands(LongNameCommands);
             _terminal._commandInput.value = LongNameQuery;
             yield return null;
-            _terminal.CompleteCommand();
             yield return WaitForCompletionHints(LongNameQuery);
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesLongNameCompletionSurface), CaptureBounds.Default());
@@ -1245,35 +1238,18 @@
 
         private IEnumerator WaitForCompletionHints(string query)
         {
-            /*
-                Hints render into the AutoCompletePopup container; the popup
-                itself is private, so readiness reads the public visual tree
-                plus the internal completion buffer.
-             */
-            VisualElement hintPopup()
-            {
-                return _terminal._uiDocument.rootVisualElement.Q("AutoCompletePopup");
-            }
-
+            TextField field = _terminal._commandInput;
+            TextSelectionFixture.PrepareCaret(field);
+            ListView list = _terminal.CompletionList;
             int frameBudget = FrameBudget;
-            while (
-                0 < frameBudget--
-                && (
-                    _terminal._lastCompletionBuffer.Count == 0
-                    || hintPopup() == null
-                    || hintPopup().Q<Label>("CompletionName") == null
-                    || DisplayStyle.Flex != hintPopup().resolvedStyle.display
-                )
-            )
+            while (0 < frameBudget-- && (field.cursorIndex != query.Length || list.Q<Label>("CompletionName") == null))
             {
+                field.SelectRange(query.Length, query.Length);
                 yield return null;
             }
 
-            Assert.That(0 < _terminal._lastCompletionBuffer.Count, $"Completion candidates were computed for '{query}'");
-            VisualElement popup = hintPopup();
-            Assert.That(popup != null, "Completion hint popup exists for the query");
-            Assert.That(popup.Q<Label>("CompletionName"), Is.Not.Null, "Completion hint rows were built for the query");
-            Assert.AreEqual(DisplayStyle.Flex, popup.resolvedStyle.display, "Completion hints are visible for the query");
+            Assert.That(field.cursorIndex, Is.EqualTo(query.Length));
+            Assert.That(list.Q<Label>("CompletionName"), Is.Not.Null, $"Visible rows for '{query}'");
         }
 
         private IEnumerator WaitForLogScrollSettled()
