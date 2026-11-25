@@ -309,11 +309,12 @@
         public IEnumerator CapturesHighlightedCommandInput()
         {
             yield return SpawnTerminal(useEditorDefaults: true);
-            TerminalFontPack fontPack = LoadPack<TerminalFontPack>("Packs/Fonts/JetBrains Mono.asset");
-            _terminal.SetFont(fontPack._fonts[0]);
             _terminal.SetState(TerminalState.OpenSmall);
             yield return WaitForTerminalInputVisible();
             Assert.That(_terminal.CurrentTheme, Is.EqualTo("dx-dark-theme"));
+            TerminalFontPack fontPack = LoadPack<TerminalFontPack>("Packs/Fonts/JetBrains Mono.asset");
+            Font font = fontPack._fonts[0];
+            _terminal.SetFont(font);
             CommandBuilder example = CommandBuilder.Create("syntax-capture").Arg<int>("number").Arg<string>("text").Arg<bool>("enabled").Handler((_, _) => { });
             Assert.That(Terminal.Shell.AddCommand(example, out _), Is.True);
             Terminal.Log("Command input highlighting");
@@ -346,6 +347,7 @@
                 Assert.That(overlay.text, Does.Contain($"<color=#{ColorUtility.ToHtmlStringRGBA(number)}>24</color>"));
                 VisualElement nativeText = overlay.parent;
                 Assert.That(nativeText.resolvedStyle.fontSize, Is.EqualTo(15));
+                Assert.That(nativeText.resolvedStyle.unityFontDefinition.font == font, Is.True);
                 Assert.That(nativeText.resolvedStyle.color.a, Is.Zero);
                 Assert.That(_terminal.InputOwnsFocus, Is.True, "The caret belongs to the terminal command field");
 
