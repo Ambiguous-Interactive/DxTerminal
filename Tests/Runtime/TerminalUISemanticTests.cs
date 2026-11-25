@@ -452,6 +452,7 @@
                 });
             Assert.That(Terminal.Shell.AddCommand(router, out _), Is.True);
             Assert.That(Terminal.Shell.SetVariable("sigwave", "wave"), Is.True);
+            Assert.That(Terminal.Shell.SetVariable("sigcommand", "sig route"), Is.True);
 
             VisualElement root = _terminal._uiDocument.rootVisualElement;
             yield return SetInputText("sigroute wa");
@@ -469,10 +470,16 @@
             yield return null;
             string resolved = root.Q<Label>("SignatureCommand")?.text;
             string argument = ActiveSignature(root);
-            RunThroughInput("sigroute $sigwave 3");
+
+            yield return SetInputText("$sigcommand $sigwave ");
+            yield return SetInputCaret(21);
+            yield return null;
+            string normalized = root.Q<Label>("SignatureCommand")?.text;
+            RunThroughInput("$sigcommand $sigwave 3");
 
             Assert.That(partial, Is.EqualTo("sigroute"), "An incomplete selector keeps the parent signature");
             Assert.That(dispatched, Is.EqualTo(3));
+            Assert.That(normalized, Is.EqualTo("sigroute wave"), "The signature normalizes a variable-selected command like dispatch");
             Assert.That(
                 new[] { exact, resolved, argument },
                 Is.EqualTo(new[] { "sigroute wave", "sigroute wave", "[count: int = 1]" }),
