@@ -431,7 +431,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             CollectionAssert.AreEqual(new[] { 0.5f, 3f }, observed, "Boundary values are inclusive");
             string below = ConsumeError(shell);
             Assert.That(below != null, "An out-of-range value queues a controlled error");
-            Assert.That(below, Does.Contain("out of range"));
+            Assert.That(below, Is.EqualTo("factor must be 0.5–3. You typed 0.4."));
             Assert.That(ConsumeError(shell) != null, "The above-range case also queues an error");
             Assert.AreEqual(2, observed.Count, "Out-of-range invocations skip the handler");
         }
@@ -579,15 +579,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                     CommandBuilder
                         .Create("summon")
                         .Arg<string>("item", spec => spec.Required().Choices("pickaxe", "torch"))
-                        .Arg<string>(
-                            "ally",
-                            spec =>
-                                spec.Required()
-                                    .Choices(context =>
-                                    {
-                                        requests.Add(context);
-                                        return new[] { "ally-" + context.PrecedingArguments.Count };
-                                    })
+                        .Arg<string>("ally", spec =>
+                            spec.Required()
+                                .Choices(context =>
+                                {
+                                    requests.Add(context);
+                                    return new[] { "ally-" + context.PrecedingArguments.Count };
+                                })
                         )
                         .Handler((context, arguments) => { }),
                     out _

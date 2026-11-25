@@ -302,5 +302,201 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(controlBytes, Is.GreaterThanOrEqualTo(256));
         }
 #endif
+
+        [TestCase("spawn goblin 80", "count must be 1–50. You typed 80.")]
+        [TestCase("spawn dragon", "prefab must be one of: goblin, ghoul, golem. You typed dragon.")]
+        [TestCase("spawn goblin abc", "count must be int. You typed abc.")]
+        [TestCase("spawn goblin $tooHigh", "count must be 1–50. You typed 80.")]
+        [TestCase("spwan goblin", "No command spwan. Did you mean spawn")]
+        [TestCase("spwn goblin", "No command spwn. Did you mean spawn")]
+        [TestCase("xyzzy goblin", "No command xyzzy.")]
+        [TestCase("spxyz goblin", "No command spxyz.")]
+        public void LoggedValidationErrorMatchesT13Text(string line, string expectedMessage)
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            int runs = 0;
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Handler(
+                            (_, _) =>
+                            {
+                                ++runs;
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(shell.SetVariable("tooHigh", "80"), Is.True);
+
+            CommandShell.LineValidation inlineValidation = shell.ValidateLine(line, CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(inlineValidation.IsError, Is.True);
+            Assert.That(inlineValidation.Message, Is.EqualTo(expectedMessage));
+
+            shell.RunCommand(line);
+            Assert.That(runs, Is.Zero);
+            Assert.That(shell.TryConsumeErrorMessage(out string error), Is.True);
+            Assert.That(error, Is.EqualTo(inlineValidation.Message));
+        }
+
+        [Test]
+        public void UnclosedQuoteProducesNoteAndStillRuns()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            string spoken = null;
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("say", "Prints text")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("message", spec =>
+                        {
+                            return spec.Required();
+                        })
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                spoken = arguments.Get<string>("message");
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+
+            const string line = "say \"hello wor";
+            CommandShell.LineValidation validation = shell.ValidateLine(line, CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(validation.IsNote, Is.True);
+            Assert.That(validation.IsError, Is.False);
+            Assert.That(validation.UnclosedQuote, Is.EqualTo('"'));
+            Assert.That(validation.Message, Is.EqualTo("Quote not closed. The rest of the line is one argument."));
+
+            Assert.That(shell.RunCommand(line), Is.True);
+            Assert.That(spoken, Is.EqualTo("hello wor"));
+            Assert.That(shell.TryConsumeErrorMessage(out _), Is.False);
+        }
+
+        [TestCase("spwn", "spawn")]
+        [TestCase("spwan", "spawn")]
+        [TestCase("SPAW", "spawn")]
+        [TestCase("spxyz", null)]
+        [TestCase("sp", null)]
+        public void DidYouMeanSuggestsOnlyWithinEditDistanceTwo(string typed, string expectedSuggestion)
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.That(shell.AddCommand("spawn", _ => { }), Is.True);
+
+            CommandShell.LineValidation validation = shell.ValidateLine(typed, CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(validation.IsError, Is.True);
+            Assert.That(validation.Suggestion, Is.EqualTo(expectedSuggestion));
+        }
+
+        [Test]
+        public void IncompleteRequiredArgumentsStaySilentWhileTypingAndFailOnEnter()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required();
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            CommandShell.LineValidation typing = shell.ValidateLine("spawn", CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(typing.IsValid, Is.True);
+
+            CommandShell.LineValidation submit = shell.ValidateLine("spawn", CommandExecutionContext.Current, allowIncomplete: false);
+            Assert.That(submit.IsError, Is.True);
+            shell.RunCommand("spawn");
+            Assert.That(shell.TryConsumeErrorMessage(out string error), Is.True);
+            Assert.That(error, Is.EqualTo(submit.Message));
+        }
+
+        [Test]
+        public void LineValidationEqualsContentTracksTokenSpanAndQuoting()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.That(shell.AddCommand("spawn", _ => { }), Is.True);
+
+            CommandShell.LineValidation unshifted = shell.ValidateLine("spwan goblin", CommandExecutionContext.Current, allowIncomplete: true);
+            CommandShell.LineValidation shifted = shell.ValidateLine(" spwan goblin", CommandExecutionContext.Current, allowIncomplete: true);
+            CommandShell.LineValidation quoted = shell.ValidateLine("\"spwan\" goblin", CommandExecutionContext.Current, allowIncomplete: true);
+
+            Assert.That(unshifted.EqualsContent(shifted), Is.False, "TokenStart change must invalidate cached replacement span");
+            Assert.That(unshifted.EqualsContent(quoted), Is.False, "TokenQuoted change must invalidate cached replacement span");
+            Assert.That(shifted.TokenStart, Is.EqualTo(1));
+            Assert.That(quoted.TokenQuoted, Is.True);
+        }
+
+        [Test]
+        public void LineValidationDisablesCachingForLiveCustomValidators()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            bool allowValue = false;
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("gate")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("token", spec =>
+                        {
+                            return spec.Required()
+                                .Validate(_ =>
+                                {
+                                    return allowValue ? null : "is locked";
+                                });
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            CommandShell.LineValidation builtIn = shell.ValidateLine("spawn 5", CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(builtIn.CanCache, Is.True);
+
+            CommandShell.LineValidation locked = shell.ValidateLine("gate open", CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(locked.IsError, Is.True);
+            Assert.That(locked.Message, Is.EqualTo("token is locked. You typed open."));
+            Assert.That(locked.CanCache, Is.False);
+
+            allowValue = true;
+            CommandShell.LineValidation unlocked = shell.ValidateLine("gate open", CommandExecutionContext.Current, allowIncomplete: true);
+            Assert.That(unlocked.IsValid, Is.True);
+            Assert.That(unlocked.CanCache, Is.False);
+        }
     }
 }

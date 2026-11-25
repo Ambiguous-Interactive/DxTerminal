@@ -521,6 +521,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 );
             }
 
+            string rangeBounds = $"{FormatValue(min)}–{FormatValue(max)}";
             return new CommandArgumentSpec<T>(
                 Name,
                 _required,
@@ -535,7 +536,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                         return null;
                     }
 
-                    return $"Value '{FormatValue(value)}' for argument '{Name}' is out of range " + $"[{FormatValue(min)}, {FormatValue(max)}]";
+                    return $"{Name} must be {rangeBounds}. You typed {FormatValue(value)}.";
                 },
                 _validator,
                 Description,
@@ -543,7 +544,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: _choiceFormatter,
                 useRawInput: _useRawInput,
-                rangeText: $" {FormatValue(min)}–{FormatValue(max)}",
+                rangeText: $" {rangeBounds}",
                 choiceHint: _choiceHint,
                 defaultDisplay: _defaultDisplay
             );
@@ -714,7 +715,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         internal override string FormatParseError(CommandArg input)
         {
             string expected = _staticChoices == null ? TypeName : $"one of: {string.Join(", ", _staticChoiceTexts)}";
-            return $"Invalid value '{input.contents}' for argument '{Name}' (expected {expected})";
+            return $"{Name} must be {expected}. You typed {input.contents}.";
         }
 
         internal override void AppendUsage(StringBuilder builder)
@@ -830,7 +831,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
                 if (!matches)
                 {
-                    return $"Invalid value '{FormatValue(value)}' for argument '{Name}' " + $"(expected one of: {string.Join(", ", _staticChoiceTexts)})";
+                    return $"{Name} must be one of: {string.Join(", ", _staticChoiceTexts)}. You typed {FormatValue(value)}.";
                 }
             }
 
@@ -843,7 +844,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             error = _validator?.Invoke(value);
             if (error != null)
             {
-                return $"Invalid value '{FormatValue(value)}' for argument '{Name}': {error}";
+                string trimmed = error.TrimEnd('.');
+                return $"{Name} {trimmed}. You typed {FormatValue(value)}.";
             }
 
             return null;

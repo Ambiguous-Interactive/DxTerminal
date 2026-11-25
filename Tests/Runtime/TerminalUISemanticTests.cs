@@ -431,6 +431,213 @@
         }
 
         [UnityTest]
+        public IEnumerator InlineValidationMatchesLoggedErrorForSpawnCases()
+        {
+            yield return SpawnOpenTerminal();
+            int spawnRuns = 0;
+            string spoken = null;
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Handler(
+                            (_, _) =>
+                            {
+                                ++spawnRuns;
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("say", "Prints text")
+                        .Arg<string>("message", spec =>
+                        {
+                            return spec.Required();
+                        })
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                spoken = arguments.Get<string>("message");
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            VisualElement bar = root.Q<VisualElement>("CommandValidation");
+            Label message = root.Q<Label>("CommandValidationMessage");
+            Button suggestion = root.Q<Button>("CommandValidationSuggestion");
+            Label hint = root.Q<Label>("CommandValidationHint");
+            Assert.That(bar, Is.Not.Null, "The terminal must create an inline validation bar");
+            Assert.That(message, Is.Not.Null);
+            Assert.That(suggestion, Is.Not.Null);
+            Assert.That(hint, Is.Not.Null);
+
+            string[] errorLines = { "spawn goblin 80", "spawn dragon", "spawn goblin abc", "xyzzy goblin" };
+            foreach (string line in errorLines)
+            {
+                yield return SetInputText(line);
+                yield return SetInputCaret(line.Length);
+                yield return null;
+
+                Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), $"Expected inline error for '{line}'");
+                string inlineMessage = RenderedName(message);
+                Assert.That(inlineMessage, Is.EqualTo(_terminal.InlineValidationMessage));
+                Assert.That(suggestion.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+
+                _terminal.EnterCommand();
+                Assert.That(spawnRuns, Is.Zero, $"Enter must not run invalid line '{line}'");
+                Assert.That(Terminal.Buffer.TryGetLast(out LogItem last), Is.True);
+                Assert.That(last.type, Is.EqualTo(TerminalLogType.Error));
+                Assert.That(last.message, Is.EqualTo(inlineMessage), $"Logged error must match inline text for '{line}'");
+            }
+
+            yield return SetInputText("spwan goblin");
+            yield return SetInputCaret(12);
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(suggestion.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(suggestion.text, Is.EqualTo("spawn"));
+            Assert.That(hint.text, Is.EqualTo("Tab to fix"));
+            string unknownInline = $"{RenderedName(message)} {suggestion.text}";
+            Assert.That(unknownInline, Is.EqualTo("No command spwan. Did you mean spawn"));
+
+            Assert.That(_terminal.TryCompletionKey(KeyCode.Tab), Is.True, "Tab must apply the did-you-mean fix");
+            yield return WaitForInputText("spawn goblin", "Tab replaces only the unknown command token");
+
+            yield return SetInputText("spwan goblin");
+            yield return SetInputCaret(12);
+            yield return null;
+            _terminal.EnterCommand();
+            Assert.That(Terminal.Buffer.TryGetLast(out LogItem unknownLog), Is.True);
+            Assert.That(unknownLog.type, Is.EqualTo(TerminalLogType.Error));
+            Assert.That(unknownLog.message, Is.EqualTo(unknownInline));
+
+            yield return SetInputText("say \"hello wor");
+            yield return SetInputCaret(14);
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(RenderedName(message), Is.EqualTo("Quote not closed. The rest of the line is one argument."));
+            Assert.That(root.Q<Label>("CommandInputHighlight").text, Does.Contain("\"</color></i>"));
+            _terminal.EnterCommand();
+            Assert.That(spoken, Is.EqualTo("hello wor"), "An unclosed quote note must still run the command");
+            Assert.That(Terminal.Buffer.TryGetLast(out LogItem lastAfterQuote), Is.True);
+            Assert.That(lastAfterQuote.type, Is.Not.EqualTo(TerminalLogType.Error));
+        }
+
+        [UnityTest]
+        public IEnumerator InlineValidationHandlesSpanShiftChipClickOpenQuotePrefixAndLiveValidator()
+        {
+            yield return SpawnOpenTerminal();
+            bool allowGate = false;
+            Assert.That(Terminal.Shell.AddCommand("spawn", _ => { }), Is.True);
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("gate")
+                        .Arg<string>("token", spec =>
+                        {
+                            return spec.Required()
+                                .Validate(_ =>
+                                {
+                                    return allowGate ? null : "is locked";
+                                });
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            VisualElement bar = root.Q<VisualElement>("CommandValidation");
+            Label message = root.Q<Label>("CommandValidationMessage");
+            Button suggestion = root.Q<Button>("CommandValidationSuggestion");
+
+            yield return SetInputText("spwan goblin");
+            yield return SetInputCaret(12);
+            yield return null;
+            yield return SetInputText(" spwan goblin");
+            yield return SetInputCaret(13);
+            yield return null;
+            Assert.That(_terminal.TryCompletionKey(KeyCode.Tab), Is.True, "Tab must use the updated token span after leading whitespace changes");
+            yield return WaitForInputText(" spawn goblin", "Leading-space edit keeps the replacement aligned");
+
+            yield return SetInputText("spwan goblin");
+            yield return SetInputCaret(2);
+            yield return null;
+            Assert.That(suggestion.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            using (NavigationSubmitEvent evt = NavigationSubmitEvent.GetPooled())
+            {
+                evt.target = suggestion;
+                suggestion.SendEvent(evt);
+            }
+
+            yield return WaitForInputText("spawn goblin", "Clicking the suggestion chip applies the fix even when completions are active");
+
+            yield return SetInputText("\"sp");
+            yield return SetInputCaret(3);
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "An open quote on a command prefix keeps the note visible");
+            Assert.That(RenderedName(message), Is.EqualTo("Quote not closed. The rest of the line is one argument."));
+
+            yield return SetInputText("gate open");
+            yield return SetInputCaret(9);
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(RenderedName(message), Is.EqualTo("token is locked. You typed open."));
+
+            allowGate = true;
+            _terminal.RefreshUI();
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "A live validator passing clears the inline error without editing the line");
+
+            allowGate = false;
+            _terminal.RefreshUI();
+            yield return null;
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "A live validator failing again restores the inline error");
+
+            Assert.That(Terminal.Shell.AddCommand(CommandBuilder.Create("editonly").Contexts(CommandExecutionContexts.EditorEditMode).Handler((_, _) => { }), out _), Is.True);
+            Func<CommandExecutionContext> previousProvider = CommandExecutionContext.AmbientContextProvider;
+            CommandExecutionContexts activeEnvironment = CommandExecutionContexts.EditorEditMode;
+            CommandExecutionContext.AmbientContextProvider = () =>
+            {
+                return new CommandExecutionContext(activeEnvironment);
+            };
+            try
+            {
+                yield return SetInputText("editonly");
+                yield return SetInputCaret(8);
+                yield return null;
+                Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "An edit-only command is valid in Edit Mode");
+
+                activeEnvironment = CommandExecutionContexts.EditorPlayMode;
+                _terminal.RefreshUI();
+                yield return null;
+                Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Switching execution context invalidates the validation cache");
+                Assert.That(RenderedName(message), Is.EqualTo("editonly is not available in the current execution context"));
+            }
+            finally
+            {
+                CommandExecutionContext.AmbientContextProvider = previousProvider;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator SubcommandSignatureTracksExactNamesAndVariableRoutes()
         {
             yield return SpawnOpenTerminal();

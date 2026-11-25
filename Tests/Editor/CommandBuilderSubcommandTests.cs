@@ -70,18 +70,16 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 shell.AddCommand(
                     CommandBuilder
                         .Create("inventory", "Manage the inventory")
-                        .Subcommand(
-                            "add",
-                            add =>
-                                add.Arg<string>("item", spec => spec.Required())
-                                    .Arg<int>("count", spec => spec.Default(1).Range(1, 99))
-                                    .Handler(
-                                        (_, arguments) =>
-                                        {
-                                            addedItem = arguments.Get<string>(0);
-                                            addedCount = arguments.Get<int>(1);
-                                        }
-                                    )
+                        .Subcommand("add", add =>
+                            add.Arg<string>("item", spec => spec.Required())
+                                .Arg<int>("count", spec => spec.Default(1).Range(1, 99))
+                                .Handler(
+                                    (_, arguments) =>
+                                    {
+                                        addedItem = arguments.Get<string>(0);
+                                        addedCount = arguments.Get<int>(1);
+                                    }
+                                )
                         )
                         .Subcommand("remove", remove => remove.Arg<string>("item", spec => spec.Required()).Handler((_, arguments) => removedItem = arguments.Get<string>(0))),
                     out _
@@ -219,14 +217,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                     CommandBuilder
                         .Create("inventory")
                         .Subcommand("add", add => add.Arg<string>("item", spec => spec.Required()).Handler((_, _) => ++invocations))
-                        .Subcommand(
-                            "stash",
-                            stash =>
-                                stash
-                                    .Arg<string>("a", spec => spec.Required())
-                                    .Arg<string>("b", spec => spec.Required())
-                                    .Arg<string>("c", spec => spec.Required())
-                                    .Handler((_, _) => { })
+                        .Subcommand("stash", stash =>
+                            stash
+                                .Arg<string>("a", spec => spec.Required())
+                                .Arg<string>("b", spec => spec.Required())
+                                .Arg<string>("c", spec => spec.Required())
+                                .Handler((_, _) => { })
                         ),
                     out _
                 )
@@ -266,15 +262,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.IsTrue(shell.RunCommand("inventory add abc"));
             string error = ConsumeError(shell);
             Assert.That(error != null);
-            Assert.That(error, Does.Contain("'inventory add':"), "Parse errors name the composed command");
-            Assert.That(error, Does.Contain("for argument 'count'"));
+            Assert.That(error, Is.EqualTo("count must be int. You typed abc."), "Parse errors use the shared T13 message");
             Assert.AreEqual(0, invocations);
 
             Assert.IsTrue(shell.RunCommand("inventory add 42"));
             error = ConsumeError(shell);
             Assert.That(error != null);
-            Assert.That(error, Does.Contain("'inventory add':"));
-            Assert.That(error, Does.Contain("out of range"));
+            Assert.That(error, Is.EqualTo("count must be 1–9. You typed 42."));
             Assert.AreEqual(0, invocations);
         }
 
@@ -289,12 +283,10 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 shell.AddCommand(
                     CommandBuilder
                         .Create("inv")
-                        .Subcommand(
-                            "group",
-                            group =>
-                                group
-                                    .Handler((_, _) => ++groupFallbackRuns)
-                                    .Subcommand("add", add => add.Arg<string>("item", spec => spec.Required()).Handler((_, arguments) => deepItem = arguments.Get<string>(0)))
+                        .Subcommand("group", group =>
+                            group
+                                .Handler((_, _) => ++groupFallbackRuns)
+                                .Subcommand("add", add => add.Arg<string>("item", spec => spec.Required()).Handler((_, arguments) => deepItem = arguments.Get<string>(0)))
                         ),
                     out _
                 )
@@ -340,19 +332,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 shell.AddCommand(
                     CommandBuilder
                         .Create("inventory")
-                        .Subcommand(
-                            "add",
-                            add =>
-                                add.Arg<string>("item", spec => spec.Required())
-                                    .Arg<string>("extra", spec => spec.Default("none"))
-                                    .Handler(
-                                        (_, arguments) =>
-                                        {
-                                            argumentsCount = arguments.Count;
-                                            rawCount = arguments.Raw.Count;
-                                            rawFirst = arguments.Raw[0].contents;
-                                        }
-                                    )
+                        .Subcommand("add", add =>
+                            add.Arg<string>("item", spec => spec.Required())
+                                .Arg<string>("extra", spec => spec.Default("none"))
+                                .Handler(
+                                    (_, arguments) =>
+                                    {
+                                        argumentsCount = arguments.Count;
+                                        rawCount = arguments.Raw.Count;
+                                        rawFirst = arguments.Raw[0].contents;
+                                    }
+                                )
                         ),
                     out _
                 )
@@ -425,9 +415,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 shell.AddCommand(
                     CommandBuilder
                         .Create("inv")
-                        .Subcommand(
-                            "group",
-                            group => group.Subcommand("set", set => set.Arg<string>("mode", spec => spec.Required().Choices("easy", "hard")).Handler((_, _) => { }))
+                        .Subcommand("group", group =>
+                            group.Subcommand("set", set => set.Arg<string>("mode", spec => spec.Required().Choices("easy", "hard")).Handler((_, _) => { }))
                         ),
                     out _
                 )
@@ -449,22 +438,18 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 shell.AddCommand(
                     CommandBuilder
                         .Create("summon")
-                        .Subcommand(
-                            "pair",
-                            pair =>
-                                pair.Arg<string>("creature", spec => spec.Required().Choices("wolf", "dragon"))
-                                    .Arg<string>(
-                                        "title",
-                                        spec =>
-                                            spec.Required()
-                                                .Choices(context =>
-                                                {
-                                                    observedStage = context.ActiveArgumentIndex;
-                                                    observedFirst = context.PrecedingArguments.IsEmpty ? null : context.PrecedingArguments[0].contents;
-                                                    return new[] { $"{observedFirst}-lord" };
-                                                })
-                                    )
-                                    .Handler((_, _) => { })
+                        .Subcommand("pair", pair =>
+                            pair.Arg<string>("creature", spec => spec.Required().Choices("wolf", "dragon"))
+                                .Arg<string>("title", spec =>
+                                    spec.Required()
+                                        .Choices(context =>
+                                        {
+                                            observedStage = context.ActiveArgumentIndex;
+                                            observedFirst = context.PrecedingArguments.IsEmpty ? null : context.PrecedingArguments[0].contents;
+                                            return new[] { $"{observedFirst}-lord" };
+                                        })
+                                )
+                                .Handler((_, _) => { })
                         ),
                     out _
                 )

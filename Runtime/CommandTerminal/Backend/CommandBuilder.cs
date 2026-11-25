@@ -65,6 +65,205 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return Create(name).Help(help);
         }
 
+        internal static CommandShell.LineValidation ValidateRoute(
+            SubcommandRoute route,
+            IReadOnlyList<CommandArg> arguments,
+            int offset,
+            bool allowIncomplete,
+            bool catchExceptions
+        )
+        {
+            if (route == null)
+            {
+                return CommandShell.LineValidation.Valid();
+            }
+
+            BorrowedCommandArguments borrowed = new(arguments);
+            if (!TryResolveRoute(route, borrowed, offset, allowIncomplete, out SubcommandRoute leaf, out int leafOffset, out string routeError))
+            {
+                return CommandShell.LineValidation.Error(routeError);
+            }
+
+            if (leaf == null)
+            {
+                return CommandShell.LineValidation.Valid();
+            }
+
+            return ValidateSpecs(leaf.Specs, borrowed, leafOffset, parsed: null, allowIncomplete: allowIncomplete, catchExceptions: catchExceptions);
+        }
+
+        private static bool CanCacheSpecs(CommandArgument[] specs, int evaluatedCount)
+        {
+            int limit = Math.Min(specs.Length, evaluatedCount);
+            for (int index = 0; index < limit; ++index)
+            {
+                if (!specs[index].CanCacheSyntax)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool TryResolveRoute(
+            SubcommandRoute route,
+            BorrowedCommandArguments arguments,
+            int offset,
+            bool allowIncomplete,
+            out SubcommandRoute leaf,
+            out int leafOffset,
+            out string error
+        )
+        {
+            while (route.IsRouter)
+            {
+                if (arguments.Count <= offset)
+                {
+                    if (route.Fallback != null || allowIncomplete)
+                    {
+                        leaf = null;
+                        leafOffset = offset;
+                        error = null;
+                        return true;
+                    }
+
+                    leaf = null;
+                    leafOffset = offset;
+                    error = $"'{route.FullPath}': expected a subcommand. Expected one of: {FormatRouteList(route.Lookup)}";
+                    return false;
+                }
+
+                string tokenText = arguments[offset].contents ?? string.Empty;
+                if (!route.Lookup.TryGetValue(tokenText, out SubcommandRoute child))
+                {
+                    leaf = null;
+                    leafOffset = offset;
+                    error = $"'{route.FullPath}': unknown subcommand '{tokenText}'. Expected one of: {FormatRouteList(route.Lookup)}";
+                    return false;
+                }
+
+                route = child;
+                ++offset;
+            }
+
+            int available = arguments.Count - offset;
+            if (!allowIncomplete && available < route.RequiredCount)
+            {
+                leaf = null;
+                leafOffset = offset;
+                error =
+                    $"'{route.FullPath}': requires at least {route.RequiredCount} argument"
+                    + (route.RequiredCount == 1 ? string.Empty : "s")
+                    + $"\n    -> Usage: {route.PathUsage}";
+                return false;
+            }
+
+            if (!route.HasRemaining && route.Specs.Length < available)
+            {
+                leaf = null;
+                leafOffset = offset;
+                error =
+                    $"'{route.FullPath}': expects at most {route.Specs.Length} argument" + (route.Specs.Length == 1 ? string.Empty : "s") + $"\n    -> Usage: {route.PathUsage}";
+                return false;
+            }
+
+            leaf = route;
+            leafOffset = offset;
+            error = null;
+            return true;
+        }
+
+        private static CommandShell.LineValidation ValidateSpecs(
+            CommandArgument[] specs,
+            BorrowedCommandArguments arguments,
+            int offset,
+            object[] parsed,
+            bool allowIncomplete,
+            bool catchExceptions
+        )
+        {
+            bool canCache = CanCacheSpecs(specs, Math.Max(0, arguments.Count - offset));
+            int specCount = specs.Length;
+            for (int i = 0; i < specCount; ++i)
+            {
+                CommandArgument spec = specs[i];
+                if (spec.IsRemaining)
+                {
+                    if (parsed != null)
+                    {
+                        if (!spec.TryParseAll(arguments, offset + i, parsed, i, out CommandArg failedToken, out string validationError))
+                        {
+                            string message = validationError ?? spec.FormatParseError(failedToken);
+                            return CommandShell.LineValidation.Error(message, spec.Name, failedToken.contents, canCache: canCache);
+                        }
+
+                        continue;
+                    }
+
+                    int argCount = arguments.Count;
+                    for (int argIndex = offset + i; argIndex < argCount; ++argIndex)
+                    {
+                        CommandArg remainingInput = arguments[argIndex];
+                        CommandShell.LineValidation remainingValidation = ValidateSingleSpec(spec, remainingInput, catchExceptions, canCache, out _);
+                        if (remainingValidation.IsError)
+                        {
+                            return remainingValidation;
+                        }
+                    }
+
+                    continue;
+                }
+
+                if (arguments.Count <= offset + i)
+                {
+                    if (parsed != null)
+                    {
+                        parsed[i] = spec.GetDefault();
+                    }
+
+                    if (allowIncomplete)
+                    {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                CommandArg input = arguments[offset + i];
+                CommandShell.LineValidation validation = ValidateSingleSpec(spec, input, catchExceptions, canCache, out object value);
+                if (validation.IsError)
+                {
+                    return validation;
+                }
+
+                if (parsed != null)
+                {
+                    parsed[i] = value;
+                }
+            }
+
+            return CommandShell.LineValidation.Valid(canCache: canCache);
+        }
+
+        private static CommandShell.LineValidation ValidateSingleSpec(CommandArgument spec, CommandArg input, bool catchExceptions, bool canCache, out object value)
+        {
+            try
+            {
+                if (!spec.TryValidateArgument(input, out value, out string errorMessage))
+                {
+                    return CommandShell.LineValidation.Error(errorMessage, spec.Name, input.contents, canCache: canCache);
+                }
+
+                return CommandShell.LineValidation.Valid(canCache: canCache);
+            }
+            catch (Exception) when (catchExceptions)
+            {
+                value = null;
+                return CommandShell.LineValidation.Error(spec.FormatParseError(input), spec.Name, input.contents, canCache: canCache);
+            }
+        }
+
         private static string NormalizeName(string owner, string name, bool isSubcommandName = true)
         {
             string normalized = name;
@@ -98,52 +297,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         {
             int specCount = specs.Length;
             object[] parsed = specCount == 0 ? NoValues : new object[specCount];
-            for (int i = 0; i < specCount; ++i)
+            CommandShell.LineValidation validation = ValidateSpecs(specs, arguments, offset, parsed, allowIncomplete: false, catchExceptions: false);
+            if (validation.IsError)
             {
-                CommandArgument spec = specs[i];
-                if (spec.IsRemaining)
-                {
-                    /*
-                        The remaining argument consumes every trailing token:
-                        it parses and validates each one with full type
-                        knowledge and stores its typed array in its own slot
-                        of the parsed buffer.
-                     */
-                    if (!spec.TryParseAll(arguments, offset + i, parsed, i, out CommandArg failedToken, out string validationError))
-                    {
-                        owner.IssueErrorMessage(validationError == null ? $"'{name}': {spec.FormatParseError(failedToken)}" : $"'{name}': {validationError}");
-                        return;
-                    }
-
-                    continue;
-                }
-
-                if (arguments.Count <= offset + i)
-                {
-                    /*
-                        The dispatching level guarantees required arguments
-                        exist: the shell's derived bounds for top-level
-                        commands, the router for subcommands.
-                     */
-                    parsed[i] = spec.GetDefault();
-                    continue;
-                }
-
-                CommandArg input = arguments[offset + i];
-                if (!spec.TryParse(input, out object value))
-                {
-                    owner.IssueErrorMessage($"'{name}': {spec.FormatParseError(input)}");
-                    return;
-                }
-
-                string error = spec.ValidateParsed(value);
-                if (error != null)
-                {
-                    owner.IssueErrorMessage($"'{name}': {error}");
-                    return;
-                }
-
-                parsed[i] = value;
+                owner.IssueErrorMessage(validation.Message);
+                return;
             }
 
             handler(context, new CommandArguments(specs, parsed, arguments.Slice(offset), context));
@@ -227,64 +385,27 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             leading arguments belong to the routing levels already matched, so
             the same routine serves every nesting depth.
         */
-        private static void RouteInvocation(
-            CommandShell owner,
-            Dictionary<string, SubcommandRoute> lookup,
-            string path,
-            TypedCommandHandler fallback,
-            CommandExecutionContext context,
-            BorrowedCommandArguments arguments,
-            int offset
-        )
+        private static void RouteInvocation(CommandShell owner, SubcommandRoute root, CommandExecutionContext context, BorrowedCommandArguments arguments)
         {
-            if (arguments.Count <= offset)
+            if (!TryResolveRoute(root, arguments, offset: 0, allowIncomplete: false, out SubcommandRoute leaf, out int leafOffset, out string error))
             {
-                if (fallback != null)
+                owner.IssueErrorMessage(error);
+                return;
+            }
+
+            if (leaf == null)
+            {
+                SubcommandRoute current = root;
+                for (int index = 0; index < leafOffset; ++index)
                 {
-                    RunTyped(owner, NoArguments, path, fallback, context, arguments, offset);
-                    return;
+                    current = current.Lookup[arguments[index].contents ?? string.Empty];
                 }
 
-                owner.IssueErrorMessage($"'{path}': expected a subcommand. Expected one of: {FormatRouteList(lookup)}");
+                RunTyped(owner, NoArguments, current.FullPath, current.Fallback, context, arguments, leafOffset);
                 return;
             }
 
-            CommandArg token = arguments[offset];
-            string tokenText = token.contents ?? string.Empty;
-            if (!lookup.TryGetValue(tokenText, out SubcommandRoute route))
-            {
-                owner.IssueErrorMessage($"'{path}': unknown subcommand '{tokenText}'. " + $"Expected one of: {FormatRouteList(lookup)}");
-                return;
-            }
-
-            if (route.IsRouter)
-            {
-                RouteInvocation(owner, route.Lookup, route.FullPath, route.Fallback, context, arguments, offset + 1);
-                return;
-            }
-
-            int available = arguments.Count - (offset + 1);
-            if (available < route.RequiredCount)
-            {
-                owner.IssueErrorMessage(
-                    $"'{route.FullPath}': requires at least {route.RequiredCount} argument" + (route.RequiredCount == 1 ? string.Empty : "s") + $"\n    -> Usage: {route.PathUsage}"
-                );
-                return;
-            }
-
-            if (!route.HasRemaining)
-            {
-                int routeSpecCount = route.Specs.Length;
-                if (routeSpecCount < available)
-                {
-                    owner.IssueErrorMessage(
-                        $"'{route.FullPath}': expects at most {routeSpecCount} argument" + (routeSpecCount == 1 ? string.Empty : "s") + $"\n    -> Usage: {route.PathUsage}"
-                    );
-                    return;
-                }
-            }
-
-            RunTyped(owner, route.Specs, route.FullPath, route.Handler, context, arguments, offset + 1);
+            RunTyped(owner, leaf.Specs, leaf.FullPath, leaf.Handler, context, arguments, leafOffset);
         }
 
         private static void RouteCompletion(Dictionary<string, SubcommandRoute> lookup, in CommandCompletionContext context, int baseStage, List<CommandCompletion> results)
@@ -657,7 +778,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 MaxArgCount = null,
                 AddToHistory = _addToHistory,
                 Contexts = _contexts,
-                Handler = (context, arguments) => RouteInvocation(owner, self.Lookup, name, fallback, context, arguments, 0),
+                Handler = (context, arguments) => RouteInvocation(owner, self, context, arguments),
                 CompletionProvider = (in CommandCompletionContext context, List<CommandCompletion> results) => RouteCompletion(self.Lookup, context, 0, results),
                 SyntaxRoute = self,
             };

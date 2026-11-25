@@ -13,6 +13,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add inline command validation under the terminal input with did-you-mean Tab fixes and unclosed-quote notes
+  ([#336](https://github.com/Ambiguous-Interactive/DxTerminal/issues/336)).
 - Add a typed signature line and argument details while completing commands ([#335](https://github.com/Ambiguous-Interactive/DxTerminal/issues/335)).
 - Add a ranked completion list with command descriptions, keyboard selection, and inline previews ([#335](https://github.com/Ambiguous-Interactive/DxTerminal/issues/335)).
 - Add syntax colors and error underlines to the terminal input ([#334](https://github.com/Ambiguous-Interactive/DxTerminal/issues/334)).

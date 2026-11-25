@@ -20,6 +20,10 @@
            assemblies for the same generated catalog the discovery scan binds. */
         internal const string CatalogTypeName = "WallstopStudios.DxCommandTerminal.Generated.CommandCatalog";
 
+        internal const string UnclosedQuoteMessage = "Quote not closed. The rest of the line is one argument.";
+
+        internal const int MaxDidYouMeanDistance = 2;
+
         private const string CatalogCollectMethodName = "Collect";
 
         private const BindingFlags CatalogBindingFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -219,6 +223,11 @@
         private readonly List<List<CommandArg>> _dispatchScopes = new();
 
         private readonly List<List<CommandToken>> _tokenScopes = new();
+
+        private readonly List<string> _commandNamesCache = new();
+        private long _commandNamesVersion = -1;
+        private readonly List<CommandToken> _validationTokens = new();
+        private readonly List<CommandArg> _validationArgs = new();
 
         private readonly HashSet<string> _completionDeduplication = new(StringComparer.Ordinal);
 
@@ -532,6 +541,125 @@
         {
             bool hasSpace = name.Contains(' ');
             return hasSpace ? name.Replace(" ", string.Empty, StringComparison.Ordinal) : name;
+        }
+
+        internal static string FormatUnknownCommandMessage(string commandName, string suggestion)
+        {
+            if (!string.IsNullOrEmpty(suggestion))
+            {
+                return $"No command {commandName}. Did you mean {suggestion}";
+            }
+
+            return $"No command {commandName}.";
+        }
+
+        internal static int ComputeEditDistance(string source, string target, int maxDistance)
+        {
+            int sourceLength = source.Length;
+            int targetLength = target.Length;
+            if (maxDistance < Math.Abs(sourceLength - targetLength))
+            {
+                return maxDistance + 1;
+            }
+
+            if (sourceLength == 0)
+            {
+                return targetLength;
+            }
+
+            if (targetLength == 0)
+            {
+                return sourceLength;
+            }
+
+            int bandWidth = (maxDistance * 2) + 1;
+            int overflow = maxDistance + 1;
+            Span<int> previous = stackalloc int[bandWidth];
+            Span<int> current = stackalloc int[bandWidth];
+            for (int band = 0; band < bandWidth; ++band)
+            {
+                int column = band - maxDistance;
+                previous[band] = 0 <= column && column <= targetLength ? column : overflow;
+            }
+
+            for (int row = 1; row <= sourceLength; ++row)
+            {
+                char sourceChar = char.ToLowerInvariant(source[row - 1]);
+                int rowMin = overflow;
+                for (int band = 0; band < bandWidth; ++band)
+                {
+                    int column = row + band - maxDistance;
+                    if (column < 0 || targetLength < column)
+                    {
+                        current[band] = overflow;
+                        continue;
+                    }
+
+                    int best;
+                    if (column == 0)
+                    {
+                        best = row;
+                    }
+                    else
+                    {
+                        int cost = sourceChar == char.ToLowerInvariant(target[column - 1]) ? 0 : 1;
+                        best = previous[band] + cost;
+                        if (band + 1 < bandWidth)
+                        {
+                            best = Math.Min(best, previous[band + 1] + 1);
+                        }
+
+                        if (0 < band)
+                        {
+                            best = Math.Min(best, current[band - 1] + 1);
+                        }
+                    }
+
+                    current[band] = best;
+                    rowMin = Math.Min(rowMin, best);
+                }
+
+                if (maxDistance < rowMin)
+                {
+                    return overflow;
+                }
+
+                Span<int> swap = previous;
+                previous = current;
+                current = swap;
+            }
+
+            return previous[targetLength - sourceLength + maxDistance];
+        }
+
+        private static string FormatArgumentCountError(string commandName, in CommandInfo command, int argCount, bool allowIncomplete)
+        {
+            string qualifier = null;
+            int requiredArg = 0;
+            if (!allowIncomplete && argCount < command.minArgCount)
+            {
+                qualifier = command.minArgCount == command.maxArgCount ? "exactly" : "at least";
+                requiredArg = command.minArgCount;
+            }
+            else if (command.maxArgCount is int maxArgCount && maxArgCount < argCount)
+            {
+                qualifier = command.minArgCount == command.maxArgCount ? "exactly" : "at most";
+                requiredArg = maxArgCount;
+            }
+
+            if (string.IsNullOrEmpty(qualifier))
+            {
+                return null;
+            }
+
+            string pluralFix = requiredArg == 1 ? string.Empty : "s";
+            string invalidMessage = $"{commandName} requires {qualifier} {requiredArg} argument{pluralFix}";
+            if (!string.IsNullOrWhiteSpace(command.hint))
+            {
+                invalidMessage += $"\n    -> Usage: {command.hint}";
+            }
+
+            return invalidMessage;
         }
 
         private static bool IsIncludedScanAssembly(Assembly assembly)
@@ -1536,6 +1664,168 @@
             return _commands.TryGetValue(normalizedName, out command);
         }
 
+        internal LineValidation ValidateLine(string line, CommandExecutionContext context, bool allowIncomplete = false)
+        {
+            EnsureAutoCommandsRegistered();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return LineValidation.Valid();
+            }
+
+            _validationTokens.Clear();
+            _validationArgs.Clear();
+            CommandTokenizer.Tokenize(line, _validationTokens);
+
+            int tokenCount = _validationTokens.Count;
+            char? unclosedQuote =
+                0 < tokenCount && _validationTokens[tokenCount - 1].StartQuote != null && _validationTokens[tokenCount - 1].EndQuote == null
+                    ? _validationTokens[tokenCount - 1].StartQuote
+                    : null;
+
+            CommandToken firstToken = default;
+            bool hasFirstToken = false;
+            for (int index = 0; index < tokenCount; ++index)
+            {
+                CommandToken token = _validationTokens[index];
+                if (TryResolveToken(token, token.GetVariableName(), out CommandArg argument))
+                {
+                    if (!hasFirstToken)
+                    {
+                        firstToken = token;
+                        hasFirstToken = true;
+                    }
+
+                    _validationArgs.Add(argument);
+                }
+            }
+
+            if (_validationArgs.Count == 0)
+            {
+                return unclosedQuote != null ? LineValidation.Note(UnclosedQuoteMessage, unclosedQuote) : LineValidation.Valid();
+            }
+
+            string rawCommandName = _validationArgs[0].contents ?? string.Empty;
+            _validationArgs.RemoveAt(0);
+            if (string.IsNullOrWhiteSpace(rawCommandName))
+            {
+                return LineValidation.Error($"Invalid command name '{rawCommandName}'", unclosedQuote: unclosedQuote);
+            }
+
+            string commandName = NormalizeCommandName(rawCommandName);
+            if (!TryGetCommand(commandName, out CommandInfo command))
+            {
+                return LineValidation.ForUnknownCommand(
+                    commandName,
+                    FindDidYouMean(commandName),
+                    firstToken.Start,
+                    firstToken.End - firstToken.Start,
+                    firstToken.StartQuote != null,
+                    unclosedQuote
+                );
+            }
+
+            if (!context.IsEligibleFor(command.executionContexts))
+            {
+                return LineValidation.Error($"{commandName} is not available in the current execution context", unclosedQuote: unclosedQuote);
+            }
+
+            string boundsError = FormatArgumentCountError(commandName, command, _validationArgs.Count, allowIncomplete);
+            if (!string.IsNullOrEmpty(boundsError))
+            {
+                return LineValidation.Error(boundsError, unclosedQuote: unclosedQuote);
+            }
+
+            bool canCache = true;
+            if (command.SyntaxRoute != null)
+            {
+                LineValidation routeValidation = CommandBuilder.ValidateRoute(
+                    command.SyntaxRoute,
+                    _validationArgs,
+                    offset: 0,
+                    allowIncomplete: allowIncomplete,
+                    catchExceptions: allowIncomplete
+                );
+                canCache = routeValidation.CanCache;
+                if (routeValidation.IsError)
+                {
+                    return routeValidation.WithUnclosedQuote(unclosedQuote);
+                }
+            }
+
+            return unclosedQuote != null ? LineValidation.Note(UnclosedQuoteMessage, unclosedQuote, canCache) : LineValidation.Valid(canCache: canCache);
+        }
+
+        internal bool HasCommandPrefix(string prefix)
+        {
+            if (string.IsNullOrEmpty(prefix))
+            {
+                return false;
+            }
+
+            RefreshCommandNamesCache();
+            int count = _commandNamesCache.Count;
+            for (int index = 0; index < count; ++index)
+            {
+                if (_commandNamesCache[index].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal string FindDidYouMean(string commandName)
+        {
+            if (string.IsNullOrEmpty(commandName))
+            {
+                return null;
+            }
+
+            RefreshCommandNamesCache();
+            string bestCandidate = null;
+            int bestDistance = MaxDidYouMeanDistance + 1;
+            int bestLengthDelta = int.MaxValue;
+            int sourceLength = commandName.Length;
+            int candidateCount = _commandNamesCache.Count;
+            for (int index = 0; index < candidateCount; ++index)
+            {
+                string candidate = _commandNamesCache[index];
+                int distance = ComputeEditDistance(commandName, candidate, MaxDidYouMeanDistance);
+                if (MaxDidYouMeanDistance < distance)
+                {
+                    continue;
+                }
+
+                int lengthDelta = Math.Abs(candidate.Length - sourceLength);
+                if (distance < bestDistance || (distance == bestDistance && lengthDelta < bestLengthDelta))
+                {
+                    bestDistance = distance;
+                    bestLengthDelta = lengthDelta;
+                    bestCandidate = candidate;
+                }
+            }
+
+            return bestCandidate;
+        }
+
+        private void RefreshCommandNamesCache()
+        {
+            EnsureAutoCommandsRegistered();
+            if (_commandNamesVersion == _commandVersion)
+            {
+                return;
+            }
+
+            _commandNamesCache.Clear();
+            foreach (KeyValuePair<string, CommandInfo> entry in _commands)
+            {
+                _commandNamesCache.Add(entry.Key);
+            }
+
+            _commandNamesVersion = _commandVersion;
+        }
+
         private void RegisterAutoCommands()
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -1789,7 +2079,7 @@
             bool foundCommand = TryGetCommand(commandName, out CommandInfo command);
             if (!foundCommand)
             {
-                IssueErrorMessage($"Command {commandName} not found");
+                IssueErrorMessage(FormatUnknownCommandMessage(commandName, FindDidYouMean(commandName)));
                 // Unknown command, unconditional push
                 _history.Push(historyLine ?? BuildHistoryLine(commandName, arguments), false, false);
                 return false;
@@ -1807,31 +2097,9 @@
                 return false;
             }
 
-            int argCount = arguments.Count;
-            string errorMessage = null;
-            int requiredArg = 0;
-
-            if (argCount < command.minArgCount)
+            string invalidMessage = FormatArgumentCountError(commandName, command, arguments.Count, allowIncomplete: false);
+            if (!string.IsNullOrEmpty(invalidMessage))
             {
-                errorMessage = command.minArgCount == command.maxArgCount ? "exactly" : "at least";
-                requiredArg = command.minArgCount;
-            }
-            else if (command.maxArgCount is int maxArgCount && maxArgCount < argCount)
-            {
-                errorMessage = command.minArgCount == command.maxArgCount ? "exactly" : "at most";
-                requiredArg = maxArgCount;
-            }
-
-            if (!string.IsNullOrEmpty(errorMessage))
-            {
-                string pluralFix = requiredArg == 1 ? "" : "s";
-
-                string invalidMessage = $"{commandName} requires {errorMessage} {requiredArg} argument{pluralFix}";
-                if (!string.IsNullOrWhiteSpace(command.hint))
-                {
-                    invalidMessage += $"\n    -> Usage: {command.hint}";
-                }
-
                 _errorMessages.Enqueue(invalidMessage);
                 // Known command with invalid arguments, respect addToHistory flag
                 if (command.addToHistory)
@@ -2288,6 +2556,134 @@
 
                 _failed = true;
                 return null;
+            }
+        }
+
+        internal enum ValidationSeverity
+        {
+            [Obsolete("Specify a validation severity.")]
+            Unknown = 0,
+            Valid = 1,
+            Note = 2,
+            Error = 3,
+        }
+
+        internal readonly struct LineValidation
+        {
+            public ValidationSeverity Severity { get; }
+            public string Message { get; }
+            public string ArgumentName { get; }
+            public string TypedValue { get; }
+            public string UnknownCommand { get; }
+            public string Suggestion { get; }
+            public int TokenStart { get; }
+            public int TokenLength { get; }
+            public bool TokenQuoted { get; }
+            public char? UnclosedQuote { get; }
+            public bool CanCache { get; }
+
+            public bool IsValid
+            {
+                get { return Severity == ValidationSeverity.Valid; }
+            }
+
+            public bool IsNote
+            {
+                get { return Severity == ValidationSeverity.Note; }
+            }
+
+            public bool IsError
+            {
+                get { return Severity == ValidationSeverity.Error; }
+            }
+
+            private LineValidation(
+                ValidationSeverity severity,
+                string message,
+                string argumentName,
+                string typedValue,
+                string unknownCommand,
+                string suggestion,
+                int tokenStart,
+                int tokenLength,
+                bool tokenQuoted,
+                char? unclosedQuote,
+                bool canCache
+            )
+            {
+                Severity = severity;
+                Message = message;
+                ArgumentName = argumentName;
+                TypedValue = typedValue;
+                UnknownCommand = unknownCommand;
+                Suggestion = suggestion;
+                TokenStart = tokenStart;
+                TokenLength = tokenLength;
+                TokenQuoted = tokenQuoted;
+                UnclosedQuote = unclosedQuote;
+                CanCache = canCache;
+            }
+
+            public static LineValidation Valid(char? unclosedQuote = null, bool canCache = true)
+            {
+                return new LineValidation(ValidationSeverity.Valid, null, null, null, null, null, 0, 0, false, unclosedQuote, canCache);
+            }
+
+            public static LineValidation Note(string message, char? unclosedQuote = null, bool canCache = true)
+            {
+                return new LineValidation(ValidationSeverity.Note, message, null, null, null, null, 0, 0, false, unclosedQuote, canCache);
+            }
+
+            public static LineValidation Error(string message, string argumentName = null, string typedValue = null, char? unclosedQuote = null, bool canCache = true)
+            {
+                return new LineValidation(ValidationSeverity.Error, message, argumentName, typedValue, null, null, 0, 0, false, unclosedQuote, canCache);
+            }
+
+            public static LineValidation ForUnknownCommand(
+                string commandName,
+                string suggestion,
+                int tokenStart,
+                int tokenLength,
+                bool tokenQuoted,
+                char? unclosedQuote = null,
+                bool canCache = true
+            )
+            {
+                return new LineValidation(
+                    ValidationSeverity.Error,
+                    FormatUnknownCommandMessage(commandName, suggestion),
+                    null,
+                    null,
+                    commandName,
+                    suggestion,
+                    tokenStart,
+                    tokenLength,
+                    tokenQuoted,
+                    unclosedQuote,
+                    canCache
+                );
+            }
+
+            public LineValidation WithUnclosedQuote(char? unclosedQuote)
+            {
+                return UnclosedQuote == unclosedQuote
+                    ? this
+                    : new LineValidation(Severity, Message, ArgumentName, TypedValue, UnknownCommand, Suggestion, TokenStart, TokenLength, TokenQuoted, unclosedQuote, CanCache);
+            }
+
+            public bool EqualsContent(in LineValidation other)
+            {
+                return Severity == other.Severity
+                    && string.Equals(Message, other.Message, StringComparison.Ordinal)
+                    && string.Equals(ArgumentName, other.ArgumentName, StringComparison.Ordinal)
+                    && string.Equals(TypedValue, other.TypedValue, StringComparison.Ordinal)
+                    && string.Equals(UnknownCommand, other.UnknownCommand, StringComparison.Ordinal)
+                    && string.Equals(Suggestion, other.Suggestion, StringComparison.Ordinal)
+                    && TokenStart == other.TokenStart
+                    && TokenLength == other.TokenLength
+                    && TokenQuoted == other.TokenQuoted
+                    && UnclosedQuote == other.UnclosedQuote
+                    && CanCache == other.CanCache;
             }
         }
     }

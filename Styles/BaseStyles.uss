@@ -387,6 +387,80 @@
     align-items: center;
 }
 
+.terminal-validation {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+    min-height: 28px;
+    padding: 2px 8px;
+    border-top-width: 1px;
+    border-top-color: var(--dxt-line);
+    background-color: var(--dxt-surface);
+}
+
+.terminal-validation--error {
+    border-top-color: var(--dxt-error-line);
+}
+
+.terminal-validation-glyph,
+.terminal-validation-message,
+.terminal-validation-hint {
+    margin: 0;
+    padding: 0;
+}
+
+.terminal-validation-glyph {
+    flex-shrink: 0;
+    margin-right: 6px;
+}
+
+.terminal-validation-glyph--error {
+    color: var(--dxt-error);
+}
+
+.terminal-validation-glyph--note {
+    color: var(--dxt-ink-muted);
+}
+
+.terminal-validation-message {
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    color: var(--dxt-ink-body);
+    font-size: 12.5px;
+}
+
+.terminal-validation-chip {
+    flex-shrink: 0;
+    height: 22px;
+    margin: 0 6px;
+    padding: 0 8px;
+    border-width: 1px;
+    border-color: var(--dxt-selection-line);
+    border-radius: 6px;
+    background-color: var(--dxt-selection);
+    color: var(--dxt-ink);
+    -unity-font-style: bold;
+    font-size: 12px;
+}
+
+.terminal-validation-chip:hover {
+    background-color: var(--dxt-hover);
+    color: var(--dxt-ink);
+}
+
+.terminal-validation-spacer {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.terminal-validation-hint {
+    flex-shrink: 0;
+    margin-left: 8px;
+    color: var(--dxt-ink-muted);
+    font-size: 11px;
+}
+
 .state-button-container {
     position: absolute;
     flex-direction: row;

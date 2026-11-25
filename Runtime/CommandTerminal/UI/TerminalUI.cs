@@ -122,6 +122,11 @@
             get { return _completionView?.List; }
         }
 
+        internal string InlineValidationMessage
+        {
+            get { return _validationView?.PlainMessage; }
+        }
+
         private ConsoleKeyBindings KeyBindings
         {
             get { return keyBindings ??= new ConsoleKeyBindings(); }
@@ -295,6 +300,7 @@
             WallstopStudios.DxCommandTerminal.Tests.Runtime).
          */
         private TerminalCompletionView _completionView;
+        private TerminalValidationView _validationView;
 
         private TerminalState _state = TerminalState.Closed;
         private bool _isClosingForDisable;
@@ -1058,7 +1064,7 @@
         {
             while (Terminal.Shell is CommandShell shell && shell.TryConsumeErrorMessage(out string error))
             {
-                Terminal.Log(TerminalLogType.Error, $"Error: {error}");
+                Terminal.Log(TerminalLogType.Error, error);
             }
         }
 
@@ -1778,6 +1784,11 @@
 
             try
             {
+                if (searchForward && TryApplyValidationFix(respectCompletionSelection: true))
+                {
+                    return;
+                }
+
                 /*
                     Commands with a completion provider own completion for
                     their input shape: cycling replaces only the active token.
@@ -2035,6 +2046,8 @@
             _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
             _completionView = null;
+            _validationView?.Dispose();
+            _validationView = null;
             _inputContainer = null;
             _runButton = null;
             _jumpLatestButton = null;
@@ -2152,11 +2165,13 @@
             */
             ApplyPendingCaret();
             RefreshCompletion();
+            RefreshValidation();
             _commandInputHighlight?.Refresh(
                 _commandInput.value,
                 Terminal.Shell,
                 InputOwnsFocus,
-                _commandInput.selectIndex == _commandInput.cursorIndex ? _completionView?.Ghost : null
+                _commandInput.selectIndex == _commandInput.cursorIndex ? _completionView?.Ghost : null,
+                _validationView?.UnclosedQuote
             );
             RefreshStateButtons();
         }
@@ -2184,7 +2199,17 @@
                 case KeyCode.DownArrow:
                     return _completionView.Move(1);
                 case KeyCode.Tab:
-                    return _completionView.HasSelection ? AcceptCompletion(_completionView.SelectedIndex, oneWord: false) : _completionView.Request();
+                    if (_completionView.HasSelection)
+                    {
+                        return AcceptCompletion(_completionView.SelectedIndex, oneWord: false);
+                    }
+
+                    if (TryApplyValidationFix(respectCompletionSelection: true))
+                    {
+                        return true;
+                    }
+
+                    return _completionView.Request();
                 case KeyCode.Escape:
                     return _completionView.Dismiss();
                 case KeyCode.RightArrow:
@@ -2419,6 +2444,7 @@
                         (_logToolbar?.layout.height ?? 0f)
                         + (_inputContainer?.layout.height ?? 0f)
                         + (_completionView?.Panel.layout.height ?? 0f)
+                        + (_validationView?.Root.layout.height ?? 0f)
                         + (_logCopyStatus?.layout.height ?? 0f);
                     if (float.IsFinite(controlsHeight))
                     {
@@ -3101,6 +3127,7 @@
             ResetTokenCompletion();
             _textInput = _commandInput.Q<VisualElement>("unity-text-input");
             _commandInputHighlight = new CommandInputHighlight(root, _textInput);
+            _validationView = new TerminalValidationView(root, _terminalContainer, ApplyValidationFix);
 
             _stateButtonContainer = new VisualElement { name = "StateButtonContainer" };
             _stateButtonContainer.AddToClassList("state-button-container");
@@ -4075,6 +4102,41 @@
             }
 
             SetCommandTextFromCode(text, caret);
+            return true;
+        }
+
+        private void RefreshValidation()
+        {
+            if (_validationView == null || _input == null)
+            {
+                return;
+            }
+
+            _validationView.Refresh(Terminal.Shell, _input.CommandText ?? string.Empty, IsOpenState(_state));
+        }
+
+        private void ApplyValidationFix()
+        {
+            if (TryApplyValidationFix(respectCompletionSelection: false))
+            {
+                FocusInput(allowLogFocus: true);
+            }
+        }
+
+        private bool TryApplyValidationFix(bool respectCompletionSelection)
+        {
+            if (_validationView == null || _input == null)
+            {
+                return false;
+            }
+
+            RefreshValidation();
+            if ((respectCompletionSelection && _completionView?.HasSelection == true) || !_validationView.TryBuildFix(_input.CommandText, out string fixedLine, out int caret))
+            {
+                return false;
+            }
+
+            SetCommandTextFromCode(fixedLine, caret);
             return true;
         }
 
