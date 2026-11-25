@@ -431,6 +431,57 @@
         }
 
         [UnityTest]
+        public IEnumerator SubcommandSignatureTracksExactNamesAndVariableRoutes()
+        {
+            yield return SpawnOpenTerminal();
+            int dispatched = 0;
+            CommandBuilder router = CommandBuilder
+                .Create("sigroute")
+                .Subcommand("wave", wave =>
+                {
+                    wave.Arg<int>("count", spec =>
+                        {
+                            return spec.Default(1);
+                        })
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                dispatched = arguments.Get<int>("count");
+                            }
+                        );
+                });
+            Assert.That(Terminal.Shell.AddCommand(router, out _), Is.True);
+            Assert.That(Terminal.Shell.SetVariable("sigwave", "wave"), Is.True);
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            yield return SetInputText("sigroute wa");
+            yield return SetInputCaret(11);
+            yield return null;
+            string partial = root.Q<Label>("SignatureCommand")?.text;
+
+            yield return SetInputText("sigroute wave");
+            yield return SetInputCaret(13);
+            yield return null;
+            string exact = root.Q<Label>("SignatureCommand")?.text;
+
+            yield return SetInputText("sigroute $sigwave ");
+            yield return SetInputCaret(18);
+            yield return null;
+            string resolved = root.Q<Label>("SignatureCommand")?.text;
+            string argument = ActiveSignature(root);
+            RunThroughInput("sigroute $sigwave 3");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(partial, Is.EqualTo("sigroute"), "An incomplete selector keeps the parent signature");
+                Assert.That(exact, Is.EqualTo("sigroute wave"), "An exact selector shows the child signature at the caret");
+                Assert.That(resolved, Is.EqualTo("sigroute wave"), "The signature resolves the same variable as dispatch");
+                Assert.That(argument, Is.EqualTo("[count: int = 1]"));
+                Assert.That(dispatched, Is.EqualTo(3));
+            });
+        }
+
+        [UnityTest]
         public IEnumerator RankedCompletionSelectsWithoutWritingAndAppliesTheActiveToken()
         {
             yield return SpawnOpenTerminal();
