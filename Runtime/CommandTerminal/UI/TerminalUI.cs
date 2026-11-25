@@ -2164,7 +2164,7 @@
                focused pass.
             */
             ApplyPendingCaret();
-            _commandInputHighlight?.Refresh(_commandInput.value, Terminal.Shell);
+            _commandInputHighlight?.Refresh(_commandInput.value, Terminal.Shell, InputOwnsFocus);
             RefreshStateButtons();
         }
 

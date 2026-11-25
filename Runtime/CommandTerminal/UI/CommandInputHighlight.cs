@@ -116,7 +116,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
         }
 
-        internal void Refresh(string line, CommandShell shell)
+        internal void Refresh(string line, CommandShell shell, bool inputOwnsFocus)
         {
             long commandsVersion = shell?.CommandsVersion ?? 0;
             long variablesVersion = shell?.VariablesVersion ?? 0;
@@ -178,7 +178,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 }
             }
 
-            bool visible = !IsComposing() && !string.IsNullOrEmpty(line) && !_hasLineBreak;
+            bool visible = !IsComposing(inputOwnsFocus) && !string.IsNullOrEmpty(line) && !_hasLineBreak;
 
             if (visible && !_labelFollowsNativeScroll)
             {
@@ -194,15 +194,12 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
         }
 
-        private bool IsComposing()
+        private bool IsComposing(bool inputOwnsFocus)
         {
-#if ENABLE_LEGACY_INPUT_MANAGER || ENABLE_INPUT_SYSTEM
-            bool focused = _nativeText.focusController?.focusedElement == _nativeText;
-#endif
 #if ENABLE_LEGACY_INPUT_MANAGER
-            return focused && !string.IsNullOrEmpty(UnityEngine.Input.compositionString);
+            return inputOwnsFocus && !string.IsNullOrEmpty(UnityEngine.Input.compositionString);
 #elif ENABLE_INPUT_SYSTEM
-            SetKeyboard(focused ? Keyboard.current : null);
+            SetKeyboard(inputOwnsFocus ? Keyboard.current : null);
             return _composing;
 #else
             return false;

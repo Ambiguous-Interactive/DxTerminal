@@ -345,7 +345,7 @@
                 VisualElement nativeText = overlay.parent;
                 Assert.That(nativeText.resolvedStyle.fontSize, Is.EqualTo(15));
                 Assert.That(nativeText.resolvedStyle.color.a, Is.Zero);
-                Assert.That(field.focusController.focusedElement, Is.SameAs(field).Or.SameAs(nativeText).Or.SameAs(_terminal._textInput));
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "The caret belongs to the terminal command field");
 
                 _diagnosticsSuffix = $"caretColumn={caret} fontSize={nativeText.resolvedStyle.fontSize}";
                 CaptureOutcome highlighted = FinishCapture(scenario + "-highlighted", target, CaptureBounds.Default(), _terminal._uiDocument.rootVisualElement, keepFrame: true);
