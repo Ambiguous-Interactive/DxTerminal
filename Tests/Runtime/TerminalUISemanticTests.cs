@@ -71,6 +71,23 @@
             return row != null && 0 < row.worldBound.height && scroll != null && scroll.contentViewport.worldBound.Contains(row.worldBound.center);
         }
 
+        private static string ActiveSignature(VisualElement root)
+        {
+            VisualElement argument = root.Q<VisualElement>(className: "completion-argument-active");
+            return argument == null ? null : ((Label)argument[0]).text + ((Label)argument[1]).text + ((Label)argument[2]).text;
+        }
+
+        private static IEnumerator WaitForActiveSignature(VisualElement root, string expected)
+        {
+            int frames = FrameBudget;
+            while (0 < frames-- && !string.Equals(expected, ActiveSignature(root), StringComparison.Ordinal))
+            {
+                yield return null;
+            }
+
+            Assert.That(ActiveSignature(root), Is.EqualTo(expected));
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -338,6 +355,48 @@
             Assert.That(ListOwnsFocus(), Is.True);
             _terminal.SubmitNavigation();
             yield return WaitForInputText("submitcandidate", "Navigation submit accepts the focused row");
+        }
+
+        [UnityTest]
+        public IEnumerator SpawnCompletionShowsCommandChoicesGhostAndActiveArgument()
+        {
+            yield return SpawnOpenTerminal();
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Arg<Vector3>("at")
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            yield return SetInputText("sp");
+            yield return SetInputCaret(2);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "spawn", "A prefix selects the spawn command");
+            Assert.That(root.Q<Label>("CommandInputHighlight").text, Does.Contain("awn"));
+
+            yield return SetInputText("spawn g");
+            yield return SetInputCaret(7);
+            yield return WaitForActiveSignature(root, "prefab: goblin|ghoul|golem");
+            Assert.That(_terminal.CompletionList.itemsSource.Count, Is.EqualTo(3));
+            Assert.That(root.Q<Label>("CompletionArgument").text, Is.EqualTo("prefab · 1 of 3 arguments"));
+            Assert.That(root.Q<Label>("CommandInputHighlight").text, Does.Contain("oblin"));
+
+            yield return SetInputText("spawn goblin 1");
+            yield return SetInputCaret(14);
+            yield return WaitForActiveSignature(root, "[count: int 1–50 = 1]");
+            Assert.That(root.Q<Label>("SignatureDescription").text, Is.EqualTo("Spawns enemies at a point"));
         }
 
         [UnityTest]

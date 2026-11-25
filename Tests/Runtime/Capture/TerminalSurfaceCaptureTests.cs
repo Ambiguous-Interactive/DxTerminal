@@ -420,7 +420,18 @@
                 .Group("Combat")
                 .Arg<string>("prefab", spec =>
                 {
-                    return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                    return spec.Required()
+                        .Choices("goblin", "ghoul", "golem")
+                        .Describe("Enemy prefab")
+                        .DescribeChoices(value =>
+                        {
+                            return value switch
+                            {
+                                "goblin" => "HP 30",
+                                "ghoul" => "HP 55",
+                                _ => "HP 400",
+                            };
+                        });
                 })
                 .Arg<int>("count", spec =>
                 {
@@ -431,6 +442,10 @@
             Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
             _terminal._commandInput.value = "spawn g";
             yield return WaitForCompletionHints("spawn g");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Assert.That(root.Q<Label>("CompletionArgument").text, Is.EqualTo("prefab · 1 of 3 arguments"));
+            Assert.That(root.Q<Label>("CompletionHint").text, Is.EqualTo("HP 30"));
+            Assert.That(root.Q<VisualElement>(className: "completion-argument-active"), Is.Not.Null);
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesArgumentCompletionSurface), CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
             AssertAcceptable(_lastOutcome);

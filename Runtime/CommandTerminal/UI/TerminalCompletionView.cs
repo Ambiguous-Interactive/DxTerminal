@@ -46,6 +46,11 @@
         private readonly List<CommandToken> _tokens = new();
         private readonly ListView _list;
         private readonly Label _keys;
+        private readonly VisualElement _body;
+        private readonly VisualElement _signature;
+        private readonly VisualElement _details;
+        private readonly Label _argument;
+        private readonly Label _argumentDescription;
         private readonly Action<int> _accept;
         private CommandShell _shell;
         private long _commandsVersion;
@@ -61,6 +66,9 @@
         private bool _requested;
         private HintDisplayMode _mode;
         private string _ghost;
+        private CommandArgument _activeArgument;
+        private CommandBuilder.SubcommandRoute _signatureRoute;
+        private int _signatureStage;
         private string _matchTag = "<u>";
         private string _matchEnd = "</u>";
         private Color? _matchColor;
@@ -75,6 +83,12 @@
             root.RegisterCallback<CustomStyleResolvedEvent>(ApplyColors);
             Panel = new VisualElement { name = "CompletionPanel" };
             Panel.AddToClassList("completion-panel");
+            _details = new VisualElement();
+            _details.AddToClassList("completion-details");
+            _argument = MakeLabel("CompletionArgument", "completion-detail-title");
+            _argumentDescription = MakeLabel("CompletionArgumentDescription", "completion-detail-description");
+            _details.Add(_argument);
+            _details.Add(_argumentDescription);
             _list = new ListView
             {
                 name = "AutoCompletePopup",
@@ -88,8 +102,18 @@
             _list.itemsSource = _rows;
             _list.AddToClassList("autocomplete-popup");
             _keys = MakeLabel("CompletionKeys", "completion-keys");
-            Panel.Add(_list);
-            Panel.Add(_keys);
+            VisualElement suggestions = new();
+            suggestions.AddToClassList("completion-suggestions");
+            suggestions.Add(_list);
+            suggestions.Add(_keys);
+            _body = new VisualElement();
+            _body.AddToClassList("completion-body");
+            _body.Add(suggestions);
+            _body.Add(_details);
+            Panel.Add(_body);
+            _signature = new VisualElement { name = "CommandSignature" };
+            _signature.AddToClassList("completion-signature");
+            Panel.Add(_signature);
             parent.Add(Panel);
             Panel.style.display = DisplayStyle.None;
         }
@@ -293,6 +317,7 @@
             CommandTokenizer.Tokenize(_line, _tokens);
             bool found = CommandTokenizer.TryFindActiveToken(_line, _caret, _tokens, out int active, out _start, out _length, out _);
             _shell.EnsureAutoCommandsRegistered();
+            RefreshSignature(active);
             bool showSuggestions = _requested || _mode == HintDisplayMode.Always || _line.Length != 0;
             if (showSuggestions && !_suppressed)
             {
@@ -300,9 +325,10 @@
                 {
                     _query = context.Token;
                     _quoted = context.IsQuoted;
+                    string badge = _activeArgument?.DeclaredType.IsEnum == true ? "enum" : string.Empty;
                     foreach (CommandCompletion candidate in _providerRows)
                     {
-                        _rows.Add(new Row(candidate, string.Empty, candidate.Hint, rank: 0, order: _rows.Count, wholeLine: false));
+                        _rows.Add(new Row(candidate, badge, candidate.Hint, rank: 0, order: _rows.Count, wholeLine: false));
                     }
                 }
                 else
@@ -433,6 +459,8 @@
                 _ghost = insertion.Substring(_caret - start);
             }
 
+            _body.style.display = count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
+            _details.style.display = _activeArgument == null ? DisplayStyle.None : DisplayStyle.Flex;
             _list.style.height = Math.Min(count, VisibleRows) * RowHeight;
             _keys.text = (1 < count, _ghost != null) switch
             {
@@ -441,7 +469,7 @@
                 (false, true) => "Tab accept   → accept word   Esc dismiss",
                 _ => "Tab accept   Esc dismiss",
             };
-            Panel.style.display = count != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            Panel.style.display = count != 0 || _signature.childCount != 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _list.RefreshItems();
         }
 
@@ -460,6 +488,79 @@
             {
                 _list.RefreshItems();
             }
+        }
+
+        private void RefreshSignature(int active)
+        {
+            CommandBuilder.SubcommandRoute route = null;
+            if (
+                _tokens.Count != 0
+                && _shell.TryResolveToken(_tokens[0], _tokens[0].GetVariableName(), out CommandArg nameToken)
+                && _shell.TryGetCommand(nameToken.contents, out CommandInfo command)
+            )
+            {
+                route = command.SyntaxRoute;
+            }
+
+            int routed = 1;
+            while (route is { IsRouter: true } && routed < active && route.Lookup.TryGetValue(_tokens[routed].Contents, out CommandBuilder.SubcommandRoute child))
+            {
+                route = child;
+                ++routed;
+            }
+
+            CommandArgument[] specs = route?.Specs ?? Array.Empty<CommandArgument>();
+            int stage = active - routed;
+            if (route?.HasRemaining == true && specs.Length <= stage)
+            {
+                stage = specs.Length - 1;
+            }
+
+            if (ReferenceEquals(_signatureRoute, route) && _signatureStage == stage)
+            {
+                return;
+            }
+
+            _signatureRoute = route;
+            _signatureStage = stage;
+            _signature.Clear();
+            _activeArgument = null;
+            if (route == null)
+            {
+                return;
+            }
+
+            Label name = MakeLabel("SignatureCommand", "completion-signature-name");
+            name.text = LogTextSanitizer.Sanitize(route.FullPath);
+            _signature.Add(name);
+            for (int i = 0; i < specs.Length; ++i)
+            {
+                CommandArgument spec = specs[i];
+                VisualElement argument = new();
+                argument.AddToClassList("completion-signature-argument");
+                argument.EnableInClassList("completion-argument-active", i == stage);
+                Label argumentName = MakeLabel(null, "completion-signature-part");
+                argumentName.text = spec.IsRequired ? spec.Name + ": " : "[" + spec.Name + ": ";
+                Label type = MakeLabel(null, "completion-signature-part");
+                type.text = LogTextSanitizer.Sanitize(spec.SignatureType);
+                type.AddToClassList("completion-type-" + (spec.HasChoices ? CommandSyntaxClassifier.CommandSyntaxRole.Choice : spec.SyntaxRole));
+                Label suffix = MakeLabel(null, "completion-signature-part");
+                suffix.text = LogTextSanitizer.Sanitize(spec.SignatureSuffix);
+                argument.Add(argumentName);
+                argument.Add(type);
+                argument.Add(suffix);
+                _signature.Add(argument);
+                if (i == stage)
+                {
+                    _activeArgument = spec;
+                    _argument.text = $"{spec.Name} · {i + 1} of {specs.Length} arguments";
+                    _argumentDescription.text = LogTextSanitizer.Sanitize(spec.Description ?? string.Empty);
+                }
+            }
+
+            Label description = MakeLabel("SignatureDescription", "completion-signature-description");
+            description.text = LogTextSanitizer.Sanitize(route.Help ?? string.Empty);
+            _signature.Add(description);
         }
 
         private VisualElement MakeRow()
@@ -537,7 +638,10 @@
             using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(64);
             AppendMatch(scope.Builder, LogTextSanitizer.Sanitize(row.Value.EffectiveDisplayLabel));
             ((Label)element[1]).text = scope.Builder.ToString();
-            ((Label)element[2]).text = LogTextSanitizer.Sanitize(row.Value.Description ?? string.Empty);
+            string description = row.Value.Description;
+            ((Label)element[2]).text = string.Equals(description, _activeArgument?.Description, StringComparison.Ordinal)
+                ? string.Empty
+                : LogTextSanitizer.Sanitize(description ?? string.Empty);
             ((Label)element[3]).text = LogTextSanitizer.Sanitize(row.Hint ?? string.Empty);
         }
 

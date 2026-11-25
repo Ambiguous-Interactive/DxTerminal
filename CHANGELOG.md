@@ -13,6 +13,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add a typed signature line and argument details while completing commands ([#335](https://github.com/Ambiguous-Interactive/DxTerminal/issues/335)).
+
 - Add a vertical completion list with command descriptions ([#335](https://github.com/Ambiguous-Interactive/DxTerminal/issues/335)).
 
 - Add syntax colors and error underlines to the terminal input ([#334](https://github.com/Ambiguous-Interactive/DxTerminal/issues/334)).
