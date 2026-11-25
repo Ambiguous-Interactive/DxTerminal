@@ -4004,7 +4004,12 @@
 
             if (TryGetComponent(out TerminalKeyboardController keyboard) && keyboard.isActiveAndEnabled)
             {
-                return keyboard.UsesCompletionBinding(key) ? key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true : TryCompletionKey(key);
+                if (keyboard.UsesCompletionBinding(key))
+                {
+                    return key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true;
+                }
+
+                return TryCompletionKey(key);
             }
 
 #if ENABLE_INPUT_SYSTEM

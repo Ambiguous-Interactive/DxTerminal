@@ -512,9 +512,9 @@
         {
             CommandBuilder.SubcommandRoute route = null;
             if (
-                _tokens.Count != 0
+                0 < _tokens.Count
                 && _shell.TryResolveToken(_tokens[0], _tokens[0].GetVariableName(), out CommandArg nameToken)
-                && !string.IsNullOrEmpty(nameToken.contents)
+                && !string.IsNullOrWhiteSpace(nameToken.contents)
                 && _shell.TryGetCommand(nameToken.contents, out CommandInfo command)
             )
             {

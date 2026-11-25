@@ -60,7 +60,21 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             get
             {
                 string remaining = _isRemaining ? "..." : string.Empty;
-                return _required ? remaining : remaining + " = " + (_defaultDisplay ?? (_defaultValue is null ? "null" : FormatValue(_defaultValue))) + "]";
+                if (_required)
+                {
+                    return remaining;
+                }
+
+                string display = _defaultDisplay;
+                if (display == null)
+                {
+                    display = "null";
+                    if (_defaultValue is not null)
+                    {
+                        display = FormatValue(_defaultValue);
+                    }
+                }
+                return string.Concat(remaining, " = ", display, "]");
             }
         }
 
@@ -239,22 +253,22 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             return new CommandArgumentSpec<T>(
-                Name,
-                _required,
-                _defaultValue,
-                _parserOverride,
-                _staticChoices,
-                _dynamicChoices,
-                _rangeValidator,
-                _validator,
-                Description,
-                _isRemaining,
-                _hasExplicitDefault,
-                _choiceFormatter,
-                _useRawInput,
-                _rangeText,
-                hint,
-                _defaultDisplay
+                name: Name,
+                required: _required,
+                defaultValue: _defaultValue,
+                parserOverride: _parserOverride,
+                staticChoices: _staticChoices,
+                dynamicChoices: _dynamicChoices,
+                rangeValidator: _rangeValidator,
+                validator: _validator,
+                description: Description,
+                isRemaining: _isRemaining,
+                hasExplicitDefault: _hasExplicitDefault,
+                choiceFormatter: _choiceFormatter,
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: hint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
