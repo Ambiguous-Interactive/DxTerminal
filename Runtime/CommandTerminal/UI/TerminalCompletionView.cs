@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.UI
+﻿namespace WallstopStudios.DxCommandTerminal.UI
 {
     using System;
     using System.Collections.Generic;
@@ -108,6 +108,9 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 pickingMode = PickingMode.Ignore,
             };
             label.AddToClassList(className);
+#if UNITY_2022_2_OR_NEWER
+            label.parseEscapeSequences = false;
+#endif
             return label;
         }
 
@@ -455,9 +458,6 @@ namespace WallstopStudios.DxCommandTerminal.UI
             row.Add(MakeLabel("CompletionKind", "completion-kind"));
             Label name = MakeLabel("CompletionName", "completion-name");
             name.enableRichText = true;
-#if UNITY_2022_2_OR_NEWER
-            name.parseEscapeSequences = false;
-#endif
             row.Add(name);
             row.Add(MakeLabel("CompletionDescription", "completion-description"));
             row.Add(MakeLabel("CompletionHint", "completion-hint"));
