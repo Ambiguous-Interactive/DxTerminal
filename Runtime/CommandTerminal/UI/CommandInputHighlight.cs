@@ -98,9 +98,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         private static void AppendLiteral(StringBuilder builder, string line, int start, int end)
         {
-            for (int index = start; index < end; ++index)
+            foreach (char value in line.AsSpan(start, end - start))
             {
-                char value = line[index];
                 switch (value)
                 {
                     case '<':
