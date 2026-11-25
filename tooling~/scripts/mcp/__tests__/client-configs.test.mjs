@@ -146,7 +146,7 @@ test("configure writes the github token source into OpenCode headers", () => {
       options(repoRoot, { githubTokenSource: "GITHUB_MCP_PAT" }),
       ENDPOINT
     );
-    assert.equal(written.length, 7);
+    assert.equal(written.length, 8);
     const openCode = JSON.parse(
       stripJsonComments(fs.readFileSync(paths(repoRoot).openCode, "utf8"))
     );
@@ -224,6 +224,21 @@ test("configure writes every client schema with the unity endpoint", () => {
 
     const copilot = JSON.parse(fs.readFileSync(paths.copilot, "utf8"));
     assert.deepEqual(copilot["mcpServers"]["unity-mcp"].tools, ["*"]);
+
+    const antigravity = JSON.parse(fs.readFileSync(paths.antigravity, "utf8"));
+    assert.deepEqual(antigravity["mcpServers"]["unity-mcp"], {
+      serverUrl: url,
+      headers: { Authorization: `Bearer ${BEARER}` }
+    });
+    assert.deepEqual(antigravity["mcpServers"]["git"], {
+      command: "mcp-server-git",
+      args: ["--repository", repoRoot]
+    });
+    assert.equal(
+      antigravity["mcpServers"]["git"].type,
+      undefined,
+      "Antigravity infers stdio from command and rejects no documented type field"
+    );
 
     const codex = fs.readFileSync(paths.codex, "utf8");
     assert.match(codex, /\[mcp_servers\.unity-mcp\]/);
@@ -500,6 +515,7 @@ test("configure migrates v1 MCP timeout without replacing native timeout", (t) =
 test("configure refuses to replace malformed client configs", (t) => {
   const cases = [
     ["Claude config", ".mcp.json", "{ not json", /Invalid JSON/],
+    ["Antigravity config", ".agents/mcp_config.json", "{ not json", /Invalid JSON/],
     [
       "OpenCode MCP",
       "opencode.jsonc",

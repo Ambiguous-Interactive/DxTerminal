@@ -32,6 +32,8 @@ package-lock.json.meta
 .copilot/
 .nanocoder/
 .vscode/mcp.json
+# Antigravity CLI reads the workspace-scoped config; it holds literal tokens.
+.agents/mcp_config.json
 
 # macOS
 .DS_Store

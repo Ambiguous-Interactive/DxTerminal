@@ -15,9 +15,9 @@ recording is still a regression.
 
 An ambient loader would inject credentials into every case's environment
 and mask the file-sourced values these assertions check, so every
-subprocess starts from a scrubbed environment: all eleven managed
-credential names (the canonical names and every alias `env` can export),
-plus the launcher's own control variables.
+subprocess starts from a scrubbed environment: every managed credential
+name (the canonical names and every alias `env` can export), plus the
+launcher's own control variables.
 """
 from __future__ import annotations
 
@@ -55,6 +55,7 @@ MANAGED_CREDENTIALS = (
     "GITHUB_PERSONAL_ACCESS_TOKEN",
     "GITHUB_PAT",
     "GITHUB_MCP_PAT",
+    "GEMINI_API_KEY",
     "UNITY_MCP_BEARER_TOKEN",
     "UNITY_MCP_ENABLED",
     "UNITY_PROJECT_PATH",
@@ -90,6 +91,7 @@ SANDBOX_UNSET = (
     "CLAUDE_OPENROUTER_SUBAGENT_MODEL",
     "CLAUDE_OPENROUTER_GATEWAY_DISCOVERY",
     "CLAUDE_OPENROUTER_SUBPROCESS_ENV_SCRUB",
+    "AGY_GEMINI_MODEL",
 )
 
 # The fake CLI dir must lead PATH, but system paths must follow so the
@@ -399,7 +401,7 @@ class ScrubCallSiteContract(BackendsTestCase):
             if line == "    prepare_scrubbed_agent_environment"
         )
         self.assertEqual(
-            call_sites, 4,
+            call_sites, 5,
             "found the wrong number of scrub call sites; expected one per provider launcher",
         )
 
@@ -408,7 +410,7 @@ class ScrubCallSiteContract(BackendsTestCase):
 class InstallContract(BackendsTestCase):
     """install: launchers, profile files, permissions, and refusals."""
 
-    def test_install_writes_all_four_launchers_and_the_profile_files(self) -> None:
+    def test_install_writes_all_five_launchers_and_the_profile_files(self) -> None:
         bin_dir = self.scratch("launchers")
         codex_home = self.scratch("codex-home2")
         for _ in (0, 1):
@@ -417,7 +419,7 @@ class InstallContract(BackendsTestCase):
             # normal container-rebuild path and must stay idempotent.
             result, _ = self.run_launcher("install", AI_BACKENDS_BIN_DIR=str(bin_dir), CODEX_HOME=str(codex_home))
             self.assertEqual(result.returncode, 0, result.stderr)
-        for launcher in ("codex-zai", "claude-zai", "codex-openrouter", "claude-openrouter"):
+        for launcher in ("codex-zai", "claude-zai", "codex-openrouter", "claude-openrouter", "agy-gemini"):
             with self.subTest(launcher=launcher):
                 self.assertTrue((bin_dir / launcher).is_symlink(), f"{launcher} launcher is not a symlink")
         profile = codex_home / "devcontainer-zai.config.toml"
@@ -606,6 +608,74 @@ class ClaudeOpenRouterContract(BackendsTestCase):
 
 
 @SKIP_ON_WINDOWS
+class AgyGeminiContract(BackendsTestCase):
+    """agy-gemini: a session-only Gemini provider with no persisted settings."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        agy = self.fake_bin / "agy"
+        agy.write_text(FAKE_CLI, encoding="utf-8")
+        agy.chmod(0o755)
+
+    def record_agy(self, *args: str, **env_overrides: str) -> str:
+        result, recorded = self.run_launcher("agy-gemini", *args, **env_overrides)
+        self.assertEqual(result.returncode, 0, f"agy-gemini failed: {result.stderr}")
+        return recorded
+
+    def test_exports_the_key_and_applies_the_provider_per_session(self) -> None:
+        recorded = self.record_agy("--model", "gemini-4", GEMINI_API_KEY="gemini-key")
+        self.assert_contains(recorded, r"^GEMINI_API_KEY=gemini-key$", "agy-gemini exports the Gemini key")
+        self.assert_contains(recorded, r"^--settings$", "agy-gemini passes session settings")
+        self.assert_contains(
+            recorded,
+            re.escape('{"modelProvider":"gemini"}'),
+            "the provider is applied per session, never persisted",
+        )
+        self.assert_contains(recorded, r"^--model$", "extra arguments are forwarded")
+        self.assert_contains(recorded, r"^gemini-4$", "the forwarded model survives")
+        self.assert_contains(recorded, r"^BASH_ENV=/dev/null$", "a global loader is disabled")
+        self.assert_contains(recorded, r"^DXT_ENV_AUTOLOAD_DISABLED=1$", "descendants cannot re-import keys")
+
+    def test_env_local_fallback(self) -> None:
+        root = self.env_root("GEMINI_API_KEY=gemini-file-key")
+        recorded = self.record_agy(AI_BACKENDS_REPO_ROOT=str(root))
+        self.assert_contains(recorded, r"^GEMINI_API_KEY=gemini-file-key$", "the key resolves from .env.local")
+
+    def test_model_override_is_opt_in(self) -> None:
+        recorded = self.record_agy(GEMINI_API_KEY="gemini-key", AGY_GEMINI_MODEL="gemini-4-pro")
+        self.assert_contains(recorded, r"^gemini-4-pro$", "AGY_GEMINI_MODEL selects the model")
+
+    def test_model_override_resolves_from_env_local(self) -> None:
+        root = self.env_root(
+            "GEMINI_API_KEY=gemini-file-key",
+            "AGY_GEMINI_MODEL=gemini-file-model",
+        )
+        recorded = self.record_agy(AI_BACKENDS_REPO_ROOT=str(root))
+        self.assert_contains(recorded, r"^gemini-file-model$", "the model resolves from .env.local")
+
+    def test_process_model_beats_env_local(self) -> None:
+        root = self.env_root(
+            "GEMINI_API_KEY=gemini-file-key",
+            "AGY_GEMINI_MODEL=file-model",
+        )
+        recorded = self.record_agy(AI_BACKENDS_REPO_ROOT=str(root), AGY_GEMINI_MODEL="env-model")
+        self.assert_contains(recorded, r"^env-model$", "the process value wins")
+        self.assert_not_contains(recorded, r"^file-model$", "the file value does not override the process")
+
+    def test_no_model_flag_when_no_override_is_set(self) -> None:
+        recorded = self.record_agy(GEMINI_API_KEY="gemini-key")
+        self.assert_not_contains(recorded, r"^--model$", "the CLI keeps its own default model")
+
+    def test_a_missing_key_fails_before_launch(self) -> None:
+        root = self.scratch("no-env-root")
+        root.mkdir()
+        result, recorded = self.run_launcher("agy-gemini", AI_BACKENDS_REPO_ROOT=str(root))
+        self.assertNotEqual(result.returncode, 0, "agy-gemini launched without a Gemini key")
+        self.assertIn("GEMINI_API_KEY", result.stderr)
+        self.assertEqual(recorded, "", "the CLI must not start without a key")
+
+
+@SKIP_ON_WINDOWS
 class EnvExportsContract(BackendsTestCase):
     """env: exports managed credentials from environment and .env.local."""
 
@@ -625,9 +695,11 @@ class EnvExportsContract(BackendsTestCase):
             'GITHUB_PERSONAL_ACCESS_TOKEN="gh-token-file"',
             "UNITY_PROJECT_PATH=/unity/path",
             "OPENROUTER_API_KEY=\"it's quoted\"",
+            "GEMINI_API_KEY=gemini-file-key",
         )
         output = self.run_env(root)
         self.assert_contains(output, r"^export ZAI_API_KEY='zai-file-key'$", "env exports the Z.AI key")
+        self.assert_contains(output, r"^export GEMINI_API_KEY='gemini-file-key'$", "env exports the Gemini key")
         self.assert_contains(output, r"^export ZHIPU_API_KEY='zai-file-key'$", "env mirrors the Z.AI key into ZHIPU_API_KEY for native opencode")
         self.assert_contains(output, r"^export OPENROUTER_API_KEY='it'\\''s quoted'$", "env escapes single quotes for safe eval")
         self.assert_contains(output, r"^export GITHUB_TOKEN='gh-token-file'$", "env maps GitHub aliases onto GITHUB_TOKEN")
@@ -647,6 +719,7 @@ class EnvExportsContract(BackendsTestCase):
         self.assertEqual(evaluated.returncode, 0, "env output evaluates and sets the variable")
         self.assertNotIn("OPENROUTER", output, "env omits keys absent from environment and .env.local")
         self.assertNotIn("UNITY", output, "env omits unset Unity values")
+        self.assertNotIn("GEMINI", output, "env omits an unset Gemini key")
 
     def test_environment_precedence_over_env_local(self) -> None:
         root = self.env_root("ZAI_API_KEY=zai-file-key")
