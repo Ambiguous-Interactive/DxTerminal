@@ -284,8 +284,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
             if (type.IsEnum)
             {
-                Array values = Enum.GetValues(type);
-                return 0 < values.Length ? values.GetValue(0).ToString() : "0";
+                T defaultEnum = default;
+                return defaultEnum.ToString();
             }
 
             if (type == typeof(Vector2) || type == typeof(Vector2Int))
