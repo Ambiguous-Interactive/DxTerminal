@@ -567,7 +567,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 foreach (string ignoredValue in CommandArg.IgnoredValuesForCleanedTypes)
                 {
-                    if (string.IsNullOrEmpty(ignoredValue) || 0 <= input.IndexOf(ignoredValue.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                    if (ignoredValue is not { Length: 1 } || ignoredValue[0] is not ('\r' or '\n') || 0 <= input.IndexOf(ignoredValue[0]))
                     {
                         return false;
                     }

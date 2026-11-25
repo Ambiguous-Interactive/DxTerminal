@@ -164,6 +164,29 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         }
 
         [Test]
+        public void SimpleIntegerClassificationStillUsesCustomCleaningRules()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.That(shell.AddCommand(CommandBuilder.Create("gain").Arg<int>("value").Handler((_, _) => { }), out _), Is.True);
+            CommandSyntaxClassifier classifier = new();
+            List<CommandSyntaxSpan> spans = new();
+            const string line = "gain 7FOO";
+            classifier.Classify(line, shell, spans);
+            Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Invalid));
+
+            Assert.That(CommandArg.IgnoredValuesForCleanedTypes.Add("foo"), Is.True);
+            try
+            {
+                classifier.Classify(line, shell, spans);
+                Assert.That(spans[1].Role, Is.EqualTo(CommandSyntaxRole.Number));
+            }
+            finally
+            {
+                CommandArg.IgnoredValuesForCleanedTypes.Remove("foo");
+            }
+        }
+
+        [Test]
         public void WarmStringRangeUsesCurrentCulture()
         {
             CultureInfo original = CultureInfo.CurrentCulture;
