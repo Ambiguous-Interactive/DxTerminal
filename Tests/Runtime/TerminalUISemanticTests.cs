@@ -944,9 +944,10 @@
             RunThroughInput("spawn goblin 3");
             RunThroughInput("help spawn");
             _terminal.RefreshUI();
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            root.panel.Pick(Vector2.zero);
             yield return null;
 
-            VisualElement root = _terminal._uiDocument.rootVisualElement;
             VisualElement logContent = root.Q<ScrollView>("LogScrollView").contentContainer;
             Assert.That(logContent.childCount, Is.GreaterThanOrEqualTo(3));
 
@@ -989,6 +990,7 @@
                 selectButton.SendEvent(toggle);
             }
 
+            root.panel.Pick(Vector2.zero);
             yield return null;
             VisualElement nativeHelpInput = helpRow.Q<VisualElement>("unity-text-input");
             Assert.That(nativeHelpInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Plain-text toggle must reveal the selectable log text");
@@ -1003,6 +1005,7 @@
                 selectButton.SendEvent(toggleBack);
             }
 
+            root.panel.Pick(Vector2.zero);
             yield return null;
             Assert.That(nativeHelpInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
 

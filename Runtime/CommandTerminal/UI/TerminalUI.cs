@@ -4387,11 +4387,12 @@
                 return;
             }
 
-            if (logItem.type == TerminalLogType.Input && Terminal.Shell is CommandShell shell && !string.IsNullOrEmpty(logItem.message))
+            if (logItem.type == TerminalLogType.Input && Terminal.Shell is CommandShell shell && !string.IsNullOrWhiteSpace(logItem.message))
             {
                 _echoClassifier.Classify(logItem.message, shell, _echoSpans);
                 string richText = _syntaxPalette.FormatEchoLine(logItem.message, _echoSpans, echoMonoTag);
-                logText.SetEchoHighlight(richText, _syntaxPalette.Ink);
+                Color echoInk = _syntaxPalette.Ink;
+                logText.SetEchoHighlight(richText, echoInk);
                 return;
             }
 
@@ -4487,7 +4488,8 @@
                     _nativeText.Add(_echoHighlight);
                 }
 
-                _nativeText.style.color = new StyleColor(Color.clear);
+                StyleColor clearColor = new(Color.clear);
+                _nativeText.style.color = clearColor;
                 _echoHighlight.style.color = defaultColor;
                 _echoHighlight.style.display = DisplayStyle.Flex;
                 // SetValueWithoutNotify avoids bubbling a Label ChangeEvent into this TextField.
@@ -4503,7 +4505,8 @@
                 ApplyHelpCardSelectionMode();
                 AddToClassList("terminal-output-label--help-card");
                 _helpCardRoot.style.display = DisplayStyle.Flex;
-                ((INotifyValueChanged<string>)_helpSignature).SetValueWithoutNotify(palette.FormatHelpSignature(card));
+                string signatureMarkup = palette.FormatHelpSignature(card);
+                ((INotifyValueChanged<string>)_helpSignature).SetValueWithoutNotify(signatureMarkup);
                 _helpDescription.text = LogTextSanitizer.Sanitize(card.DescriptionLine);
 
                 CommandHelpCard.ArgumentRow[] arguments = card.Arguments;
@@ -4512,9 +4515,12 @@
                 {
                     VisualElement row = new();
                     row.AddToClassList("terminal-help-arg-row");
-                    row.Add(CreateCardLabel("HelpCardArgName", "terminal-help-arg-name", richText: false));
-                    row.Add(CreateCardLabel("HelpCardArgType", "terminal-help-arg-type", richText: false));
-                    row.Add(CreateCardLabel("HelpCardArgDefault", "terminal-help-arg-default", richText: false));
+                    Label nameLabel = CreateCardLabel("HelpCardArgName", "terminal-help-arg-name", richText: false);
+                    Label typeLabel = CreateCardLabel("HelpCardArgType", "terminal-help-arg-type", richText: false);
+                    Label defaultLabel = CreateCardLabel("HelpCardArgDefault", "terminal-help-arg-default", richText: false);
+                    row.Add(nameLabel);
+                    row.Add(typeLabel);
+                    row.Add(defaultLabel);
                     _helpArguments.Add(row);
                 }
 
@@ -4527,19 +4533,24 @@
                 {
                     CommandHelpCard.ArgumentRow argument = arguments[i];
                     VisualElement row = _helpArguments[i];
-                    ((Label)row[0]).text = LogTextSanitizer.Sanitize(argument.Name);
+                    Label nameLabel = (Label)row[0];
                     Label typeLabel = (Label)row[1];
+                    Label defaultLabel = (Label)row[2];
+                    nameLabel.text = LogTextSanitizer.Sanitize(argument.Name);
                     typeLabel.text = LogTextSanitizer.Sanitize(argument.TypeText);
-                    typeLabel.EnableInClassList("completion-type-Choice", argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.Choice);
-                    typeLabel.EnableInClassList("completion-type-Number", argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.Number);
-                    typeLabel.EnableInClassList("completion-type-String", argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.String);
-                    ((Label)row[2]).text = LogTextSanitizer.Sanitize(argument.RequirementText);
+                    bool isChoice = argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.Choice;
+                    bool isNumber = argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.Number;
+                    bool isString = argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.String;
+                    typeLabel.EnableInClassList("completion-type-Choice", isChoice);
+                    typeLabel.EnableInClassList("completion-type-Number", isNumber);
+                    typeLabel.EnableInClassList("completion-type-String", isString);
+                    defaultLabel.text = LogTextSanitizer.Sanitize(argument.RequirementText);
                 }
 
                 _helpArguments.style.display = 0 < rowCount ? DisplayStyle.Flex : DisplayStyle.None;
                 string exampleMarkup = palette.FormatHelpExample(card);
                 ((INotifyValueChanged<string>)_helpExample).SetValueWithoutNotify(exampleMarkup);
-                _helpExample.style.display = !string.IsNullOrEmpty(exampleMarkup) ? DisplayStyle.Flex : DisplayStyle.None;
+                _helpExample.style.display = !string.IsNullOrWhiteSpace(exampleMarkup) ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
             public void ClearRichContent()
@@ -4552,7 +4563,8 @@
 
                 if (_nativeText != null)
                 {
-                    _nativeText.style.color = new StyleColor(StyleKeyword.Null);
+                    StyleColor resetColor = new(StyleKeyword.Null);
+                    _nativeText.style.color = resetColor;
                 }
 
                 if (_helpCardRoot != null)

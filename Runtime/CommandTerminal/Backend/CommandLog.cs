@@ -362,7 +362,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return false;
             }
 
-            return EnqueueLog(new LogItem(TerminalLogType.ShellMessage, LogTextSanitizer.Sanitize(card.PlainText), string.Empty, _utcNow(), card));
+            string sanitizedText = LogTextSanitizer.Sanitize(card.PlainText);
+            DateTime timestampUtc = _utcNow();
+            LogItem log = new(TerminalLogType.ShellMessage, sanitizedText, string.Empty, timestampUtc, card);
+            return EnqueueLog(log);
         }
 
         /*

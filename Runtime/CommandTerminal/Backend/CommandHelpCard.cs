@@ -15,6 +15,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private const int InitialDescriptionCapacity = 128;
         private const int InitialPlainTextCapacity = 256;
         private const int AverageArgumentTokenCapacity = 12;
+        private const int ColumnPaddingSpaces = 2;
 
         internal string CommandName { get; }
         internal string SignaturePlainText { get; }
@@ -56,7 +57,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             string descriptionLine = BuildDescriptionLine(canonicalName, info);
             ArgumentRow[] arguments = BuildArgumentRows(route);
             string exampleLine = route != null ? BuildRouteExample(route, 0) : (info.minArgCount == 0 ? canonicalName : null);
-            if (!string.IsNullOrEmpty(exampleLine))
+            if (!string.IsNullOrWhiteSpace(exampleLine))
             {
                 exampleLine = LogTextSanitizer.Sanitize(exampleLine);
             }
@@ -99,9 +100,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 {
                     CommandArgument spec = specs[i];
                     string suffix = spec.IsRemaining ? "..." : string.Empty;
-                    parts[i + 1] = spec.IsRequired
-                        ? new SignaturePart(spec.Name + suffix, SignaturePartKind.Required)
-                        : new SignaturePart("[" + spec.Name + suffix + "]", SignaturePartKind.Optional);
+                    string partText = spec.IsRequired ? spec.Name + suffix : "[" + spec.Name + suffix + "]";
+                    SignaturePartKind partKind = spec.IsRequired ? SignaturePartKind.Required : SignaturePartKind.Optional;
+                    parts[i + 1] = new SignaturePart(partText, partKind);
                 }
 
                 return parts;
@@ -109,32 +110,25 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
             if (route != null)
             {
-                return new[]
-                {
-                    new SignaturePart(route.FullPath, SignaturePartKind.Command),
-                    new SignaturePart(route.Fallback != null ? "[subcommand]" : "<subcommand>", SignaturePartKind.Subcommand),
-                };
+                string subcommandToken = route.Fallback != null ? "[subcommand]" : "<subcommand>";
+                return new[] { new SignaturePart(route.FullPath, SignaturePartKind.Command), new SignaturePart(subcommandToken, SignaturePartKind.Subcommand) };
             }
 
             string hint = info.hint?.Trim();
-            if (!string.IsNullOrEmpty(hint) && !string.Equals(hint, canonicalName, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(hint) && !string.Equals(hint, canonicalName, StringComparison.OrdinalIgnoreCase))
             {
-                string rest =
-                    hint.StartsWith(canonicalName, StringComparison.OrdinalIgnoreCase) && canonicalName.Length < hint.Length && char.IsWhiteSpace(hint[canonicalName.Length])
-                        ? hint.Substring(canonicalName.Length).TrimStart()
-                        : hint;
-                if (!string.IsNullOrEmpty(rest))
+                bool hasCommandPrefix =
+                    hint.StartsWith(canonicalName, StringComparison.OrdinalIgnoreCase) && canonicalName.Length < hint.Length && char.IsWhiteSpace(hint[canonicalName.Length]);
+                string rest = hasCommandPrefix ? hint.Substring(canonicalName.Length).TrimStart() : hint;
+                if (!string.IsNullOrWhiteSpace(rest))
                 {
                     return new[] { new SignaturePart(canonicalName, SignaturePartKind.Command), new SignaturePart(rest, SignaturePartKind.Optional) };
                 }
             }
-            else if (string.IsNullOrEmpty(hint) && (0 < info.minArgCount || info.maxArgCount != 0))
+            else if (string.IsNullOrWhiteSpace(hint) && (0 < info.minArgCount || info.maxArgCount != 0))
             {
-                return new[]
-                {
-                    new SignaturePart(canonicalName, SignaturePartKind.Command),
-                    new SignaturePart(0 < info.minArgCount ? "<args>" : "[args]", SignaturePartKind.Optional),
-                };
+                string argsToken = 0 < info.minArgCount ? "<args>" : "[args]";
+                return new[] { new SignaturePart(canonicalName, SignaturePartKind.Command), new SignaturePart(argsToken, SignaturePartKind.Optional) };
             }
 
             return new[] { new SignaturePart(canonicalName, SignaturePartKind.Command) };
@@ -165,27 +159,29 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             StringBuilder builder = scope.Builder;
             string description = string.IsNullOrWhiteSpace(info.help) ? $"{canonicalName} does not provide any help documentation." : info.help.Trim();
             builder.Append(description);
-            if (description[description.Length - 1] is not ('.' or '!' or '?'))
+            char lastCharacter = description[description.Length - 1];
+            if (lastCharacter is not ('.' or '!' or '?'))
             {
                 builder.Append('.');
             }
 
             if (!string.IsNullOrWhiteSpace(info.Group))
             {
-                builder.Append(" Group: ").Append(info.Group.Trim()).Append('.');
+                string trimmedGroup = info.Group.Trim();
+                builder.Append(" Group: ").Append(trimmedGroup).Append('.');
             }
 
-            builder.Append(' ').Append(FormatExecutionContexts(info.executionContexts));
+            string contextsText = FormatExecutionContexts(info.executionContexts);
+            builder.Append(' ').Append(contextsText);
             return builder.ToString();
         }
 
         private static string FormatExecutionContexts(CommandExecutionContexts contexts)
         {
-            return (
-                contexts.HasFlagNoAlloc(CommandExecutionContexts.EditorEditMode),
-                contexts.HasFlagNoAlloc(CommandExecutionContexts.EditorPlayMode),
-                contexts.HasFlagNoAlloc(CommandExecutionContexts.Player)
-            ) switch
+            bool editMode = contexts.HasFlagNoAlloc(CommandExecutionContexts.EditorEditMode);
+            bool playMode = contexts.HasFlagNoAlloc(CommandExecutionContexts.EditorPlayMode);
+            bool player = contexts.HasFlagNoAlloc(CommandExecutionContexts.Player);
+            return (editMode, playMode, player) switch
             {
                 (true, true, true) => "All contexts.",
                 (false, true, true) => "Play Mode and Player.",
@@ -211,8 +207,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 ArgumentRow[] childRows = children.Length == 0 ? Array.Empty<ArgumentRow>() : new ArgumentRow[children.Length];
                 for (int i = 0; i < children.Length; ++i)
                 {
-                    string childHelp = children[i].Help ?? string.Empty;
-                    childRows[i] = new ArgumentRow(children[i].Name, "subcommand", CommandSyntaxRole.Choice, childHelp);
+                    CommandBuilder.SubcommandRoute child = children[i];
+                    string childHelp = child.Help ?? string.Empty;
+                    childRows[i] = new ArgumentRow(child.Name, "subcommand", CommandSyntaxRole.Choice, childHelp);
                 }
 
                 return childRows;
@@ -243,9 +240,14 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
             if (route.IsRouter)
             {
-                return depth < MaxRouterExampleDepth && route.Children is { Length: > 0 }
-                    ? BuildRouteExample(route.Children[0], depth + 1)
-                    : (route.Fallback != null ? route.FullPath : null);
+                if (depth < MaxRouterExampleDepth && route.Children is { Length: > 0 })
+                {
+                    CommandBuilder.SubcommandRoute firstChild = route.Children[0];
+                    int nextDepth = depth + 1;
+                    return BuildRouteExample(firstChild, nextDepth);
+                }
+
+                return route.Fallback != null ? route.FullPath : null;
             }
 
             CommandArgument[] specs = route.Specs ?? Array.Empty<CommandArgument>();
@@ -254,7 +256,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return route.FullPath;
             }
 
-            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(route.FullPath.Length + (specs.Length * AverageArgumentTokenCapacity));
+            int initialCapacity = route.FullPath.Length + (specs.Length * AverageArgumentTokenCapacity);
+            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(initialCapacity);
             StringBuilder builder = scope.Builder;
             builder.Append(route.FullPath);
             foreach (CommandArgument spec in specs)
@@ -272,7 +275,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private static CommandSyntaxSpan[] ClassifyExample(string exampleLine, CommandShell shell)
         {
-            if (string.IsNullOrEmpty(exampleLine) || shell == null)
+            if (string.IsNullOrWhiteSpace(exampleLine) || shell == null)
             {
                 return Array.Empty<CommandSyntaxSpan>();
             }
@@ -294,21 +297,25 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 int maxType = 0;
                 foreach (ArgumentRow row in arguments)
                 {
-                    maxName = Math.Max(maxName, row.Name.Length);
-                    maxType = Math.Max(maxType, row.TypeText.Length);
+                    int nameLength = row.Name.Length;
+                    int typeLength = row.TypeText.Length;
+                    maxName = Math.Max(maxName, nameLength);
+                    maxType = Math.Max(maxType, typeLength);
                 }
 
                 foreach (ArgumentRow row in arguments)
                 {
-                    builder.Append('\n').Append(row.Name).Append(' ', maxName - row.Name.Length + 2).Append(row.TypeText);
-                    if (!string.IsNullOrEmpty(row.RequirementText))
+                    int namePadding = maxName - row.Name.Length + ColumnPaddingSpaces;
+                    builder.Append('\n').Append(row.Name).Append(' ', namePadding).Append(row.TypeText);
+                    if (!string.IsNullOrWhiteSpace(row.RequirementText))
                     {
-                        builder.Append(' ', maxType - row.TypeText.Length + 2).Append(row.RequirementText);
+                        int typePadding = maxType - row.TypeText.Length + ColumnPaddingSpaces;
+                        builder.Append(' ', typePadding).Append(row.RequirementText);
                     }
                 }
             }
 
-            if (!string.IsNullOrEmpty(exampleLine))
+            if (!string.IsNullOrWhiteSpace(exampleLine))
             {
                 builder.Append("\ne.g. ").Append(exampleLine);
             }

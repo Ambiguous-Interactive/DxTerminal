@@ -358,7 +358,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 return;
             }
 
-            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(_line.Length + (_spans.Count * RichTextTagOverheadPerSpan));
+            int initialCapacity = _line.Length + (_spans.Count * RichTextTagOverheadPerSpan);
+            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(initialCapacity);
             StringBuilder builder = scope.Builder;
             _palette.AppendHighlighted(builder, _line, _spans, forceBold: false, monoTag: _monoTag, regularColumns: _regularColumns);
             bool hasGhost = !string.IsNullOrEmpty(_ghost);
@@ -455,6 +456,14 @@ namespace WallstopStudios.DxCommandTerminal.UI
             private static readonly CustomStyleProperty<Color> LegacyInkProperty = new("--input-text-color");
             private static readonly CustomStyleProperty<Color> LegacyErrorProperty = new("--text-error");
 
+            private static readonly Color DefaultInk = new(230f / 255f, 237f / 255f, 243f / 255f);
+            private static readonly Color DefaultInkBody = new(201f / 255f, 210f / 255f, 220f / 255f);
+            private static readonly Color DefaultMuted = new(154f / 255f, 163f / 255f, 175f / 255f);
+            private static readonly Color DefaultNumber = new(108f / 255f, 182f / 255f, 255f / 255f);
+            private static readonly Color DefaultText = new(250f / 255f, 192f / 255f, 98f / 255f);
+            private static readonly Color DefaultChoice = new(194f / 255f, 245f / 255f, 216f / 255f);
+            private static readonly Color DefaultError = new(255f / 255f, 122f / 255f, 142f / 255f);
+
             internal long Version
             {
                 get { return _version; }
@@ -462,12 +471,20 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             internal Color Ink
             {
-                get { return _colors[CommandSyntaxRole.Command.ToIndex()]; }
+                get
+                {
+                    int commandIndex = CommandSyntaxRole.Command.ToIndex();
+                    return _colors[commandIndex];
+                }
             }
 
             internal Color Error
             {
-                get { return _colors[CommandSyntaxRole.Invalid.ToIndex()]; }
+                get
+                {
+                    int invalidIndex = CommandSyntaxRole.Invalid.ToIndex();
+                    return _colors[invalidIndex];
+                }
             }
 
             internal string GhostTag
@@ -482,15 +499,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             internal Palette()
             {
-                ApplyColors(
-                    new Color(230f / 255f, 237f / 255f, 243f / 255f),
-                    new Color(201f / 255f, 210f / 255f, 220f / 255f),
-                    new Color(154f / 255f, 163f / 255f, 175f / 255f),
-                    new Color(108f / 255f, 182f / 255f, 255f / 255f),
-                    new Color(250f / 255f, 192f / 255f, 98f / 255f),
-                    new Color(194f / 255f, 245f / 255f, 216f / 255f),
-                    new Color(255f / 255f, 122f / 255f, 142f / 255f)
-                );
+                ApplyColors(DefaultInk, DefaultInkBody, DefaultMuted, DefaultNumber, DefaultText, DefaultChoice, DefaultError);
             }
 
             private static Color Read(ICustomStyle styles, CustomStyleProperty<Color> property, Color fallback)
@@ -500,17 +509,16 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             internal bool Apply(ICustomStyle styles)
             {
-                Color ink = Read(styles, InkProperty, Read(styles, LegacyInkProperty, Color.white));
-                Color error = Read(styles, ErrorProperty, Read(styles, LegacyErrorProperty, ink));
-                return ApplyColors(
-                    ink,
-                    Read(styles, InkBodyProperty, ink),
-                    Read(styles, MutedProperty, ink),
-                    Read(styles, NumberProperty, ink),
-                    Read(styles, StringProperty, ink),
-                    Read(styles, ChoiceProperty, ink),
-                    error
-                );
+                Color legacyInk = Read(styles, LegacyInkProperty, Color.white);
+                Color ink = Read(styles, InkProperty, legacyInk);
+                Color legacyError = Read(styles, LegacyErrorProperty, ink);
+                Color error = Read(styles, ErrorProperty, legacyError);
+                Color inkBody = Read(styles, InkBodyProperty, ink);
+                Color muted = Read(styles, MutedProperty, ink);
+                Color number = Read(styles, NumberProperty, ink);
+                Color text = Read(styles, StringProperty, ink);
+                Color choice = Read(styles, ChoiceProperty, ink);
+                return ApplyColors(ink, inkBody, muted, number, text, choice, error);
             }
 
             internal void AppendHighlighted(StringBuilder builder, string line, List<CommandSyntaxSpan> spans, bool forceBold, string monoTag, int regularColumns)
@@ -521,28 +529,35 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     start = AppendSpan(builder, line, span, start, forceBold, monoTag, regularColumns);
                 }
 
-                AppendLiteral(builder, line, start, line.Length);
+                int lineLength = line.Length;
+                AppendLiteral(builder, line, start, lineLength);
             }
 
             internal string FormatEchoLine(string line, List<CommandSyntaxSpan> spans, string monoTag)
             {
-                if (string.IsNullOrEmpty(line))
+                if (string.IsNullOrWhiteSpace(line))
                 {
                     return string.Empty;
                 }
 
-                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(line.Length + (spans.Count * RichTextTagOverheadPerSpan));
-                AppendHighlighted(scope.Builder, line, spans, forceBold: false, monoTag: monoTag, regularColumns: CountRegularColumns(line));
-                return scope.Builder.ToString();
+                int initialCapacity = line.Length + (spans.Count * RichTextTagOverheadPerSpan);
+                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(initialCapacity);
+                StringBuilder builder = scope.Builder;
+                int regularColumns = CountRegularColumns(line);
+                AppendHighlighted(builder, line, spans, forceBold: false, monoTag: monoTag, regularColumns: regularColumns);
+                return builder.ToString();
             }
 
             internal string FormatHelpSignature(CommandHelpCard card)
             {
                 CommandHelpCard.SignaturePart[] parts = card.SignatureParts;
-                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(card.SignaturePlainText.Length + (parts.Length * SignatureTagOverheadPerPart));
+                int initialCapacity = card.SignaturePlainText.Length + (parts.Length * SignatureTagOverheadPerPart);
+                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(initialCapacity);
                 StringBuilder builder = scope.Builder;
-                string commandTag = _tags[CommandSyntaxRole.Command.ToIndex()];
-                string mutedTag = _tags[CommandSyntaxRole.Punctuation.ToIndex()];
+                int commandIndex = CommandSyntaxRole.Command.ToIndex();
+                int punctuationIndex = CommandSyntaxRole.Punctuation.ToIndex();
+                string commandTag = _tags[commandIndex];
+                string mutedTag = _tags[punctuationIndex];
                 bool first = true;
                 foreach (CommandHelpCard.SignaturePart part in parts)
                 {
@@ -554,14 +569,18 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     first = false;
                     string safeText = LogTextSanitizer.Sanitize(part.Text);
                     bool isCommand = part.Kind == CommandHelpCard.SignaturePartKind.Command;
-                    builder.Append(part.Kind is CommandHelpCard.SignaturePartKind.Command or CommandHelpCard.SignaturePartKind.Required ? commandTag : mutedTag);
+                    bool isProminent = part.Kind is CommandHelpCard.SignaturePartKind.Command or CommandHelpCard.SignaturePartKind.Required;
+                    string openTag = isProminent ? commandTag : mutedTag;
+                    builder.Append(openTag);
                     if (isCommand)
                     {
                         builder.Append("<b>");
                     }
 
-                    AppendLiteral(builder, safeText, 0, safeText.Length);
-                    builder.Append(isCommand ? "</b></color>" : "</color>");
+                    int safeLength = safeText.Length;
+                    AppendLiteral(builder, safeText, 0, safeLength);
+                    string closeTag = isCommand ? "</b></color>" : "</color>";
+                    builder.Append(closeTag);
                 }
 
                 return builder.ToString();
@@ -570,22 +589,26 @@ namespace WallstopStudios.DxCommandTerminal.UI
             internal string FormatHelpExample(CommandHelpCard card)
             {
                 string example = card.ExampleLine;
-                if (string.IsNullOrEmpty(example))
+                if (string.IsNullOrWhiteSpace(example))
                 {
                     return string.Empty;
                 }
 
                 CommandSyntaxSpan[] spans = card.ExampleSpans ?? Array.Empty<CommandSyntaxSpan>();
-                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(example.Length + (spans.Length * RichTextTagOverheadPerSpan) + ExamplePrefixOverhead);
+                int initialCapacity = example.Length + (spans.Length * RichTextTagOverheadPerSpan) + ExamplePrefixOverhead;
+                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(initialCapacity);
                 StringBuilder builder = scope.Builder;
-                builder.Append(_tags[CommandSyntaxRole.Punctuation.ToIndex()]).Append("e.g. </color>");
+                int punctuationIndex = CommandSyntaxRole.Punctuation.ToIndex();
+                string punctuationTag = _tags[punctuationIndex];
+                builder.Append(punctuationTag).Append("e.g. </color>");
                 int start = 0;
                 foreach (CommandSyntaxSpan span in spans)
                 {
                     start = AppendSpan(builder, example, span, start, forceBold: true, monoTag: null, regularColumns: int.MaxValue);
                 }
 
-                AppendLiteral(builder, example, start, example.Length);
+                int exampleLength = example.Length;
+                AppendLiteral(builder, example, start, exampleLength);
                 return builder.ToString();
             }
 
@@ -604,7 +627,9 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     return false;
                 }
 
-                _ghostTag = "<i>" + _tags[CommandSyntaxRole.Punctuation.ToIndex()];
+                int punctuationIndex = CommandSyntaxRole.Punctuation.ToIndex();
+                string punctuationTag = _tags[punctuationIndex];
+                _ghostTag = "<i>" + punctuationTag;
                 ++_version;
                 return true;
             }
@@ -618,25 +643,31 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 }
 
                 _colors[slot] = color;
-                _tags[slot] = "<color=#" + ColorUtility.ToHtmlStringRGBA(color) + ">";
+                string htmlColor = ColorUtility.ToHtmlStringRGBA(color);
+                _tags[slot] = "<color=#" + htmlColor + ">";
                 return true;
             }
 
             private int AppendSpan(StringBuilder builder, string line, in CommandSyntaxSpan span, int start, bool forceBold, string monoTag, int regularColumns)
             {
-                AppendLiteral(builder, line, start, span.Start);
-                int textStart = span.Start;
+                int spanStart = span.Start;
+                int spanEnd = span.End;
+                AppendLiteral(builder, line, start, spanStart);
+                int textStart = spanStart;
                 bool italic = span.Role == CommandSyntaxRole.Variable && textStart < line.Length && line[textStart] == '$';
                 if (italic)
                 {
-                    builder.Append(_tags[CommandSyntaxRole.Punctuation.ToIndex()]).Append("$</color>");
+                    int punctuationIndex = CommandSyntaxRole.Punctuation.ToIndex();
+                    string punctuationTag = _tags[punctuationIndex];
+                    builder.Append(punctuationTag).Append("$</color>");
                     ++textStart;
                 }
 
-                string tag = _tags[span.Role.ToIndex()];
+                int roleIndex = span.Role.ToIndex();
+                string tag = _tags[roleIndex];
                 builder.Append(tag);
-                bool useMspace = !forceBold && !string.IsNullOrEmpty(monoTag);
-                bool bold = span.Role is CommandSyntaxRole.Command or CommandSyntaxRole.Choice && (forceBold || (span.End <= regularColumns && useMspace));
+                bool useMspace = !forceBold && !string.IsNullOrWhiteSpace(monoTag);
+                bool bold = span.Role is CommandSyntaxRole.Command or CommandSyntaxRole.Choice && (forceBold || (spanEnd <= regularColumns && useMspace));
                 if (bold)
                 {
                     if (useMspace)
@@ -653,7 +684,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     builder.Append("<i>");
                 }
 
-                AppendLiteral(builder, line, textStart, span.End);
+                AppendLiteral(builder, line, textStart, spanEnd);
                 if (italic)
                 {
                     builder.Append("</i>");
@@ -661,7 +692,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
                 if (bold)
                 {
-                    builder.Append(useMspace ? "</b></mspace>" : "</b>");
+                    string closeBoldTag = useMspace ? "</b></mspace>" : "</b>";
+                    builder.Append(closeBoldTag);
                 }
 
                 if (tag != null)
@@ -669,7 +701,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     builder.Append("</color>");
                 }
 
-                return span.End;
+                return spanEnd;
             }
         }
     }

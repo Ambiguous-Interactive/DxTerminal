@@ -277,9 +277,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         internal static bool TrySerializeValue(string value, out string insertion, out bool quotedInsertion)
         {
+            List<char> quotes = CommandArg.Quotes;
             if (string.IsNullOrEmpty(value))
             {
-                foreach (char quote in CommandArg.Quotes)
+                foreach (char quote in quotes)
                 {
                     if (!char.IsWhiteSpace(quote))
                     {
@@ -294,7 +295,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return false;
             }
 
-            bool requiresQuote = value[0] == '$' || CommandArg.Quotes.Contains(value[0]);
+            char firstChar = value[0];
+            bool requiresQuote = firstChar == '$' || CommandArg.Quotes.Contains(firstChar);
 
             /*
                 The scan starts at zero, not one: a value that leads with
@@ -305,10 +307,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
              */
             for (int i = 0; i < value.Length && !requiresQuote; ++i)
             {
-                requiresQuote = IsSeparator(value[i]);
+                char currentChar = value[i];
+                requiresQuote = IsSeparator(currentChar);
             }
 
-            foreach (char quote in CommandArg.Quotes)
+            foreach (char quote in quotes)
             {
                 if (char.IsWhiteSpace(quote) || 0 <= value.IndexOf(quote))
                 {

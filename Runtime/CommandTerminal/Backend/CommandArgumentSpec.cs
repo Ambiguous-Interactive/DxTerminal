@@ -801,7 +801,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 int choiceCount = _staticChoices.Count;
                 for (int i = 0; i < choiceCount; ++i)
                 {
-                    if (ValidateValue(_staticChoices[i]) == null && CommandTokenizer.TrySerializeValue(_staticChoiceTexts[i], out string serializedChoice, out _))
+                    T choice = _staticChoices[i];
+                    string choiceText = _staticChoiceTexts[i];
+                    if (ValidateValue(choice) == null && CommandTokenizer.TrySerializeValue(choiceText, out string serializedChoice, out _))
                     {
                         token = serializedChoice;
                         return true;
@@ -829,10 +831,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 int dashIndex = _rangeText.IndexOf('–');
                 if (1 < dashIndex)
                 {
-                    string minText = _rangeText.Substring(1, dashIndex - 1);
+                    int minLength = dashIndex - 1;
+                    string minText = _rangeText.Substring(1, minLength);
+                    CommandArg minArg = new(minText);
                     if (
                         CommandTokenizer.TrySerializeValue(minText, out string serializedMin, out _)
-                        && (_validator == null || (TryParseValue(new CommandArg(minText), out T parsedMin) && ValidateValue(parsedMin) == null))
+                        && (_validator == null || (TryParseValue(minArg, out T parsedMin) && ValidateValue(parsedMin) == null))
                     )
                     {
                         token = serializedMin;
@@ -845,9 +849,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             string raw = FormatTypeExample(Name);
+            CommandArg rawArg = new(raw);
             if (
                 CommandTokenizer.TrySerializeValue(raw, out string serialized, out _)
-                && (_validator == null || (TryParseValue(new CommandArg(raw), out T parsed) && ValidateValue(parsed) == null))
+                && (_validator == null || (TryParseValue(rawArg, out T parsed) && ValidateValue(parsed) == null))
             )
             {
                 token = serialized;
