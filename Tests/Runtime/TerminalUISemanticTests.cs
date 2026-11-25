@@ -361,14 +361,21 @@
         public IEnumerator SpawnCompletionShowsCommandChoicesGhostAndActiveArgument()
         {
             yield return SpawnOpenTerminal();
-            Vector3 player = Vector3.zero;
+            Vector3 player = new(1f, 2f, 3f);
+            Vector3? spawnPosition = null;
             Assert.That(
                 Terminal.Shell.AddCommand(
                     CommandBuilder
                         .Create("spawn", "Spawns enemies at a point")
                         .Arg<string>("prefab", spec =>
                         {
-                            return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                            return spec.Required()
+                                .Choices("goblin", "ghoul", "golem")
+                                .Describe("Enemy prefab")
+                                .DescribeChoices(value =>
+                                {
+                                    return string.Equals(value, "goblin", StringComparison.Ordinal) ? "HP 30" : null;
+                                });
                         })
                         .Arg<int>("count", spec =>
                         {
@@ -378,7 +385,12 @@
                         {
                             return spec.Default(player, nameof(player)).Describe("Spawn position");
                         })
-                        .Handler((_, _) => { }),
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                spawnPosition = arguments.Get<Vector3>("at");
+                            }
+                        ),
                     out _
                 ),
                 Is.True
@@ -394,6 +406,9 @@
             yield return SetInputCaret(7);
             yield return WaitForActiveSignature(root, "prefab: goblin|ghoul|golem");
             Assert.That(_terminal.CompletionList.itemsSource.Count, Is.EqualTo(3));
+            yield return WaitForSelectedHint(_terminal.CompletionList, "goblin", "The choice list selects goblin");
+            VisualElement row = _terminal.CompletionList.Q(className: "autocomplete-item-selected");
+            Assert.That(row.Q<Label>("CompletionHint").text, Is.EqualTo("HP 30"));
             Assert.That(root.Q<Label>("CompletionArgument").text, Is.EqualTo("prefab · 1 of 3 arguments"));
             Assert.That(root.Q<Label>("CommandInputHighlight").text, Does.Contain("oblin"));
 
@@ -405,6 +420,8 @@
             yield return SetInputText("spawn goblin 1 ");
             yield return SetInputCaret(15);
             yield return WaitForActiveSignature(root, "[at: Vector3 = player]");
+            RunThroughInput("spawn goblin 1");
+            Assert.That(spawnPosition, Is.EqualTo(player));
         }
 
         [UnityTest]

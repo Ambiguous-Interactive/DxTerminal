@@ -827,6 +827,9 @@ The terminal ranks exact matches first, followed by prefixes and fuzzy matches. 
 
 Set `Hint Display Mode` to Always, While typing, or Off.
 
+Commands registered with `CommandBuilder` show typed argument names, ranges, defaults, and descriptions. Use `DescribeChoices` to add a short hint next to each choice. The
+`Default(value, displayText)` overload gives a default a readable name in the signature.
+
 # Measured Performance
 
 Performance claims here are measured, not asserted. Every claim is pinned by a test in the package's automated suites. Timing numbers come from the maintainer's pinned editor
