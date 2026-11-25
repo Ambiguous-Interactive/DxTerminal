@@ -64,6 +64,10 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 pickingMode = PickingMode.Ignore,
                 enableRichText = true,
             };
+#if UNITY_6000_0_OR_NEWER
+            // Advanced Text's worker stack overflows when it lays out a long line of rich-text spans.
+            _label.style.unityTextGenerator = TextGeneratorType.Standard;
+#endif
             _label.style.position = Position.Absolute;
             _label.style.whiteSpace = WhiteSpace.NoWrap;
             _label.style.marginLeft = 0;

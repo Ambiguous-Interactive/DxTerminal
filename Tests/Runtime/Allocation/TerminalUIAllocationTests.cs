@@ -195,6 +195,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             Assert.That(highlight, Is.Not.Null, "The command field needs a syntax label");
             Assert.That(highlight.pickingMode, Is.EqualTo(PickingMode.Ignore));
 
+#if UNITY_6000_0_OR_NEWER
+            Assert.That(highlight.style.unityTextGenerator.value, Is.EqualTo(TextGeneratorType.Standard));
+#endif
             field.value = "unknown-highlight";
             _terminal.RefreshUI();
             Assert.That(highlight.text, Does.Contain("unknown-highlight").And.Contain("<color="));
