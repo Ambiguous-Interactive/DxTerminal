@@ -5,6 +5,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     using System.Collections.Generic;
     using Backend;
     using Components;
+    using Input;
     using NUnit.Framework;
     using Themes;
     using UI;
@@ -201,6 +202,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             field.value = "unknown-highlight";
             _terminal.RefreshUI();
             Assert.That(highlight.text, Does.Contain("unknown-highlight").And.Contain("<color="));
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("unknown-highlight"));
+            yield return null;
+            _terminal.RefreshUI();
             Assert.That(field.value, Is.EqualTo("unknown-highlight"));
 
             field.value = "help";

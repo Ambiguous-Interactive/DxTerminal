@@ -291,9 +291,11 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private void WriteLabel()
         {
             _paletteChanged = false;
+            // A Label change event would reach the command field as another edit.
+            INotifyValueChanged<string> display = _label;
             if (string.IsNullOrEmpty(_line))
             {
-                _label.text = string.Empty;
+                display.SetValueWithoutNotify(string.Empty);
                 return;
             }
 
@@ -347,7 +349,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
 
             AppendLiteral(builder, _line, start, _line.Length);
-            _label.text = builder.ToString();
+            display.SetValueWithoutNotify(builder.ToString());
         }
 
         private void DrawWaves(MeshGenerationContext context)
