@@ -2046,6 +2046,7 @@
             _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
             _completionView = null;
+            _validationView?.Dispose();
             _validationView = null;
             _inputContainer = null;
             _runButton = null;

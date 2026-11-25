@@ -39,6 +39,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private readonly Label _message;
         private readonly Button _suggestionButton;
         private readonly Label _hint;
+        private VisualElement _styleRoot;
         private CommandShell _shell;
         private string _line;
         private long _commandsVersion;
@@ -77,7 +78,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
             Root.Add(spacer);
             Root.Add(_hint);
             parent.Add(Root);
-            root.RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
+            _styleRoot = root;
+            _styleRoot.RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
         }
 
         private static Label CreateLabel(string name, string className, bool richText)
@@ -220,6 +222,17 @@ namespace WallstopStudios.DxCommandTerminal.UI
             fixedLine = line.Remove(start, length).Insert(start, insertion);
             caret = start + insertion.Length;
             return true;
+        }
+
+        internal void Dispose()
+        {
+            if (_styleRoot == null)
+            {
+                return;
+            }
+
+            _styleRoot.UnregisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
+            _styleRoot = null;
         }
 
         private void OnCustomStyleResolved(CustomStyleResolvedEvent evt)
