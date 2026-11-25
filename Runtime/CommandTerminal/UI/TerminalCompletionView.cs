@@ -15,6 +15,7 @@
         private const int VisibleRows = 6;
         private const int FooterHeight = 16;
         private const int BodyPadding = 3;
+        private const int DetailsHeight = 36;
         private const int SignatureHeight = 30;
 
         private static readonly CustomStyleProperty<Color> AccentSoft = new("--dxt-accent-soft");
@@ -55,6 +56,7 @@
         private readonly ListView _list;
         private readonly Label _keys;
         private readonly VisualElement _body;
+        private readonly VisualElement _suggestions;
         private readonly VisualElement _signature;
         private readonly VisualElement _details;
         private readonly Label _argument;
@@ -93,6 +95,7 @@
             Panel.AddToClassList("completion-panel");
             _details = new VisualElement();
             _details.AddToClassList("completion-details");
+            _details.style.minHeight = DetailsHeight;
             _argument = MakeLabel("CompletionArgument", "completion-detail-title");
             _argumentDescription = MakeLabel("CompletionArgumentDescription", "completion-detail-description");
             _details.Add(_argument);
@@ -112,15 +115,15 @@
             _keys = MakeLabel("CompletionKeys", "completion-keys");
             _keys.style.height = FooterHeight;
             _keys.style.flexShrink = 0f;
-            VisualElement suggestions = new();
-            suggestions.AddToClassList("completion-suggestions");
-            suggestions.Add(_list);
-            suggestions.Add(_keys);
+            _suggestions = new VisualElement();
+            _suggestions.AddToClassList("completion-suggestions");
+            _suggestions.Add(_list);
+            _suggestions.Add(_keys);
             _body = new VisualElement();
             _body.AddToClassList("completion-body");
             _body.style.paddingTop = BodyPadding;
             _body.style.paddingBottom = BodyPadding;
-            _body.Add(suggestions);
+            _body.Add(_suggestions);
             _body.Add(_details);
             Panel.Add(_body);
             _signature = new VisualElement { name = "CommandSignature" };
@@ -473,8 +476,12 @@
                 _ghost = insertion.Substring(_caret - start);
             }
 
-            _body.style.display = count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
-            _details.style.display = _activeArgument == null ? DisplayStyle.None : DisplayStyle.Flex;
+            bool showSuggestions = 0 < count;
+            bool showDetails =
+                !_suppressed && _activeArgument != null && (showSuggestions || _activeArgument.HasChoices || !string.IsNullOrWhiteSpace(_activeArgument.Description));
+            _body.style.display = showSuggestions || showDetails ? DisplayStyle.Flex : DisplayStyle.None;
+            _suggestions.style.display = showSuggestions ? DisplayStyle.Flex : DisplayStyle.None;
+            _details.style.display = showDetails ? DisplayStyle.Flex : DisplayStyle.None;
             _list.style.height = Math.Min(count, VisibleRows) * RowHeight;
             _keys.text = (1 < count, _ghost != null) switch
             {
@@ -483,7 +490,19 @@
                 (false, true) => "Tab accept   → accept word   Esc dismiss",
                 _ => "Tab accept   Esc dismiss",
             };
-            int bodyHeight = count == 0 ? 0 : RowHeight + FooterHeight + 2 * BodyPadding;
+            int bodyHeight = 0;
+            if (showSuggestions)
+            {
+                bodyHeight = RowHeight + FooterHeight;
+            }
+            if (showDetails)
+            {
+                bodyHeight = Math.Max(bodyHeight, DetailsHeight);
+            }
+            if (0 < bodyHeight)
+            {
+                bodyHeight += 2 * BodyPadding;
+            }
             int signatureHeight = _signature.childCount == 0 ? 0 : SignatureHeight;
             _signature.style.display = signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
             Panel.style.minHeight = bodyHeight + signatureHeight;

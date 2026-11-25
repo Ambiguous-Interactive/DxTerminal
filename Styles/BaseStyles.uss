@@ -134,6 +134,7 @@
 .completion-body {
     flex-direction: row;
     align-items: flex-end;
+    justify-content: flex-end;
     flex-shrink: 1;
     min-height: 0;
     padding: 0 6px;
