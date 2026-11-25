@@ -426,7 +426,7 @@
                 && start <= _caret
                 && start + length == _caret
                 && _caret - start < insertion.Length
-                && _line.AsSpan(start, _caret - start).Equals(insertion.AsSpan(0, _caret - start), StringComparison.OrdinalIgnoreCase)
+                && _line.AsSpan(start, _caret - start).Equals(insertion.AsSpan(0, _caret - start), StringComparison.Ordinal)
             )
             {
                 _ghost = insertion.Substring(_caret - start);

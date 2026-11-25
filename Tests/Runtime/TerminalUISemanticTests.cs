@@ -371,12 +371,24 @@
             Assert.That(_terminal.TryCompletionKey(KeyCode.Escape), Is.True);
             Assert.That(_terminal.TryCompletionKey(KeyCode.DownArrow), Is.False);
 
+            yield return SetInputText("zpspawn ");
+            yield return SetInputCaret(8);
+            yield return WaitForHintCount(3);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "goblin", "A trailing space opens the next argument");
+
             yield return SetInputText("zpspawn g");
             yield return SetInputCaret(9);
             yield return WaitForHintCount(3);
             Assert.That(_terminal._commandInput.Q<Label>("CommandInputHighlight").text, Does.Contain("oblin"));
             Assert.That(_terminal.TryCompletionKey(KeyCode.RightArrow), Is.True);
             yield return WaitForInputText("zpspawn goblin", "Right accepts the next word");
+
+            yield return SetInputText("zpspawn G");
+            yield return SetInputCaret(9);
+            yield return WaitForHintCount(3);
+            Assert.That(_terminal.TryCompletionKey(KeyCode.RightArrow), Is.False, "A suffix alone cannot correct the typed case");
+            Assert.That(_terminal.TryCompletionKey(KeyCode.Tab), Is.True);
+            yield return WaitForInputText("zpspawn goblin", "Tab applies the case-sensitive choice");
 
             yield return SetInputText("zpspawn g trailing");
             yield return SetInputCaret(9);

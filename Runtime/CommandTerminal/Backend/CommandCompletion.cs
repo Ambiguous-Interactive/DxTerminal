@@ -39,7 +39,7 @@
         public string EffectiveDisplayLabel => DisplayLabel ?? InsertionText;
 
         public CommandCompletion(string insertionText, string displayLabel = null, string description = null, CommandCompletionReplacement? replacement = null)
-            : this(insertionText, displayLabel, description, replacement, hint: null) { }
+            : this(insertionText ?? throw new ArgumentNullException(nameof(insertionText)), displayLabel, description, replacement, hint: null) { }
 
         public CommandCompletion(string insertionText, string displayLabel, string description, CommandCompletionReplacement? replacement, string hint)
         {

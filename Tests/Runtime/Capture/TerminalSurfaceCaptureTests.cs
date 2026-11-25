@@ -1273,15 +1273,29 @@
             TextField field = _terminal._commandInput;
             TextSelectionFixture.PrepareCaret(field);
             ListView list = _terminal.CompletionList;
+            string token = query[(query.LastIndexOf(' ') + 1)..];
+            bool HasVisibleMatch()
+            {
+                VisualElement row = list.Q(className: "autocomplete-item-selected");
+                Label label = row?.Q<Label>("CompletionName");
+                ScrollView scroll = list.Q<ScrollView>();
+                return list.resolvedStyle.display == DisplayStyle.Flex
+                    && label != null
+                    && scroll != null
+                    && 0f < label.worldBound.width
+                    && scroll.contentViewport.worldBound.Contains(label.worldBound.center)
+                    && label.text.Contains(token, StringComparison.OrdinalIgnoreCase);
+            }
+
             int frameBudget = FrameBudget;
-            while (0 < frameBudget-- && (field.cursorIndex != query.Length || list.Q<Label>("CompletionName") == null))
+            while (0 < frameBudget-- && (field.cursorIndex != query.Length || !HasVisibleMatch()))
             {
                 field.SelectRange(query.Length, query.Length);
                 yield return null;
             }
 
             Assert.That(field.cursorIndex, Is.EqualTo(query.Length));
-            Assert.That(list.Q<Label>("CompletionName"), Is.Not.Null, $"Visible rows for '{query}'");
+            Assert.That(HasVisibleMatch(), Is.True, $"A visible selected row matches '{query}'");
         }
 
         private IEnumerator WaitForLogScrollSettled()
