@@ -13,11 +13,19 @@
     {
         private const int RowHeight = 24;
         private const int VisibleRows = 6;
+        private const int FooterHeight = 16;
+        private const int BodyPadding = 3;
+        private const int SignatureHeight = 30;
 
         private static readonly CustomStyleProperty<Color> AccentSoft = new("--dxt-accent-soft");
         private static readonly Comparison<Row> CompareRows = CompareRank;
 
         internal VisualElement Panel { get; }
+
+        internal float MinimumHeight
+        {
+            get { return Panel.style.minHeight.value.value; }
+        }
 
         internal ListView List
         {
@@ -102,17 +110,22 @@
             _list.itemsSource = _rows;
             _list.AddToClassList("autocomplete-popup");
             _keys = MakeLabel("CompletionKeys", "completion-keys");
+            _keys.style.height = FooterHeight;
+            _keys.style.flexShrink = 0f;
             VisualElement suggestions = new();
             suggestions.AddToClassList("completion-suggestions");
             suggestions.Add(_list);
             suggestions.Add(_keys);
             _body = new VisualElement();
             _body.AddToClassList("completion-body");
+            _body.style.paddingTop = BodyPadding;
+            _body.style.paddingBottom = BodyPadding;
             _body.Add(suggestions);
             _body.Add(_details);
             Panel.Add(_body);
             _signature = new VisualElement { name = "CommandSignature" };
             _signature.AddToClassList("completion-signature");
+            _signature.style.height = SignatureHeight;
             Panel.Add(_signature);
             parent.Add(Panel);
             Panel.style.display = DisplayStyle.None;
@@ -145,6 +158,7 @@
                 if (_shell != null)
                 {
                     Panel.style.display = DisplayStyle.None;
+                    Panel.style.minHeight = 0f;
                     _rows.Clear();
                     _ghost = null;
                     _shell = null;
@@ -469,7 +483,11 @@
                 (false, true) => "Tab accept   → accept word   Esc dismiss",
                 _ => "Tab accept   Esc dismiss",
             };
-            Panel.style.display = count != 0 || _signature.childCount != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            int bodyHeight = count == 0 ? 0 : RowHeight + FooterHeight + 2 * BodyPadding;
+            int signatureHeight = _signature.childCount == 0 ? 0 : SignatureHeight;
+            _signature.style.display = signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            Panel.style.minHeight = bodyHeight + signatureHeight;
+            Panel.style.display = bodyHeight + signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _list.RefreshItems();
         }
 

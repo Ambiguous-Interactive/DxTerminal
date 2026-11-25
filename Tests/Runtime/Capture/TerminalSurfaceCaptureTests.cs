@@ -405,6 +405,9 @@
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesCompletionHintsSurface), CaptureBounds.Default());
             AssertAcceptable(_lastOutcome);
+            Label keys = _terminal._uiDocument.rootVisualElement.Q<Label>("CompletionKeys");
+            Assert.That(keys.worldBound.height, Is.GreaterThan(0f));
+            Assert.That(keys.worldBound.yMax, Is.LessThanOrEqualTo(_terminal._commandInput.worldBound.yMin + 1f));
         }
 
 #if UNITY_EDITOR

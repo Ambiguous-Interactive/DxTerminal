@@ -136,7 +136,7 @@
     align-items: flex-end;
     flex-shrink: 1;
     min-height: 0;
-    padding: 3px 6px;
+    padding: 0 6px;
 }
 
 .completion-suggestions {
@@ -185,7 +185,6 @@
 }
 
 .completion-signature {
-    height: 30px;
     padding: 0 6px;
     overflow: hidden;
     flex-shrink: 0;
@@ -328,6 +327,13 @@
     height: 24px;
 }
 
+.completion-row > .unity-label {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    -unity-text-align: middle-left;
+}
+
 .completion-name,
 .completion-description,
 .completion-hint {
@@ -347,7 +353,7 @@
     min-width: 0;
 }
 
-.completion-hint {
+.completion-row > .completion-hint {
     flex-shrink: 0;
     max-width: 32%;
     -unity-text-align: middle-right;

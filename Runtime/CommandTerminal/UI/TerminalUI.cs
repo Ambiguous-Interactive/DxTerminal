@@ -2427,6 +2427,16 @@
                 }
                 smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, minimumHeight));
             }
+            float popupHeight = _completionView?.MinimumHeight ?? 0f;
+            if (0f < popupHeight && _logScrollView != null && _inputContainer != null)
+            {
+                float fit = _logScrollView.layout.y + popupHeight + _inputContainer.layout.height;
+                if (float.IsFinite(fit))
+                {
+                    smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, fit));
+                }
+            }
+
             float oldTargetHeight = _targetWindowHeight;
             try
             {
@@ -3994,7 +4004,7 @@
 
             if (TryGetComponent(out TerminalKeyboardController keyboard) && keyboard.isActiveAndEnabled)
             {
-                return keyboard.UsesCompletionBinding(key) && (key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true);
+                return keyboard.UsesCompletionBinding(key) ? key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true : TryCompletionKey(key);
             }
 
 #if ENABLE_INPUT_SYSTEM
