@@ -23,15 +23,16 @@ const exporterHref = pathToFileURL(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "release", "export-unitypackage.mjs")
 ).href;
 
-/*
-    Roots persist under the OS temp directory (see persistentFixturePackage)
-    so warm runs answer from the exporter's disk caches instead of spawning
-    `npm pack` and rebuilding the archive. The read-only tests share one
-    canonical root; the edit test mutates a variant root so the canonical
-    bytes and their cache entries stay untouched.
- */
+// Read-only exports can reuse the same cache across test processes.
 const canonicalPackage = () => persistentFixturePackage({ name: "cache.pkg", version: "0.2.0" });
-const mutablePackage = () => persistentFixturePackage({ name: "cache.pkg", version: "0.2.0", variant: "edits" });
+
+function mutablePackage(context) {
+  const options = { name: "cache.pkg", version: "0.2.0", variant: crypto.randomUUID() };
+  const materialize = () => persistentFixturePackage(options);
+  const root = materialize();
+  context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  return { root, materialize };
+}
 
 test("the cached export carries the packaged tree", () => {
   const packageRoot = canonicalPackage();
@@ -51,7 +52,7 @@ test("the entry sits under the recomputable key and answers byte-identically", (
   assert.strictEqual(fs.readFileSync(entry).equals(guarded.buffer), true);
 });
 
-test("a packaged edit re-exports; an excluded edit does not", async () => {
+test("a packaged edit re-exports; an excluded edit does not", async (context) => {
   /*
       The key memoizes per process, so the invalidation classes are tested
       across fresh module instances - a URL fragment makes a distinct module
@@ -62,7 +63,7 @@ test("a packaged edit re-exports; an excluded edit does not", async () => {
       identity the second assert fails loudly instead of passing vacuously.
    */
   const first = await import(exporterHref);
-  const packageRoot = mutablePackage();
+  const { root: packageRoot } = mutablePackage(context);
   const beforeKey = first.artifactCacheKey(packageRoot);
   const before = first.exportUnityPackage({ packageRoot, out: "", cache: true });
 
@@ -85,19 +86,9 @@ test("a packaged edit re-exports; an excluded edit does not", async () => {
   assert.strictEqual(third.artifactCacheKey(packageRoot), stableKey, "an excluded edit must not move the key");
   const stable = third.exportUnityPackage({ packageRoot, out: "", cache: true });
   assert.strictEqual(stable.buffer.equals(afterEdit.buffer), true, "the answer is unchanged");
-
-  /*
-      Leave the variant root's packaged bytes canonical so a later run's
-      materialization is a no-op. The restore still bumps the restored
-      files' mtimes, so that run's before-edit export re-keys and pays one
-      `npm pack` - the win over master is that the edit-adjacent excluded
-      edit and every canonical-root export stay cache hits.
-   */
-  fs.writeFileSync(path.join(packageRoot, "Runtime", "Foo.cs"), "// foo\n");
-  fs.writeFileSync(path.join(packageRoot, "Runtime", "Analyzers", "Payload.dll"), "binary payload\n");
 });
 
-test("fixture materialization never stages inside the packaged tree", () => {
+test("fixture materialization never stages inside the packaged tree", (context) => {
   /*
       The materializer rewrites via rename-into-place; the staging file must
       live outside the `files` allowlist (under .artifacts/) because a
@@ -107,9 +98,9 @@ test("fixture materialization never stages inside the packaged tree", () => {
       root minus .artifacts/) must equal the canonical set exactly - the
       same no-tmp-leak invariant the MCP config writer's tests pin.
    */
-  const packageRoot = mutablePackage();
+  const { root: packageRoot, materialize } = mutablePackage(context);
   fs.writeFileSync(path.join(packageRoot, "Runtime", "Foo.cs"), "// dirty, forces a rewrite\n");
-  persistentFixturePackage({ name: "cache.pkg", version: "0.2.0", variant: "edits" });
+  materialize();
   const present = [];
   const visit = (directory) => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -134,7 +125,7 @@ test("an entry whose bytes betray their digest is a miss, never an answer", () =
       parallel process ever reads it, so the entry the previous tests
       guard is never corrupted out from under a concurrent reader.
    */
-  const key = crypto.createHash("sha256").update("dxct-cache-probe-key").digest("hex");
+  const key = crypto.randomBytes(32).toString("hex");
   const directory = path.join(packageRoot, ".artifacts", "export-cache");
   const paths = {
     buffer: path.join(directory, `${key}.unitypackage`),
