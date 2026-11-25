@@ -471,14 +471,13 @@
             string argument = ActiveSignature(root);
             RunThroughInput("sigroute $sigwave 3");
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(partial, Is.EqualTo("sigroute"), "An incomplete selector keeps the parent signature");
-                Assert.That(exact, Is.EqualTo("sigroute wave"), "An exact selector shows the child signature at the caret");
-                Assert.That(resolved, Is.EqualTo("sigroute wave"), "The signature resolves the same variable as dispatch");
-                Assert.That(argument, Is.EqualTo("[count: int = 1]"));
-                Assert.That(dispatched, Is.EqualTo(3));
-            });
+            Assert.That(partial, Is.EqualTo("sigroute"), "An incomplete selector keeps the parent signature");
+            Assert.That(dispatched, Is.EqualTo(3));
+            Assert.That(
+                new[] { exact, resolved, argument },
+                Is.EqualTo(new[] { "sigroute wave", "sigroute wave", "[count: int = 1]" }),
+                $"Exact selector: {exact}. Variable selector: {resolved}. Active argument: {argument}."
+            );
         }
 
         [UnityTest]
