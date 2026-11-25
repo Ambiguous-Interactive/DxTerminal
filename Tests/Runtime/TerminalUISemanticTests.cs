@@ -420,6 +420,12 @@
             yield return SetInputText("spawn goblin 1 ");
             yield return SetInputCaret(15);
             yield return WaitForActiveSignature(root, "[at: Vector3 = player]");
+            VisualElement detailBody = root.Q(className: "completion-body");
+            Label argumentDescription = root.Q<Label>("CompletionArgumentDescription");
+            Assert.That(_terminal.CompletionList.itemsSource, Is.Empty);
+            Assert.That(detailBody.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Keep the active argument description visible without suggestions");
+            Assert.That(argumentDescription.text, Is.EqualTo("Spawn position"));
+            Assert.That(root.Q(className: "completion-suggestions").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
             RunThroughInput("spawn goblin 1");
             Assert.That(spawnPosition, Is.EqualTo(player));
         }
