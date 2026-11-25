@@ -60,7 +60,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             get
             {
                 string remaining = _isRemaining ? "..." : string.Empty;
-                return _required ? remaining : remaining + " = " + (_defaultValue is null ? "null" : FormatValue(_defaultValue)) + "]";
+                return _required ? remaining : remaining + " = " + (_defaultDisplay ?? (_defaultValue is null ? "null" : FormatValue(_defaultValue))) + "]";
             }
         }
 
@@ -97,6 +97,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private readonly bool _isRemaining;
         private readonly bool _hasExplicitDefault;
         private readonly T _defaultValue;
+        private readonly string _defaultDisplay;
         private readonly CommandArgParser<T> _parserOverride;
         private readonly bool _useRawInput;
         private readonly IReadOnlyList<T> _staticChoices;
@@ -150,7 +151,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Func<T, string> choiceFormatter = null,
             bool useRawInput = false,
             string rangeText = null,
-            Func<T, string> choiceHint = null
+            Func<T, string> choiceHint = null,
+            string defaultDisplay = null
         )
             : base(name, GetTypeName(typeof(T)))
         {
@@ -158,6 +160,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             _isRemaining = isRemaining;
             _hasExplicitDefault = hasExplicitDefault;
             _defaultValue = defaultValue;
+            _defaultDisplay = defaultDisplay;
             _parserOverride = parserOverride;
             _useRawInput = useRawInput;
 
@@ -250,7 +253,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 _choiceFormatter,
                 _useRawInput,
                 _rangeText,
-                hint
+                hint,
+                _defaultDisplay
             );
         }
 
@@ -272,7 +276,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: _choiceFormatter,
                 useRawInput: _useRawInput,
                 rangeText: _rangeText,
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -283,6 +288,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         ///     argument mandatory again and leaves the default unused.
         /// </summary>
         public CommandArgumentSpec<T> Default(T value)
+        {
+            return Default(value, null);
+        }
+
+        /// <summary>Sets an optional argument default and its display text in the signature.</summary>
+        public CommandArgumentSpec<T> Default(T value, string displayText)
         {
             return new CommandArgumentSpec<T>(
                 Name,
@@ -299,7 +310,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: _choiceFormatter,
                 useRawInput: _useRawInput,
                 rangeText: _rangeText,
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: displayText
             );
         }
 
@@ -321,7 +333,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: _choiceFormatter,
                 useRawInput: _useRawInput,
                 rangeText: _rangeText,
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -359,7 +372,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: _choiceFormatter,
                 useRawInput: _useRawInput,
                 rangeText: _rangeText,
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -403,7 +417,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: formatter,
                 useRawInput: _useRawInput,
                 rangeText: _rangeText,
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -515,7 +530,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: _choiceFormatter,
                 useRawInput: _useRawInput,
                 rangeText: $" {FormatValue(min)}–{FormatValue(max)}",
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -546,7 +562,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: _choiceFormatter,
                 useRawInput: _useRawInput,
                 rangeText: _rangeText,
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -761,7 +778,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 choiceFormatter: _choiceFormatter,
                 useRawInput: useRawInput,
                 rangeText: _rangeText,
-                choiceHint: _choiceHint
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 

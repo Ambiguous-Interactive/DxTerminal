@@ -415,6 +415,7 @@
             _terminal.SetState(TerminalState.OpenFull);
             yield return WaitForTerminalInputVisible();
 
+            Vector3 player = Vector3.zero;
             CommandBuilder spawn = CommandBuilder
                 .Create("spawn", "Spawns enemies at a point")
                 .Group("Combat")
@@ -437,7 +438,10 @@
                 {
                     return spec.Range(1, 50).Default(1);
                 })
-                .Arg<Vector3>("at")
+                .Arg<Vector3>("at", spec =>
+                {
+                    return spec.Default(player, nameof(player));
+                })
                 .Handler((_, _) => { });
             Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
             _terminal._commandInput.value = "spawn g";

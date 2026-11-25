@@ -361,6 +361,7 @@
         public IEnumerator SpawnCompletionShowsCommandChoicesGhostAndActiveArgument()
         {
             yield return SpawnOpenTerminal();
+            Vector3 player = Vector3.zero;
             Assert.That(
                 Terminal.Shell.AddCommand(
                     CommandBuilder
@@ -373,7 +374,10 @@
                         {
                             return spec.Range(1, 50).Default(1);
                         })
-                        .Arg<Vector3>("at")
+                        .Arg<Vector3>("at", spec =>
+                        {
+                            return spec.Default(player, nameof(player)).Describe("Spawn position");
+                        })
                         .Handler((_, _) => { }),
                     out _
                 ),
@@ -397,6 +401,10 @@
             yield return SetInputCaret(14);
             yield return WaitForActiveSignature(root, "[count: int 1–50 = 1]");
             Assert.That(root.Q<Label>("SignatureDescription").text, Is.EqualTo("Spawns enemies at a point"));
+
+            yield return SetInputText("spawn goblin 1 ");
+            yield return SetInputCaret(15);
+            yield return WaitForActiveSignature(root, "[at: Vector3 = player]");
         }
 
         [UnityTest]
