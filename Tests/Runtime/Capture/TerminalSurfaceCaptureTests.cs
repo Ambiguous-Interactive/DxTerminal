@@ -95,6 +95,8 @@
         private const string DarkScenarioName = "CapturesDarkThemeSurface";
 
         private const string CompletionQuery = "capture-a";
+        private const int ArgumentCaptureWidth = 960;
+        private const int ArgumentCaptureHeight = 480;
         private const string LongNameQuery = "capture-long-command";
         private const string PaletteQuery = "capture";
         private const string PaletteEmptyQuery = "zzz-matches-nothing";
@@ -430,7 +432,7 @@
             _terminal._commandInput.value = "spawn g";
             yield return WaitForCompletionHints("spawn g");
             _terminal.SetCursorBlinkPaused(true);
-            yield return CaptureSurface(nameof(CapturesArgumentCompletionSurface), CaptureBounds.Default());
+            yield return CaptureSurface(nameof(CapturesArgumentCompletionSurface), CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
             AssertAcceptable(_lastOutcome);
         }
 #endif
