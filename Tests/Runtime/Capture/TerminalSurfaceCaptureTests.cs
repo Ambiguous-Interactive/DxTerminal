@@ -308,7 +308,10 @@
         [UnityTest]
         public IEnumerator CapturesHighlightedCommandInput()
         {
-            yield return SpawnCalibratedTerminal(TerminalState.OpenSmall, fontPackPath: "Packs/Fonts/JetBrains Mono.asset");
+            yield return SpawnTerminal(fontPackPath: "Packs/Fonts/JetBrains Mono.asset", useEditorDefaults: true);
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return WaitForTerminalInputVisible();
+            yield return WaitForTheme("Dx Dark");
             CommandBuilder example = CommandBuilder.Create("syntax-capture").Arg<int>("number").Arg<string>("text").Arg<bool>("enabled").Handler((_, _) => { });
             Assert.That(Terminal.Shell.AddCommand(example, out _), Is.True);
             Terminal.Log("Command input highlighting");
@@ -318,6 +321,7 @@
             TextField field = _terminal._commandInput;
             Label overlay = field.Q<Label>("CommandInputHighlight");
             Assert.That(overlay, Is.Not.Null);
+            field.style.fontSize = 15;
             field.value = input;
             field.Focus();
             _terminal.SetCursorBlinkPaused(true);
@@ -335,7 +339,11 @@
 
                 Assert.That(field.cursorIndex, Is.EqualTo(caret));
                 Assert.That(overlay.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                VisualElement root = _terminal._uiDocument.rootVisualElement.Q("TerminalRoot");
+                Assert.That(root.customStyle.TryGetValue(new CustomStyleProperty<Color>("--dxt-syn-number"), out Color number), Is.True);
+                Assert.That(overlay.text, Does.Contain($"<color=#{ColorUtility.ToHtmlStringRGBA(number)}>24</color>"));
                 VisualElement nativeText = overlay.parent;
+                Assert.That(nativeText.resolvedStyle.fontSize, Is.EqualTo(15));
                 Assert.That(nativeText.resolvedStyle.color.a, Is.Zero);
                 Assert.That(field.focusController.focusedElement, Is.SameAs(field).Or.SameAs(nativeText).Or.SameAs(_terminal._textInput));
 

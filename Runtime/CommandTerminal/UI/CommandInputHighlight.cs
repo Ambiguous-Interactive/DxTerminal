@@ -12,6 +12,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
     using CommandSyntaxSpan = Backend.CommandSyntaxClassifier.CommandSyntaxSpan;
 #if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
     using UnityEngine.InputSystem;
+    using UnityEngine.InputSystem.LowLevel;
 #endif
 
     internal sealed class CommandInputHighlight
