@@ -303,7 +303,7 @@
             yield return WaitForSelectedHint(list, query + "7", "Selection scrolls to the eighth result", requireVisible: true);
             VisualElement row = list.Q<VisualElement>(className: "autocomplete-item-selected");
             Assert.That(row.Q<Label>("CompletionDescription").text, Is.EqualTo("Description 7"));
-            Assert.That(row.Q<Label>("CompletionGroup").text, Is.EqualTo("Example"));
+            Assert.That(row.Q<Label>("CompletionHint").text, Is.EqualTo("Example"));
             Assert.That(row.Q<Label>("CompletionName").text, Does.Contain("<u>" + query + "</u>"));
         }
 

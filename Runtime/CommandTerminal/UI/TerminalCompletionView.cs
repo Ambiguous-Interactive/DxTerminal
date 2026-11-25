@@ -114,7 +114,7 @@
             return label;
         }
 
-        internal void Refresh(CommandShell shell, string line, int caret, HintDisplayMode mode, bool clickable, bool previewAllowed, List<string> prefixCandidates)
+        internal void Refresh(CommandShell shell, string line, int? fieldCaret, HintDisplayMode mode, bool clickable, bool previewAllowed, List<string> prefixCandidates)
         {
             if (shell == null || mode is not (HintDisplayMode.Always or HintDisplayMode.AutoCompleteOnly))
             {
@@ -130,8 +130,9 @@
                 return;
             }
 
-            caret = line.SnapToTextBoundary(caret);
-            bool sameInput = string.Equals(line, _line, StringComparison.Ordinal) && caret == _caret;
+            bool sameLine = string.Equals(line, _line, StringComparison.Ordinal);
+            int caret = line.SnapToTextBoundary(fieldCaret ?? (sameLine ? _caret : line.Length));
+            bool sameInput = sameLine && caret == _caret;
             if (
                 sameInput
                 && ReferenceEquals(shell, _shell)
@@ -252,6 +253,7 @@
         private void AppendMatch(StringBuilder builder, string text)
         {
             int match = 0;
+            bool insideMatch = false;
             for (int index = 0; index < text.Length; )
             {
                 int width = char.IsSurrogatePair(text, index) ? 2 : 1;
@@ -260,15 +262,20 @@
                 if (hit)
                 {
                     match += width;
-                    builder.Append(_matchTag);
                 }
 
-                CommandInputHighlight.AppendLiteral(builder, text, index, index + width);
-                if (hit)
+                if (hit != insideMatch)
                 {
-                    builder.Append(_matchEnd);
+                    builder.Append(hit ? _matchTag : _matchEnd);
+                    insideMatch = hit;
                 }
+                CommandInputHighlight.AppendLiteral(builder, text, index, index + width);
                 index += width;
+            }
+
+            if (insideMatch)
+            {
+                builder.Append(_matchEnd);
             }
         }
 

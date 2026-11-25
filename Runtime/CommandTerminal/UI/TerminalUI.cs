@@ -4036,7 +4036,7 @@
             }
 
             string line = _input.CommandText ?? string.Empty;
-            int caret = _pendingCaretIndex ?? _commandInput.cursorIndex;
+            int? caret = _pendingCaretIndex ?? (InputOwnsFocus ? _commandInput.cursorIndex : null);
             List<string> prefixCandidates =
                 hintDisplayMode == HintDisplayMode.Always && string.Equals(line, _lastKnownCommandText, StringComparison.Ordinal) ? _lastCompletionBuffer : null;
             _completionView.Refresh(
