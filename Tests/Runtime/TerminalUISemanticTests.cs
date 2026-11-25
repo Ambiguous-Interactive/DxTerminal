@@ -956,9 +956,7 @@
             Assert.That(echoHighlight, Is.Not.Null, "Command echoes must render syntax-highlighted spans");
             Assert.That(echoHighlight.enableRichText, Is.True);
             Assert.That(echoHighlight.pickingMode, Is.EqualTo(PickingMode.Ignore));
-            Assert.That(echoHighlight.text, Does.Contain("<b>spawn</b>"));
-            Assert.That(echoHighlight.text, Does.Contain("<b>goblin</b>"));
-            Assert.That(echoHighlight.text, Does.Contain("3</color>"));
+            Assert.That(echoHighlight.text, Does.Contain("<color=#E6EDF3FF>").And.Contain("<color=#C2F5D8FF>").And.Contain("<color=#6CB6FFFF>3</color>"));
             Assert.That(RenderedName(echoHighlight), Is.EqualTo("spawn goblin 3"));
 
             TextField helpRow = (TextField)logContent[2];
@@ -972,10 +970,41 @@
             Assert.That(RenderedName(signature), Is.EqualTo("spawn prefab [count] [at]"));
             Assert.That(description.text, Does.Contain("Spawns enemies at a point.").And.Contain("Group: Combat."));
             Assert.That(arguments.childCount, Is.EqualTo(3));
-            Assert.That(arguments[0].Q<Label>("HelpCardArgType").ClassListContains("completion-type-Choice"), Is.True);
-            Assert.That(arguments[1].Q<Label>("HelpCardArgType").ClassListContains("completion-type-Number"), Is.True);
-            Assert.That(arguments[2].Q<Label>("HelpCardArgType").ClassListContains("completion-type-Number"), Is.True);
+            Label choiceType = arguments[0].Q<Label>("HelpCardArgType");
+            Label countType = arguments[1].Q<Label>("HelpCardArgType");
+            Label vectorType = arguments[2].Q<Label>("HelpCardArgType");
+            Assert.That(choiceType.ClassListContains("completion-type-Choice"), Is.True);
+            Assert.That(countType.ClassListContains("completion-type-Number"), Is.True);
+            Assert.That(vectorType.ClassListContains("completion-type-Number"), Is.True);
+            Assert.That(choiceType.resolvedStyle.color, Is.EqualTo((Color)new Color32(194, 245, 216, 255)), "Choice type must resolve to syn-choice, not muted shell ink");
+            Assert.That(countType.resolvedStyle.color, Is.EqualTo((Color)new Color32(108, 182, 255, 255)), "Numeric type must resolve to syn-number, not muted shell ink");
+            Assert.That(vectorType.resolvedStyle.color, Is.EqualTo((Color)new Color32(108, 182, 255, 255)));
             Assert.That(example.text, Does.Contain("<color=#").And.Contain("<b>spawn</b>"));
+
+            Button selectButton = card.Q<Button>("HelpCardSelectButton");
+            Assert.That(selectButton, Is.Not.Null);
+            using (NavigationSubmitEvent toggle = NavigationSubmitEvent.GetPooled())
+            {
+                toggle.target = selectButton;
+                selectButton.SendEvent(toggle);
+            }
+
+            yield return null;
+            VisualElement nativeHelpInput = helpRow.Q<VisualElement>("unity-text-input");
+            Assert.That(nativeHelpInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Plain-text toggle must reveal the selectable log text");
+            helpRow.Focus();
+            TextSelectionFixture.PrepareCaret(helpRow);
+            helpRow.SelectRange(0, 5);
+            Assert.That(helpRow.cursorIndex, Is.EqualTo(0));
+            Assert.That(helpRow.selectIndex, Is.EqualTo(5));
+            using (NavigationSubmitEvent toggleBack = NavigationSubmitEvent.GetPooled())
+            {
+                toggleBack.target = selectButton;
+                selectButton.SendEvent(toggleBack);
+            }
+
+            yield return null;
+            Assert.That(nativeHelpInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
 
             string darkEcho = echoHighlight.text;
             string darkExample = example.text;

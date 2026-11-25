@@ -306,6 +306,7 @@
         private readonly List<CommandSyntaxClassifier.CommandSyntaxSpan> _echoSpans = new();
         private VisualElement _syntaxStyleRoot;
         private long _lastSeenSyntaxPaletteVersion = -1;
+        private string _lastSeenEchoMonoTag;
 
         private TerminalState _state = TerminalState.Closed;
         private bool _isClosingForDisable;
@@ -2060,6 +2061,7 @@
             }
 
             _lastSeenSyntaxPaletteVersion = -1;
+            _lastSeenEchoMonoTag = null;
             _inputContainer = null;
             _runButton = null;
             _jumpLatestButton = null;
@@ -2863,6 +2865,7 @@
             _syntaxStyleRoot = root;
             _syntaxStyleRoot.RegisterCallback<CustomStyleResolvedEvent>(OnSyntaxStyleResolved);
             _lastSeenSyntaxPaletteVersion = -1;
+            _lastSeenEchoMonoTag = null;
             root.RegisterCallback<NavigationMoveEvent, TerminalUI>(
                 static (evt, terminal) =>
                 {
@@ -3639,7 +3642,8 @@
             VisualElement content = _logScrollView.contentContainer;
             long bufferVersion = buffer.Version;
             bool newLogs = !ReferenceEquals(_lastSeenBuffer, buffer) || _lastSeenBufferVersion != bufferVersion;
-            bool styleChanged = _lastSeenSyntaxPaletteVersion != _syntaxPalette.Version;
+            string echoMonoTag = _commandInputHighlight?.MonoTag;
+            bool styleChanged = _lastSeenSyntaxPaletteVersion != _syntaxPalette.Version || !string.Equals(_lastSeenEchoMonoTag, echoMonoTag, StringComparison.Ordinal);
             bool dirty = newLogs || styleChanged || _lastSeenFilterGeneration != _logFilter.Generation || _lastSeenCollapse != _collapseLogs;
 
             /*
@@ -3728,7 +3732,7 @@
 
                     if (sequenceChanged || styleChanged)
                     {
-                        ApplyLogRichContent(logText, logItem);
+                        ApplyLogRichContent(logText, logItem, echoMonoTag);
                     }
                 }
 
@@ -3740,6 +3744,7 @@
                     _lastSeenFilterGeneration = _logFilter.Generation;
                     _lastSeenCollapse = _collapseLogs;
                     _lastSeenSyntaxPaletteVersion = _syntaxPalette.Version;
+                    _lastSeenEchoMonoTag = echoMonoTag;
                 }
             }
 
@@ -4374,7 +4379,7 @@
             _syntaxPalette.Apply(evt.customStyle);
         }
 
-        private void ApplyLogRichContent(LogTextField logText, LogItem logItem)
+        private void ApplyLogRichContent(LogTextField logText, LogItem logItem, string echoMonoTag)
         {
             if (logItem.HelpCard != null)
             {
@@ -4385,7 +4390,7 @@
             if (logItem.type == TerminalLogType.Input && Terminal.Shell is CommandShell shell && !string.IsNullOrEmpty(logItem.message))
             {
                 _echoClassifier.Classify(logItem.message, shell, _echoSpans);
-                string richText = _syntaxPalette.FormatLine(logItem.message, _echoSpans);
+                string richText = _syntaxPalette.FormatEchoLine(logItem.message, _echoSpans, echoMonoTag);
                 logText.SetEchoHighlight(richText, _syntaxPalette.Ink);
                 return;
             }
@@ -4404,10 +4409,13 @@
             private VisualElement _nativeText;
             private Label _echoHighlight;
             private VisualElement _helpCardRoot;
+            private VisualElement _helpCardBody;
             private Label _helpSignature;
+            private Button _helpSelectButton;
             private Label _helpDescription;
             private VisualElement _helpArguments;
             private Label _helpExample;
+            private bool _helpPlainTextMode;
 
             public LogTextField()
             {
@@ -4490,12 +4498,9 @@
             {
                 ClearRichContent();
                 EnsureTextInputReferences();
-                if (_textInputContainer != null)
-                {
-                    _textInputContainer.style.display = DisplayStyle.None;
-                }
-
                 EnsureHelpCardView();
+                _helpPlainTextMode = false;
+                ApplyHelpCardSelectionMode();
                 AddToClassList("terminal-output-label--help-card");
                 _helpCardRoot.style.display = DisplayStyle.Flex;
                 ((INotifyValueChanged<string>)_helpSignature).SetValueWithoutNotify(palette.FormatHelpSignature(card));
@@ -4539,6 +4544,7 @@
 
             public void ClearRichContent()
             {
+                _helpPlainTextMode = false;
                 if (_echoHighlight != null)
                 {
                     _echoHighlight.style.display = DisplayStyle.None;
@@ -4551,6 +4557,7 @@
 
                 if (_helpCardRoot != null)
                 {
+                    _helpCardRoot.RemoveFromClassList("terminal-help-card--plain-text");
                     _helpCardRoot.style.display = DisplayStyle.None;
                 }
 
@@ -4582,18 +4589,65 @@
                     return;
                 }
 
-                _helpCardRoot = new VisualElement { name = "CommandHelpCard", pickingMode = PickingMode.Ignore };
+                _helpCardRoot = new VisualElement { name = "CommandHelpCard" };
                 _helpCardRoot.AddToClassList("terminal-help-card");
+                VisualElement header = new();
+                header.AddToClassList("terminal-help-header");
                 _helpSignature = CreateCardLabel("HelpCardSignature", "terminal-help-signature", richText: true);
+                _helpSelectButton = new Button(ToggleHelpCardSelectionMode) { name = "HelpCardSelectButton", text = "Select text" };
+                _helpSelectButton.AddToClassList("terminal-button");
+                _helpSelectButton.AddToClassList("terminal-help-select-button");
+                header.Add(_helpSignature);
+                header.Add(_helpSelectButton);
+                _helpCardBody = new VisualElement { name = "HelpCardBody", pickingMode = PickingMode.Ignore };
                 _helpDescription = CreateCardLabel("HelpCardDescription", "terminal-help-description", richText: false);
                 _helpArguments = new VisualElement { name = "HelpCardArguments", pickingMode = PickingMode.Ignore };
                 _helpArguments.AddToClassList("terminal-help-arguments");
                 _helpExample = CreateCardLabel("HelpCardExample", "terminal-help-example", richText: true);
-                _helpCardRoot.Add(_helpSignature);
-                _helpCardRoot.Add(_helpDescription);
-                _helpCardRoot.Add(_helpArguments);
-                _helpCardRoot.Add(_helpExample);
+                _helpCardBody.Add(_helpDescription);
+                _helpCardBody.Add(_helpArguments);
+                _helpCardBody.Add(_helpExample);
+                _helpCardRoot.Add(header);
+                _helpCardRoot.Add(_helpCardBody);
                 Add(_helpCardRoot);
+            }
+
+            private void ToggleHelpCardSelectionMode()
+            {
+                _helpPlainTextMode = !_helpPlainTextMode;
+                ApplyHelpCardSelectionMode();
+                if (_helpPlainTextMode)
+                {
+                    Focus();
+                }
+            }
+
+            private void ApplyHelpCardSelectionMode()
+            {
+                if (_textInputContainer != null)
+                {
+                    _textInputContainer.style.display = _helpPlainTextMode ? StyleKeyword.Null : DisplayStyle.None;
+                }
+
+                if (_helpCardRoot != null)
+                {
+                    _helpCardRoot.EnableInClassList("terminal-help-card--plain-text", _helpPlainTextMode);
+                }
+
+                if (_helpSignature != null)
+                {
+                    _helpSignature.style.display = _helpPlainTextMode ? DisplayStyle.None : DisplayStyle.Flex;
+                }
+
+                if (_helpCardBody != null)
+                {
+                    _helpCardBody.style.display = _helpPlainTextMode ? DisplayStyle.None : DisplayStyle.Flex;
+                }
+
+                if (_helpSelectButton != null)
+                {
+                    _helpSelectButton.text = _helpPlainTextMode ? "Card view" : "Select text";
+                }
             }
         }
 

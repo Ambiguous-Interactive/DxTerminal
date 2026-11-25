@@ -590,6 +590,65 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(Run("help does-not-exist"), Is.EqualTo("Command does-not-exist could not be found."));
         }
 
+        [Test]
+        public void HelpCommandGeneratedExamplesValidateChoicesQuoteVariablesAndOmitUnquotableValues()
+        {
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("choose-ranged")
+                        .Arg<int>("level", spec =>
+                        {
+                            return spec.Required().Choices(1, 2).Range(2, 3);
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("dollar-choice")
+                        .Arg<string>("tag", spec =>
+                        {
+                            return spec.Required().Choices("$literal");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("unquotable")
+                        .Arg<string>("text", spec =>
+                        {
+                            return spec.Default("a'b\" c");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            Assert.That(Run("help choose-ranged"), Is.Null);
+            CommandHelpCard rangedCard = Newest(1)[0].HelpCard;
+            Assert.That(rangedCard.ExampleLine, Is.EqualTo("choose-ranged 2"));
+
+            Assert.That(Run("help dollar-choice"), Is.Null);
+            CommandHelpCard dollarCard = Newest(1)[0].HelpCard;
+            Assert.That(dollarCard.ExampleLine, Is.EqualTo("dollar-choice \"$literal\""));
+            Assert.That(dollarCard.ExampleSpans[1].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Punctuation));
+            Assert.That(dollarCard.ExampleSpans[2].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Choice));
+
+            Assert.That(Run("help unquotable"), Is.Null);
+            CommandHelpCard unquotableCard = Newest(1)[0].HelpCard;
+            Assert.That(unquotableCard.ExampleLine, Is.Null);
+            Assert.That(unquotableCard.PlainText, Does.Not.Contain("e.g."));
+        }
+
         /*
             Runs a copy command through `Run` and gates the clipboard read on
             the product's own verdict. `TryWrite`'s true answer is a read-back

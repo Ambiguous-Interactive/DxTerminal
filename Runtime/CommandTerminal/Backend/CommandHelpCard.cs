@@ -11,6 +11,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     internal sealed class CommandHelpCard
     {
         private const int MaxRouterExampleDepth = 4;
+        private const int InitialSignatureCapacity = 64;
+        private const int InitialDescriptionCapacity = 128;
+        private const int InitialPlainTextCapacity = 256;
+        private const int AverageArgumentTokenCapacity = 12;
 
         internal string CommandName { get; }
         internal string SignaturePlainText { get; }
@@ -138,16 +142,18 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private static string FormatSignaturePlainText(SignaturePart[] parts)
         {
-            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(64);
+            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(InitialSignatureCapacity);
             StringBuilder builder = scope.Builder;
-            for (int i = 0; i < parts.Length; ++i)
+            bool first = true;
+            foreach (SignaturePart part in parts)
             {
-                if (0 < i)
+                if (!first)
                 {
                     builder.Append(' ');
                 }
 
-                builder.Append(parts[i].Text);
+                builder.Append(part.Text);
+                first = false;
             }
 
             return builder.ToString();
@@ -155,7 +161,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private static string BuildDescriptionLine(string canonicalName, CommandInfo info)
         {
-            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(128);
+            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(InitialDescriptionCapacity);
             StringBuilder builder = scope.Builder;
             string description = string.IsNullOrWhiteSpace(info.help) ? $"{canonicalName} does not provide any help documentation." : info.help.Trim();
             builder.Append(description);
@@ -248,12 +254,17 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return route.FullPath;
             }
 
-            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(route.FullPath.Length + (specs.Length * 12));
+            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(route.FullPath.Length + (specs.Length * AverageArgumentTokenCapacity));
             StringBuilder builder = scope.Builder;
             builder.Append(route.FullPath);
-            for (int i = 0; i < specs.Length; ++i)
+            foreach (CommandArgument spec in specs)
             {
-                builder.Append(' ').Append(specs[i].GetExampleToken());
+                if (!spec.TryGetExampleToken(out string token))
+                {
+                    return null;
+                }
+
+                builder.Append(' ').Append(token);
             }
 
             return builder.ToString();
@@ -274,22 +285,21 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private static string BuildPlainText(string signaturePlainText, string descriptionLine, ArgumentRow[] arguments, string exampleLine)
         {
-            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(256);
+            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(InitialPlainTextCapacity);
             StringBuilder builder = scope.Builder;
             builder.Append(signaturePlainText).Append('\n').Append(descriptionLine);
             if (0 < arguments.Length)
             {
                 int maxName = 0;
                 int maxType = 0;
-                for (int i = 0; i < arguments.Length; ++i)
+                foreach (ArgumentRow row in arguments)
                 {
-                    maxName = Math.Max(maxName, arguments[i].Name.Length);
-                    maxType = Math.Max(maxType, arguments[i].TypeText.Length);
+                    maxName = Math.Max(maxName, row.Name.Length);
+                    maxType = Math.Max(maxType, row.TypeText.Length);
                 }
 
-                for (int i = 0; i < arguments.Length; ++i)
+                foreach (ArgumentRow row in arguments)
                 {
-                    ArgumentRow row = arguments[i];
                     builder.Append('\n').Append(row.Name).Append(' ', maxName - row.Name.Length + 2).Append(row.TypeText);
                     if (!string.IsNullOrEmpty(row.RequirementText))
                     {

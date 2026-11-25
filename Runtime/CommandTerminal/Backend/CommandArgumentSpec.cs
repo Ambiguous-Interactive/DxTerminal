@@ -258,10 +258,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return texts;
         }
 
-        private static string FormatExampleValue(T value)
+        private static bool TryFormatExampleValue(T value, out string token)
         {
             CultureInfo inv = CultureInfo.InvariantCulture;
-            return value switch
+            string raw = value switch
             {
                 Vector2 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)})",
                 Vector3 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)})",
@@ -269,30 +269,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 Vector2Int v => $"({v.x.ToString(inv)},{v.y.ToString(inv)})",
                 Vector3Int v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)})",
                 Color c => $"({c.r.ToString(inv)},{c.g.ToString(inv)},{c.b.ToString(inv)},{c.a.ToString(inv)})",
-                _ => QuoteExampleToken(FormatValue(value)),
+                _ => FormatValue(value),
             };
-        }
-
-        private static string QuoteExampleToken(string token)
-        {
-            if (string.IsNullOrEmpty(token))
-            {
-                return "\"\"";
-            }
-
-            bool needsQuote = CommandArg.Quotes.Contains(token[0]);
-            for (int i = 0; !needsQuote && i < token.Length; ++i)
-            {
-                needsQuote = CommandTokenizer.IsSeparator(token[i]);
-            }
-
-            if (!needsQuote)
-            {
-                return token;
-            }
-
-            char quote = 0 <= token.IndexOf('"') ? '\'' : '"';
-            return string.Concat(quote, token, quote);
+            return CommandTokenizer.TrySerializeValue(raw, out token, out _);
         }
 
         private static string FormatTypeExample(string argumentName)
@@ -324,7 +303,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return "(0,0,0,0)";
             }
 
-            return type == typeof(Color) ? "white" : (TypeSyntaxRole == CommandSyntaxRole.Number ? "1" : QuoteExampleToken(argumentName));
+            return type == typeof(Color) ? "white" : (TypeSyntaxRole == CommandSyntaxRole.Number ? "1" : argumentName);
         }
 
         /// <summary>Shows a short hint beside each matching choice.</summary>
@@ -815,16 +794,34 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             builder.Append(_required ? '>' : ']');
         }
 
-        internal override string GetExampleToken()
+        internal override bool TryGetExampleToken(out string token)
         {
-            if (_staticChoiceTexts != null && 0 < _staticChoiceTexts.Length)
+            if (_staticChoices != null)
             {
-                return QuoteExampleToken(_staticChoiceTexts[0]);
+                int choiceCount = _staticChoices.Count;
+                for (int i = 0; i < choiceCount; ++i)
+                {
+                    if (ValidateValue(_staticChoices[i]) == null && CommandTokenizer.TrySerializeValue(_staticChoiceTexts[i], out string serializedChoice, out _))
+                    {
+                        token = serializedChoice;
+                        return true;
+                    }
+                }
+
+                token = null;
+                return false;
             }
 
             if (!_required && _hasExplicitDefault && _defaultValue is not null)
             {
-                return FormatExampleValue(_defaultValue);
+                if (ValidateValue(_defaultValue) == null && TryFormatExampleValue(_defaultValue, out string serializedDefault))
+                {
+                    token = serializedDefault;
+                    return true;
+                }
+
+                token = null;
+                return false;
             }
 
             if (_rangeText != null)
@@ -832,11 +829,33 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 int dashIndex = _rangeText.IndexOf('–');
                 if (1 < dashIndex)
                 {
-                    return QuoteExampleToken(_rangeText.Substring(1, dashIndex - 1));
+                    string minText = _rangeText.Substring(1, dashIndex - 1);
+                    if (
+                        CommandTokenizer.TrySerializeValue(minText, out string serializedMin, out _)
+                        && (_validator == null || (TryParseValue(new CommandArg(minText), out T parsedMin) && ValidateValue(parsedMin) == null))
+                    )
+                    {
+                        token = serializedMin;
+                        return true;
+                    }
                 }
+
+                token = null;
+                return false;
             }
 
-            return FormatTypeExample(Name);
+            string raw = FormatTypeExample(Name);
+            if (
+                CommandTokenizer.TrySerializeValue(raw, out string serialized, out _)
+                && (_validator == null || (TryParseValue(new CommandArg(raw), out T parsed) && ValidateValue(parsed) == null))
+            )
+            {
+                token = serialized;
+                return true;
+            }
+
+            token = null;
+            return false;
         }
 
         internal override void AppendCompletions(in CommandCompletionContext context, List<CommandCompletion> results)

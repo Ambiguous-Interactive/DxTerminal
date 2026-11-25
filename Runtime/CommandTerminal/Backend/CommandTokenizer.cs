@@ -275,8 +275,25 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return char.IsWhiteSpace(c);
         }
 
-        private static bool TrySerializeValue(string value, out string insertion, out bool quotedInsertion)
+        internal static bool TrySerializeValue(string value, out string insertion, out bool quotedInsertion)
         {
+            if (string.IsNullOrEmpty(value))
+            {
+                foreach (char quote in CommandArg.Quotes)
+                {
+                    if (!char.IsWhiteSpace(quote))
+                    {
+                        insertion = $"{quote}{quote}";
+                        quotedInsertion = true;
+                        return true;
+                    }
+                }
+
+                insertion = string.Empty;
+                quotedInsertion = false;
+                return false;
+            }
+
             bool requiresQuote = value[0] == '$' || CommandArg.Quotes.Contains(value[0]);
 
             /*

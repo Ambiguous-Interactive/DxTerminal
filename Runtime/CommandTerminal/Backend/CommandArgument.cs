@@ -105,7 +105,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         internal abstract void AppendUsage(StringBuilder builder);
 
-        internal abstract string GetExampleToken();
+        internal abstract bool TryGetExampleToken(out string token);
 
         internal abstract void AppendCompletions(in CommandCompletionContext context, List<CommandCompletion> results);
     }

@@ -529,6 +529,22 @@
     background-color: var(--dxt-surface-raised);
 }
 
+.terminal-help-card--plain-text {
+    flex-grow: 0;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin: 0 8px 0 0;
+    padding: 0;
+    border-width: 0;
+    background-color: transparent;
+}
+
+.terminal-help-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
 .terminal-help-signature,
 .terminal-help-description,
 .terminal-help-example {
@@ -540,6 +556,26 @@
 }
 
 .terminal-help-signature {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-bottom: 0;
+    color: var(--dxt-ink);
+}
+
+.terminal-help-select-button {
+    flex-shrink: 0;
+    margin: 0 0 0 8px;
+    padding: 1px 6px;
+    font-size: 11px;
+    border-width: 1px;
+    border-color: var(--dxt-line);
+    background-color: var(--dxt-surface);
+    color: var(--dxt-ink-muted);
+}
+
+.terminal-help-select-button:hover {
+    background-color: var(--dxt-hover);
     color: var(--dxt-ink);
 }
 
@@ -727,32 +763,37 @@
 }
 
 .terminal-output-label--message,
+.terminal-output-label--message > .unity-base-field__label,
 .terminal-output-label--message #unity-text-input,
-.terminal-output-label--message .unity-text-element {
+.terminal-output-label--message #unity-text-input .unity-text-element {
     color: var(--dxt-ink-body);
 }
 
 .terminal-output-label--warning,
+.terminal-output-label--warning > .unity-base-field__label,
 .terminal-output-label--warning #unity-text-input,
-.terminal-output-label--warning .unity-text-element {
+.terminal-output-label--warning #unity-text-input .unity-text-element {
     color: var(--dxt-warning);
 }
 
 .terminal-output-label--input,
+.terminal-output-label--input > .unity-base-field__label,
 .terminal-output-label--input #unity-text-input,
-.terminal-output-label--input .unity-text-element {
+.terminal-output-label--input #unity-text-input .unity-text-element {
     color: var(--dxt-accent-soft);
 }
 
 .terminal-output-label--shell,
+.terminal-output-label--shell > .unity-base-field__label,
 .terminal-output-label--shell #unity-text-input,
-.terminal-output-label--shell .unity-text-element {
+.terminal-output-label--shell #unity-text-input .unity-text-element {
     color: var(--dxt-ink-muted);
 }
 
 .terminal-output-label--error,
+.terminal-output-label--error > .unity-base-field__label,
 .terminal-output-label--error #unity-text-input,
-.terminal-output-label--error .unity-text-element {
+.terminal-output-label--error #unity-text-input .unity-text-element {
     color: var(--dxt-error-text);
 }
 
