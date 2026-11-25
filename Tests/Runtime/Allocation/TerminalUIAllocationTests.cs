@@ -126,57 +126,73 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 refresh();
             }
 
-            _terminal._commandInputHighlight = null;
-            yield return WarmEdits();
-            _terminal._commandInputHighlight = highlight;
-            yield return WarmEdits();
-
-            long[] controlBytes = new long[editCount];
-            long[] editBytes = new long[editCount];
-            int[] extraEvents = new int[editCount];
-            int unityLabelCopies;
-            int editWindows = 2 * editCount;
-            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(editWindows + 1, captureLargeAllocationStacks: true))
+            int unityLabelCopies = 0;
+            IEnumerator RecordEdits((long Bytes, int Events)[] samples, bool withHighlight)
             {
+                yield return WarmEdits();
+                // Complete hint hierarchy changes from the warm-up before starting this trace.
+                yield return null;
+                int sampleCount = editCount + (withHighlight ? 1 : 0);
+                using ProfilerAllocationTrace trace = new ProfilerAllocationTrace(sampleCount, captureLargeAllocationStacks: true);
                 yield return trace.WaitUntilReady();
-                _terminal._commandInputHighlight = null;
-                foreach (string edit in edits)
-                {
-                    nextEdit = edit;
-                    trace.Record(applyEdit);
-                }
-
-                field.value = string.Empty;
-                refresh();
-                _terminal._commandInputHighlight = highlight;
                 foreach (string edit in edits)
                 {
                     nextEdit = edit;
                     string previous = label.text;
                     trace.Record(applyEdit);
                     Assert.That(field.value, Is.EqualTo(edit), "The terminal must retain each edit after refresh");
-                    Assert.That(label.text, Is.Not.EqualTo(previous), "Each edit must update the renderer");
+                    if (withHighlight)
+                    {
+                        Assert.That(label.text, Is.Not.EqualTo(previous), "Each edit must update the renderer");
+                    }
                 }
 
-                // Unity 2022 adds a zero-width space by copying the string passed to the label.
-                INotifyValueChanged<string> display = label;
-                string renderedText = display.value;
-                display.SetValueWithoutNotify(string.Empty);
-                trace.Record(() =>
+                if (withHighlight)
                 {
-                    display.SetValueWithoutNotify(renderedText);
-                });
+                    // Unity 2022 adds a zero-width space by copying the string passed to the label.
+                    INotifyValueChanged<string> display = label;
+                    string renderedText = display.value;
+                    display.SetValueWithoutNotify(string.Empty);
+                    trace.Record(() =>
+                    {
+                        display.SetValueWithoutNotify(renderedText);
+                    });
+                }
 
-                yield return trace.WaitForSamples(editWindows + 1);
-                unityLabelCopies = trace.Samples[editWindows].Events;
+                yield return trace.WaitForSamples(sampleCount);
                 for (int index = 0; index < editCount; ++index)
                 {
-                    (long baseline, int baselineEvents) = trace.Samples[index];
-                    (long rendered, int renderedEvents) = trace.Samples[index + editCount];
-                    controlBytes[index] = baseline;
-                    editBytes[index] = rendered;
-                    extraEvents[index] = renderedEvents - baselineEvents;
+                    samples[index] = trace.Samples[index];
                 }
+
+                if (withHighlight)
+                {
+                    unityLabelCopies = trace.Samples[editCount].Events;
+                }
+            }
+
+            (long Bytes, int Events)[] baseline = new (long, int)[editCount];
+            (long Bytes, int Events)[] rendered = new (long, int)[editCount];
+            _terminal._commandInputHighlight = null;
+            try
+            {
+                yield return RecordEdits(baseline, withHighlight: false);
+            }
+            finally
+            {
+                _terminal._commandInputHighlight = highlight;
+            }
+
+            yield return RecordEdits(rendered, withHighlight: true);
+
+            long[] controlBytes = new long[editCount];
+            long[] editBytes = new long[editCount];
+            int[] extraEvents = new int[editCount];
+            for (int index = 0; index < editCount; ++index)
+            {
+                controlBytes[index] = baseline[index].Bytes;
+                editBytes[index] = rendered[index].Bytes;
+                extraEvents[index] = rendered[index].Events - baseline[index].Events;
             }
 
             TestContext.Out.WriteLine($"T11 control edit bytes: {string.Join(",", controlBytes)}");
