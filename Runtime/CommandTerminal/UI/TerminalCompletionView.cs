@@ -541,8 +541,22 @@
             }
 
             int routed = 1;
-            while (route is { IsRouter: true } && routed < active && route.Lookup.TryGetValue(_tokens[routed].Contents, out CommandBuilder.SubcommandRoute child))
+            while (route is { IsRouter: true } && routed <= active && routed < _tokens.Count)
             {
+                CommandToken selector = _tokens[routed];
+                if (routed == active && _caret < selector.End)
+                {
+                    break;
+                }
+
+                if (
+                    !_shell.TryResolveToken(selector, selector.GetVariableName(), out CommandArg resolved)
+                    || !route.Lookup.TryGetValue(resolved.contents ?? string.Empty, out CommandBuilder.SubcommandRoute child)
+                )
+                {
+                    break;
+                }
+
                 route = child;
                 ++routed;
             }
