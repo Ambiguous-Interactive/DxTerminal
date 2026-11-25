@@ -610,6 +610,31 @@
             _terminal.RefreshUI();
             yield return null;
             Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "A live validator failing again restores the inline error");
+
+            Assert.That(Terminal.Shell.AddCommand(CommandBuilder.Create("editonly").Contexts(CommandExecutionContexts.EditorEditMode).Handler((_, _) => { }), out _), Is.True);
+            Func<CommandExecutionContext> previousProvider = CommandExecutionContext.AmbientContextProvider;
+            CommandExecutionContexts activeEnvironment = CommandExecutionContexts.EditorEditMode;
+            CommandExecutionContext.AmbientContextProvider = () =>
+            {
+                return new CommandExecutionContext(activeEnvironment);
+            };
+            try
+            {
+                yield return SetInputText("editonly");
+                yield return SetInputCaret(8);
+                yield return null;
+                Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "An edit-only command is valid in Edit Mode");
+
+                activeEnvironment = CommandExecutionContexts.EditorPlayMode;
+                _terminal.RefreshUI();
+                yield return null;
+                Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Switching execution context invalidates the validation cache");
+                Assert.That(RenderedName(message), Is.EqualTo("editonly is not available in the current execution context"));
+            }
+            finally
+            {
+                CommandExecutionContext.AmbientContextProvider = previousProvider;
+            }
         }
 
         [UnityTest]

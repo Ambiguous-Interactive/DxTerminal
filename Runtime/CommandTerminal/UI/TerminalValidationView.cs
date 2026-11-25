@@ -45,6 +45,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private long _variablesVersion;
         private long _parserVersion;
         private CultureInfo _culture;
+        private CommandExecutionContexts _executionEnvironment;
         private bool _visible;
         private bool _colorsDirty = true;
         private string _inkTag;
@@ -149,6 +150,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             long variablesVersion = shell.VariablesVersion;
             long parserVersion = CommandArg.ParserVersion;
             CultureInfo culture = CultureInfo.CurrentCulture;
+            CommandExecutionContext executionContext = CommandExecutionContext.Current;
             if (
                 !_colorsDirty
                 && _validation.CanCache
@@ -157,6 +159,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 && _variablesVersion == variablesVersion
                 && _parserVersion == parserVersion
                 && ReferenceEquals(_culture, culture)
+                && _executionEnvironment == executionContext.Environment
                 && string.Equals(_line, line, StringComparison.Ordinal)
             )
             {
@@ -169,8 +172,9 @@ namespace WallstopStudios.DxCommandTerminal.UI
             _variablesVersion = variablesVersion;
             _parserVersion = parserVersion;
             _culture = culture;
+            _executionEnvironment = executionContext.Environment;
 
-            CommandShell.LineValidation next = shell.ValidateLine(line, CommandExecutionContext.Current, allowIncomplete: true);
+            CommandShell.LineValidation next = shell.ValidateLine(line, executionContext, allowIncomplete: true);
             int tokenEnd = next.TokenStart + next.TokenLength + (next.TokenQuoted && next.UnclosedQuote == null ? 1 : 0);
             bool typingPrefix = next.IsError && !string.IsNullOrEmpty(next.UnknownCommand) && tokenEnd == line.Length && shell.HasCommandPrefix(next.UnknownCommand);
             if (typingPrefix && next.UnclosedQuote != null)
