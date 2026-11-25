@@ -270,6 +270,7 @@
            Internal for test coverage of token completion (see
            WallstopStudios.DxCommandTerminal.Tests.Runtime).
         */
+        internal CommandInputHighlight _commandInputHighlight;
         internal TextField _commandInput;
 
         /*
@@ -2052,6 +2053,7 @@
             _logCopyStatus = null;
             _inputCaretLabel = null;
             _commandInput = null;
+            _commandInputHighlight = null;
             _textInput = null;
             _stateButtonContainer = null;
             _lastCodeSyncedValue = null;
@@ -2162,6 +2164,7 @@
                focused pass.
             */
             ApplyPendingCaret();
+            _commandInputHighlight?.Refresh(_commandInput.value, Terminal.Shell, InputOwnsFocus);
             RefreshStateButtons();
         }
 
@@ -3093,6 +3096,7 @@
             _inputContainer.Add(_jumpLatestButton);
             ResetTokenCompletion();
             _textInput = _commandInput.Q<VisualElement>("unity-text-input");
+            _commandInputHighlight = new CommandInputHighlight(root, _textInput);
 
             _stateButtonContainer = new VisualElement { name = "StateButtonContainer" };
             _stateButtonContainer.AddToClassList("state-button-container");

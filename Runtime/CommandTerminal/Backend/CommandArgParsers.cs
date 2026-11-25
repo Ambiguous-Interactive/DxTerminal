@@ -59,7 +59,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         public static bool Decimal(string input, out decimal parsed) => decimal.TryParse(input, NumberStyles.Number, CultureInfo.InvariantCulture, out parsed);
 
-        public static bool Int(string input, out int parsed) => int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
+        public static bool Int(string input, out int parsed)
+        {
+            return Int(input.AsSpan(), out parsed);
+        }
 
         public static bool Uint(string input, out uint parsed) => uint.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
 
@@ -508,6 +511,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
             parsed = default;
             return false;
+        }
+
+        internal static bool Int(ReadOnlySpan<char> input, out int parsed)
+        {
+            return int.TryParse(input, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
         }
 
         /*

@@ -163,6 +163,11 @@
 
         internal long CommandsVersion => _commandVersion;
 
+        internal long VariablesVersion
+        {
+            get { return _variablesVersion; }
+        }
+
         private readonly HashSet<string> _autoRegisteredCommands = new(StringComparer.OrdinalIgnoreCase);
 
         /*
@@ -203,6 +208,7 @@
         private readonly SortedDictionary<string, CommandArg> _variables = new(StringComparer.OrdinalIgnoreCase);
 
         private readonly List<string> _variableClearBuffer = new();
+        private long _variablesVersion;
 
         /*
             Depth-scoped parse buffers: one per active RunCommand/TryComplete
@@ -1389,7 +1395,13 @@
                 name = name.Replace(" ", string.Empty, StringComparison.OrdinalIgnoreCase);
             }
 
-            return _variables.Remove(name);
+            if (!_variables.Remove(name))
+            {
+                return false;
+            }
+
+            ++_variablesVersion;
+            return true;
         }
 
         /*
@@ -1411,7 +1423,13 @@
                 _variables.Remove(variable);
             }
 
-            return _variableClearBuffer.Count;
+            int removed = _variableClearBuffer.Count;
+            if (0 < removed)
+            {
+                ++_variablesVersion;
+            }
+
+            return removed;
         }
 
         // ReSharper disable once MemberCanBePrivate.Global
@@ -1428,7 +1446,12 @@
                 name = name.Replace(" ", string.Empty, StringComparison.OrdinalIgnoreCase);
             }
 
-            _variables[name] = value;
+            if (!_variables.TryGetValue(name, out CommandArg previous) || !previous.Equals(value))
+            {
+                _variables[name] = value;
+                ++_variablesVersion;
+            }
+
             return true;
         }
 

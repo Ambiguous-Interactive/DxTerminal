@@ -306,6 +306,79 @@
         }
 
         [UnityTest]
+        public IEnumerator CapturesHighlightedCommandInput()
+        {
+            yield return SpawnTerminal(useEditorDefaults: true);
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return WaitForTerminalInputVisible();
+            Assert.That(_terminal.CurrentTheme, Is.EqualTo("dx-dark-theme"));
+            TerminalFontPack fontPack = LoadPack<TerminalFontPack>("Packs/Fonts/JetBrains Mono.asset");
+            Font font = fontPack._fonts[0];
+            _terminal.SetFont(font);
+            CommandBuilder example = CommandBuilder.Create("syntax-capture").Arg<int>("number").Arg<string>("text").Arg<bool>("enabled").Handler((_, _) => { });
+            Assert.That(Terminal.Shell.AddCommand(example, out _), Is.True);
+            Terminal.Log("Command input highlighting");
+
+            const string input = "syntax-capture 24 \"literal <b>\" wrong";
+            int caret = input.IndexOf("24", StringComparison.Ordinal);
+            TextField field = _terminal._commandInput;
+            Label overlay = field.Q<Label>("CommandInputHighlight");
+            Assert.That(overlay, Is.Not.Null);
+            field.style.fontSize = 15;
+            field.value = input;
+            field.Focus();
+            _terminal.SetCursorBlinkPaused(true);
+            string scenario = nameof(CapturesHighlightedCommandInput);
+            RenderTexture target = AttachRenderTarget(scenario);
+            try
+            {
+                yield return SettleRenders();
+                int attempts = FrameBudget;
+                do
+                {
+                    field.SelectRange(caret, caret);
+                    yield return null;
+                } while (0 < --attempts && field.cursorIndex != caret);
+
+                Assert.That(field.cursorIndex, Is.EqualTo(caret));
+                Assert.That(overlay.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                VisualElement root = _terminal._uiDocument.rootVisualElement.Q("TerminalRoot");
+                Assert.That(root.customStyle.TryGetValue(new CustomStyleProperty<Color>("--dxt-syn-number"), out Color number), Is.True);
+                Assert.That(overlay.text, Does.Contain($"<color=#{ColorUtility.ToHtmlStringRGBA(number)}>24</color>"));
+                VisualElement nativeText = overlay.parent;
+                Assert.That(nativeText.resolvedStyle.fontSize, Is.EqualTo(15));
+                Assert.That(nativeText.resolvedStyle.unityFontDefinition.font == font, Is.True);
+                Assert.That(nativeText.resolvedStyle.color.a, Is.Zero);
+                Assert.That(_terminal.InputOwnsFocus, Is.True, "The caret belongs to the terminal command field");
+
+                _diagnosticsSuffix = $"caretColumn={caret} fontSize={nativeText.resolvedStyle.fontSize}";
+                CaptureOutcome highlighted = FinishCapture(scenario + "-highlighted", target, CaptureBounds.Default(), _terminal._uiDocument.rootVisualElement, keepFrame: true);
+                AssertAcceptable(highlighted);
+
+                StyleColor nativeColor = nativeText.style.color;
+                overlay.style.display = DisplayStyle.None;
+                nativeText.style.color = StyleKeyword.Null;
+                try
+                {
+                    yield return SettleRenders();
+                    Assert.That(field.cursorIndex, Is.EqualTo(caret));
+                    CaptureOutcome plain = FinishCapture(scenario + "-plain", target, CaptureBounds.Default(), _terminal._uiDocument.rootVisualElement, keepFrame: true);
+                    AssertAcceptable(plain);
+                    Assert.That(TerminalSurfaceCapture.DescribeFrameMismatch(plain.Frame.Value, highlighted.Frame.Value, MaxInvarianceChannelDelta), Is.Not.Null);
+                }
+                finally
+                {
+                    nativeText.style.color = nativeColor;
+                    overlay.style.display = DisplayStyle.Flex;
+                }
+            }
+            finally
+            {
+                DetachRenderTarget(target);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator CapturesTerminalFullSurfaceWithErrors()
         {
             yield return SpawnCalibratedTerminal(TerminalState.OpenFull);

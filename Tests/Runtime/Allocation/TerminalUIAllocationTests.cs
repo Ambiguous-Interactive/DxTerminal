@@ -5,6 +5,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     using System.Collections.Generic;
     using Backend;
     using Components;
+    using Input;
     using NUnit.Framework;
     using Themes;
     using UI;
@@ -69,7 +70,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
 #if UNITY_EDITOR
         [UnityTest]
-        public IEnumerator RecordInputEditAndIdleAllocationBaseline()
+        public IEnumerator HighlightedInputStaysWithinEditAndIdleAllocationBudget()
         {
             yield return SpawnTerminal(HintDisplayMode.Always);
             RegisterTier();
@@ -103,37 +104,106 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 refresh();
             };
 
-            for (int pass = 0; pass < AllocationAssertions.DefaultWarmupIterations; ++pass)
+            CommandInputHighlight highlight = _terminal._commandInputHighlight;
+            Assert.That(highlight, Is.Not.Null);
+            Label label = field.Q<Label>("CommandInputHighlight");
+            IEnumerator WarmEdits()
             {
-                field.value = string.Empty;
-                foreach (string edit in edits)
+                for (int pass = 0; pass < AllocationAssertions.DefaultWarmupIterations; ++pass)
                 {
-                    nextEdit = edit;
-                    applyEdit();
+                    field.value = string.Empty;
+                    foreach (string edit in edits)
+                    {
+                        nextEdit = edit;
+                        applyEdit();
+                    }
+
+                    yield return null;
+                    refresh();
                 }
 
-                yield return null;
+                field.value = string.Empty;
                 refresh();
             }
 
-            long[] editBytes = new long[editCount];
-            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(editCount))
+            int unityLabelCopies = 0;
+            IEnumerator RecordEdits((long Bytes, int Events)[] samples, bool withHighlight)
             {
-                field.value = string.Empty;
+                yield return WarmEdits();
+                // Complete hint hierarchy changes from the warm-up before starting this trace.
+                yield return null;
+                int sampleCount = editCount + (withHighlight ? 1 : 0);
+                using ProfilerAllocationTrace trace = new ProfilerAllocationTrace(sampleCount);
                 yield return trace.WaitUntilReady();
-                for (int index = 0; index < editCount; ++index)
+                foreach (string edit in edits)
                 {
-                    nextEdit = edits[index];
+                    nextEdit = edit;
+                    string previous = label.text;
                     trace.Record(applyEdit);
-                    Assert.That(field.value, Is.EqualTo(nextEdit), "The terminal must retain each edit after refresh");
+                    Assert.That(field.value, Is.EqualTo(edit), "The terminal must retain each edit after refresh");
+                    if (withHighlight)
+                    {
+                        Assert.That(label.text, Is.Not.EqualTo(previous), "Each edit must update the renderer");
+                    }
                 }
 
-                yield return trace.WaitForSamples(editCount);
+                if (withHighlight)
+                {
+                    // Unity 2022 adds a zero-width space by copying the string passed to the label.
+                    INotifyValueChanged<string> display = label;
+                    string renderedText = display.value;
+                    display.SetValueWithoutNotify(string.Empty);
+                    trace.Record(() =>
+                    {
+                        display.SetValueWithoutNotify(renderedText);
+                    });
+                }
+
+                yield return trace.WaitForSamples(sampleCount);
                 for (int index = 0; index < editCount; ++index)
                 {
-                    editBytes[index] = trace.Samples[index].Bytes;
+                    samples[index] = trace.Samples[index];
+                }
+
+                if (withHighlight)
+                {
+                    unityLabelCopies = trace.Samples[editCount].Events;
                 }
             }
+
+            (long Bytes, int Events)[] baseline = new (long, int)[editCount];
+            (long Bytes, int Events)[] rendered = new (long, int)[editCount];
+            _terminal._commandInputHighlight = null;
+            try
+            {
+                yield return RecordEdits(baseline, withHighlight: false);
+            }
+            finally
+            {
+                _terminal._commandInputHighlight = highlight;
+            }
+
+            yield return RecordEdits(rendered, withHighlight: true);
+
+            long[] controlBytes = new long[editCount];
+            long[] editBytes = new long[editCount];
+            int[] extraEvents = new int[editCount];
+            for (int index = 0; index < editCount; ++index)
+            {
+                controlBytes[index] = baseline[index].Bytes;
+                editBytes[index] = rendered[index].Bytes;
+                extraEvents[index] = rendered[index].Events - baseline[index].Events;
+            }
+
+            TestContext.Out.WriteLine($"T11 control edit bytes: {string.Join(",", controlBytes)}");
+            TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
+            TestContext.Out.WriteLine($"T11 extra events: {string.Join(",", extraEvents)}");
+            TestContext.Out.WriteLine($"T11 Unity label copy events: {unityLabelCopies}");
+            Assert.That(unityLabelCopies, Is.InRange(0, 1), "The engine label may make one display copy");
+#if UNITY_6000_0_OR_NEWER
+            Assert.That(unityLabelCopies, Is.Zero, "The pinned T11 baseline allows one total allocation above master");
+#endif
+            Assert.That(extraEvents, Is.All.LessThanOrEqualTo(1 + unityLabelCopies), "One rendered-text allocation per edit, plus the calibrated engine copy");
 
             AllocationAssertions.EnsureInstrumentValidated();
             long[] idleBytes = new long[IdleFrameCount];
@@ -146,10 +216,101 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 idleBytes[index] = 0;
             }
 
-            TestContext.Out.WriteLine($"T11 input edit bytes: {string.Join(",", editBytes)}");
             TestContext.Out.WriteLine($"T11 idle refresh bytes: {string.Join(",", idleBytes)}");
         }
 #endif
+
+        [UnityTest]
+        public IEnumerator CommandInputHighlightsEachDisplayedValue()
+        {
+            yield return SpawnTerminal(HintDisplayMode.Always);
+            TextField field = _terminal._commandInput;
+            Label highlight = field.Q<Label>("CommandInputHighlight");
+            Assert.That(highlight, Is.Not.Null, "The command field needs a syntax label");
+            Assert.That(highlight.pickingMode, Is.EqualTo(PickingMode.Ignore));
+
+#if UNITY_2022_2_OR_NEWER
+            Assert.That(highlight.parseEscapeSequences, Is.False);
+#endif
+#if UNITY_6000_0_OR_NEWER
+            Assert.That(highlight.style.unityTextGenerator.value, Is.EqualTo(TextGeneratorType.Standard));
+#endif
+            field.value = "unknown-highlight";
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain("unknown-highlight").And.Contain("<color="));
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("unknown-highlight"));
+            yield return null;
+            _terminal.RefreshUI();
+            Assert.That(field.value, Is.EqualTo("unknown-highlight"));
+
+            field.value = "help";
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain("help").And.Not.Contain("unknown-highlight"));
+
+            field.value = "help </noparse><b>";
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain("<noparse><</noparse>/noparse<noparse>></noparse>"));
+            Assert.That(field.value, Is.EqualTo("help </noparse><b>"));
+
+            const string literal = @"help a\nb";
+            field.value = literal;
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Does.Contain(@"a\nb"));
+            Assert.That(field.value, Is.EqualTo(literal));
+
+            field.value = string.Empty;
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.Empty);
+        }
+
+        [UnityTest]
+        public IEnumerator CommandInputUpdatesWhenShellChangesWithoutAnEdit()
+        {
+            yield return SpawnTerminal(HintDisplayMode.Always);
+            TextField field = _terminal._commandInput;
+            Label highlight = field.Q<Label>("CommandInputHighlight");
+            const string input = "live-highlight $highlight-value";
+            field.value = input;
+            _terminal.RefreshUI();
+            string unknown = highlight.text;
+
+            CommandShell shell = Terminal.Shell;
+            Assert.That(shell.AddCommand(CommandBuilder.Create("live-highlight").Arg<int>("value").Handler((_, _) => { }), out _), Is.True);
+            _terminal.RefreshUI();
+            string missing = highlight.text;
+            Assert.That(missing, Is.Not.EqualTo(unknown));
+            Assert.That(missing, Does.Not.Contain("<i>"));
+
+            Assert.That(shell.SetVariable("highlight-value", "7"), Is.True);
+            _terminal.RefreshUI();
+            string valid = highlight.text;
+            Assert.That(valid, Does.Contain("<i>highlight-value</i>"));
+            Assert.That(shell.SetVariable("highlight-value", "7"), Is.True);
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.SameAs(valid));
+
+            Assert.That(shell.ClearVariable("highlight-value"), Is.True);
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.EqualTo(missing));
+            Assert.That(field.value, Is.EqualTo(input));
+
+            field.value = "live-highlight 7FOO";
+            _terminal.RefreshUI();
+            string invalid = highlight.text;
+            Assert.That(CommandArg.IgnoredValuesForCleanedTypes.Add("foo"), Is.True);
+            try
+            {
+                _terminal.RefreshUI();
+                Assert.That(highlight.text, Is.Not.EqualTo(invalid));
+            }
+            finally
+            {
+                CommandArg.IgnoredValuesForCleanedTypes.Remove("foo");
+            }
+
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.EqualTo(invalid));
+        }
 
         [UnityTest]
         public IEnumerator PerKeystrokeHintSweepIsAllocationFree()

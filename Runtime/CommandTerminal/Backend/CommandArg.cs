@@ -33,6 +33,11 @@
         /// </summary>
         internal static IReadOnlyCollection<Type> BuiltInParserTypes => BuiltInParsers.Keys;
 
+        internal static long ParserVersion
+        {
+            get { return _parserVersion; }
+        }
+
         public static readonly HashSet<char> Delimiters = new() { ',', ';', ':', '_', '/', '\\' };
         public static readonly List<char> Quotes = new() { '"', '\'' };
         public static readonly HashSet<string> IgnoredValuesForCleanedTypes = new(StringComparer.Ordinal) { "\r", "\n" };
@@ -59,6 +64,7 @@
         private static readonly ReadOnlyCollection<string> DefaultIgnoredValuesForComplexTypes = CopyOf(IgnoredValuesForComplexTypes);
 
         private static readonly Dictionary<Type, object> RegisteredParsers = new();
+        private static long _parserVersion;
 
         /*
             Untyped adapters for the built-in parser table, so the non-generic
@@ -377,6 +383,7 @@
             {
                 RegisteredParsers[type] = parser;
                 RegisteredUntypedParsers[type] = untypedParser;
+                ++_parserVersion;
                 return true;
             }
 
@@ -386,6 +393,7 @@
             }
 
             RegisteredUntypedParsers[type] = untypedParser;
+            ++_parserVersion;
             return true;
         }
 
@@ -409,7 +417,13 @@
         public static bool UnregisterParser(Type type)
         {
             RegisteredUntypedParsers.Remove(type);
-            return RegisteredParsers.Remove(type);
+            if (!RegisteredParsers.Remove(type))
+            {
+                return false;
+            }
+
+            ++_parserVersion;
+            return true;
         }
 
         public static int UnregisterAllParsers()
@@ -417,6 +431,11 @@
             int parserCount = RegisteredParsers.Count;
             RegisteredParsers.Clear();
             RegisteredUntypedParsers.Clear();
+            if (0 < parserCount)
+            {
+                ++_parserVersion;
+            }
+
             return parserCount;
         }
 

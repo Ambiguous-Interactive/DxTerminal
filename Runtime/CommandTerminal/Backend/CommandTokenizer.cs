@@ -27,7 +27,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     /// </remarks>
     internal static class CommandTokenizer
     {
-        public static void Tokenize(string line, List<CommandToken> tokens)
+        public static void Tokenize(string line, List<CommandToken> tokens, bool includeContents = true)
         {
             if (line == null)
             {
@@ -68,11 +68,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                            (excluding the opening quote), matching
                            TryEatArgument.
                         */
-                        tokens.Add(new CommandToken(line.Substring(index + 1), firstChar, null, index + 1, length));
+                        tokens.Add(new CommandToken(includeContents ? line.Substring(index + 1) : null, firstChar, null, index + 1, length));
                         return;
                     }
 
-                    tokens.Add(new CommandToken(line.Substring(index + 1, closingQuoteIndex - index - 1), firstChar, firstChar, index + 1, closingQuoteIndex));
+                    tokens.Add(
+                        new CommandToken(includeContents ? line.Substring(index + 1, closingQuoteIndex - index - 1) : null, firstChar, firstChar, index + 1, closingQuoteIndex)
+                    );
                     index = closingQuoteIndex + 1;
                 }
                 else
@@ -83,7 +85,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                         ++end;
                     }
 
-                    tokens.Add(new CommandToken(line.Substring(index, end - index), null, null, index, end));
+                    tokens.Add(new CommandToken(includeContents ? line.Substring(index, end - index) : null, null, null, index, end));
                     index = end;
                 }
             }
