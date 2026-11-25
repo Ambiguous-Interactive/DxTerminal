@@ -632,6 +632,19 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 ),
                 Is.True
             );
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("schedule-at")
+                        .Arg<DateTime>("when", spec =>
+                        {
+                            return spec.Required();
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
 
             Assert.That(Run("help choose-ranged"), Is.Null);
             CommandHelpCard rangedCard = Newest(1)[0].HelpCard;
@@ -647,6 +660,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             CommandHelpCard unquotableCard = Newest(1)[0].HelpCard;
             Assert.That(unquotableCard.ExampleLine, Is.Null);
             Assert.That(unquotableCard.PlainText, Does.Not.Contain("e.g."));
+
+            Assert.That(Run("help schedule-at"), Is.Null);
+            CommandHelpCard unparseableCard = Newest(1)[0].HelpCard;
+            Assert.That(unparseableCard.ExampleLine, Is.Null);
+            Assert.That(unparseableCard.PlainText, Does.Not.Contain("e.g."));
         }
 
         /*

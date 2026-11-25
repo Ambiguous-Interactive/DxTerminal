@@ -834,10 +834,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     int minLength = dashIndex - 1;
                     string minText = _rangeText.Substring(1, minLength);
                     CommandArg minArg = new(minText);
-                    if (
-                        CommandTokenizer.TrySerializeValue(minText, out string serializedMin, out _)
-                        && (_validator == null || (TryParseValue(minArg, out T parsedMin) && ValidateValue(parsedMin) == null))
-                    )
+                    if (CommandTokenizer.TrySerializeValue(minText, out string serializedMin, out _) && TryParseValue(minArg, out T parsedMin) && ValidateValue(parsedMin) == null)
                     {
                         token = serializedMin;
                         return true;
@@ -850,10 +847,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
             string raw = FormatTypeExample(Name);
             CommandArg rawArg = new(raw);
-            if (
-                CommandTokenizer.TrySerializeValue(raw, out string serialized, out _)
-                && (_validator == null || (TryParseValue(rawArg, out T parsed) && ValidateValue(parsed) == null))
-            )
+            if (CommandTokenizer.TrySerializeValue(raw, out string serialized, out _) && TryParseValue(rawArg, out T parsed) && ValidateValue(parsed) == null)
             {
                 token = serialized;
                 return true;

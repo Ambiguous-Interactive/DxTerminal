@@ -915,7 +915,7 @@
         [UnityTest]
         public IEnumerator LogEchoAndHelpCardRenderSyntaxColorsAndUpdateOnThemeChange()
         {
-            yield return SpawnOpenTerminal(themePackPath: "Packs/Themes/Dx.asset", persistedTheme: "dx-dark-theme");
+            yield return SpawnOpenTerminal(themePackPath: "Packs/Themes/Dx.asset", persistedTheme: "dx-dark-theme", loadBaseTheme: true);
             Terminal.Buffer.Clear();
             Assert.That(
                 Terminal.Shell.AddCommand(
@@ -1051,10 +1051,19 @@
         }
 #endif
 
-        private IEnumerator SpawnOpenTerminal(bool logUnityMessages = false, string themePackPath = "Packs/Themes/Medium.asset", string persistedTheme = null)
+        private IEnumerator SpawnOpenTerminal(
+            bool logUnityMessages = false,
+            string themePackPath = "Packs/Themes/Medium.asset",
+            string persistedTheme = null,
+            bool loadBaseTheme = false
+        )
         {
 #if UNITY_EDITOR
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            if (loadBaseTheme)
+            {
+                _panelSettings.themeStyleSheet = LoadAsset<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
+            }
             _terminalObject = new GameObject("TerminalUISemantics");
             _terminalObject.SetActive(false);
             UIDocument document = _terminalObject.AddComponent<UIDocument>();
