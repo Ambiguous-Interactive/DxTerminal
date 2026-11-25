@@ -95,6 +95,25 @@ namespace WallstopStudios.DxCommandTerminal.UI
             _label.generateVisualContent += DrawWaves;
         }
 
+        internal static void AppendLiteral(StringBuilder builder, string line, int start, int end)
+        {
+            foreach (char value in line.AsSpan(start, end - start))
+            {
+                switch (value)
+                {
+                    case '<':
+                        builder.Append("<noparse><</noparse>");
+                        break;
+                    case '>':
+                        builder.Append("<noparse>></noparse>");
+                        break;
+                    default:
+                        builder.Append(value);
+                        break;
+                }
+            }
+        }
+
         private static Color Read(ICustomStyle styles, CustomStyleProperty<Color> property, Color fallback)
         {
             return styles.TryGetValue(property, out Color color) ? color : fallback;
@@ -119,25 +138,6 @@ namespace WallstopStudios.DxCommandTerminal.UI
             }
 
             return true;
-        }
-
-        private static void AppendLiteral(StringBuilder builder, string line, int start, int end)
-        {
-            foreach (char value in line.AsSpan(start, end - start))
-            {
-                switch (value)
-                {
-                    case '<':
-                        builder.Append("<noparse><</noparse>");
-                        break;
-                    case '>':
-                        builder.Append("<noparse>></noparse>");
-                        break;
-                    default:
-                        builder.Append(value);
-                        break;
-                }
-            }
         }
 
         internal void Refresh(string line, CommandShell shell, bool inputOwnsFocus)

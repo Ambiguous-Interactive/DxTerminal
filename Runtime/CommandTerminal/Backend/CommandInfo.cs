@@ -4,6 +4,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
     public readonly struct CommandInfo
     {
+        internal string Group { get; }
+
         internal CommandBuilder.SubcommandRoute SyntaxRoute { get; }
 
         public readonly Action<CommandArg[]> proc;
@@ -67,10 +69,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             string help,
             string hint,
             bool addToHistory,
-            CommandBuilder.SubcommandRoute syntaxRoute
+            CommandBuilder.SubcommandRoute syntaxRoute,
+            string group = null
         )
         {
             SyntaxRoute = syntaxRoute;
+            Group = group;
             this.proc = proc;
             this.handler = handler;
             this.completionProvider = completionProvider;

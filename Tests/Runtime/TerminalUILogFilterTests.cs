@@ -369,14 +369,10 @@
         public IEnumerator LogRowsExposeUtcTimeAndSeverityWithoutChangingMessageText()
         {
             yield return SpawnOpenTerminal();
-            TerminalSession.Current.Buffer = new CommandLog(
-                16,
-                null,
-                static () =>
-                {
-                    return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
-                }
-            );
+            TerminalSession.Current.Buffer = new CommandLog(16, null, static () =>
+            {
+                return new DateTime(2000, 1, 1, 12, 34, 56, DateTimeKind.Utc);
+            });
             TerminalLogType[] types =
             {
                 TerminalLogType.Error,
@@ -701,12 +697,12 @@
             DefaultTerminalInput.Instance.CommandText = "logfocus";
             _terminal.ResetAutoComplete();
             attempts = FrameBudget;
-            while (0 < attempts-- && _terminal._autoCompleteContainer.childCount != 2)
+            while (0 < attempts-- && _terminal._autoCompleteContainer.itemsSource.Count != 2)
             {
                 yield return null;
             }
 
-            Assert.That(_terminal._autoCompleteContainer.childCount, Is.EqualTo(2));
+            Assert.That(_terminal._autoCompleteContainer.itemsSource.Count, Is.EqualTo(2));
             row.Focus();
             _terminal.ApplyHint(0);
             attempts = FrameBudget;

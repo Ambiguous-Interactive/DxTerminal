@@ -107,8 +107,7 @@
 .terminal-root--narrow .terminal-search .terminal-button,
 .terminal-root--narrow .terminal-severities .terminal-button,
 .terminal-root--narrow .input-container .terminal-button,
-.terminal-root--narrow .state-button-container .terminal-button,
-.terminal-root--narrow .autocomplete-popup .terminal-button {
+.terminal-root--narrow .state-button-container .terminal-button {
     min-width: 44px;
     min-height: 44px;
     margin: 0 2px;
@@ -219,16 +218,39 @@
 }
 
 .autocomplete-popup {
-    background-color: transparent;
-    flex-direction: row;
-    flex-shrink: 0;
-    left: 2px;
+    background-color: var(--dxt-surface-raised);
+    flex-shrink: 1;
+    min-height: 0;
 }
 
-.autocomplete-popup #unity-low-button,
-.autocomplete-popup #unity-high-button,
-.autocomplete-popup #unity-slider {
-    display: none;
+.completion-row {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+}
+
+.completion-name,
+.completion-description,
+.completion-group {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.completion-name {
+    width: 36%;
+    flex-shrink: 0;
+    -unity-font-style: bold;
+}
+
+.completion-description {
+    flex-grow: 1;
+}
+
+.completion-description,
+.completion-group {
+    color: var(--dxt-ink-muted);
+    font-size: 11px;
 }
 
 .input-container {

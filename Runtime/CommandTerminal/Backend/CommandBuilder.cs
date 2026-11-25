@@ -36,6 +36,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private readonly List<CommandArgument> _arguments = new();
         private readonly List<CommandBuilder> _subcommands = new();
 
+        private string _group;
         private string _help = string.Empty;
         private string _hint;
         private CommandExecutionContexts _contexts = CommandExecutionContextSets.Gameplay;
@@ -409,6 +410,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         }
 
         /// <summary>Sets whether invocations are recorded in the command history.</summary>
+        /// <summary>Sets the group shown beside the command in completion lists.</summary>
+        public CommandBuilder Group(string group)
+        {
+            _group = group;
+            return this;
+        }
+
         public CommandBuilder AddToHistory(bool addToHistory)
         {
             _addToHistory = addToHistory;
@@ -603,6 +611,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 Name = name,
                 Help = _help,
+                Group = _group,
                 Hint = route.Usage,
                 MinArgCount = route.RequiredCount,
                 /*
@@ -637,6 +646,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 Name = name,
                 Help = _help,
+                Group = _group,
                 Hint = _hint ?? $"{name} <subcommand>",
                 MinArgCount = 0,
                 /*

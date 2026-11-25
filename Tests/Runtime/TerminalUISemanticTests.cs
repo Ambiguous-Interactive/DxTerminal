@@ -60,17 +60,9 @@
         }
 #endif
 
-        private static IEnumerator WaitForCompletionLabel(VisualElement root, string name, string fragment)
+        private static string RenderedName(Label label)
         {
-            int remaining = FrameBudget;
-            Label label = root.Q<Label>(name);
-            while (0 < remaining-- && label?.text?.Contains(fragment, StringComparison.Ordinal) != true)
-            {
-                yield return null;
-                label = root.Q<Label>(name);
-            }
-
-            Assert.That(label?.text, Does.Contain(fragment), name);
+            return label == null ? null : Regex.Replace(label.text, "</?[^>]+>", string.Empty);
         }
 
         [TearDown]
@@ -271,49 +263,42 @@
         }
 
         [UnityTest]
-        public IEnumerator SpawnCompletionShowsCommandChoicesGhostAndActiveArgument()
+        public IEnumerator CompletionListScrollsPastSixRowsAndShowsDescriptions()
         {
             yield return SpawnOpenTerminal();
-            _terminal.hintDisplayMode = HintDisplayMode.Always;
-            Assert.That(
-                Terminal.Shell.AddCommand(
-                    CommandBuilder
-                        .Create("spawn", "Spawns enemies at a point")
-                        .Arg<string>("prefab", spec =>
+            const string query = "virtualrow";
+            for (int index = 0; index < 8; ++index)
+            {
+                Assert.That(
+                    Terminal.Shell.AddCommand(
+                        new CommandDefinition
                         {
-                            return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
-                        })
-                        .Arg<int>("count", spec =>
-                        {
-                            return spec.Range(1, 50).Default(1);
-                        })
-                        .Arg<Vector3>("at", spec =>
-                        {
-                            return spec.Describe("Spawn point");
-                        })
-                        .Handler((_, _) => { }),
-                    out _
-                ),
-                Is.True
-            );
+                            Name = query + index,
+                            Help = "Description " + index,
+                            Group = "Example",
+                            LegacyHandler = _ => { },
+                        }
+                    ),
+                    Is.True
+                );
+            }
 
-            VisualElement root = _terminal._uiDocument.rootVisualElement;
-            yield return SetInputText("sp");
-            yield return SetInputCaret(2);
-            yield return WaitForCompletionLabel(root, "CommandInputHighlight", "awn");
-            Assert.That(root.Q<ListView>("AutoCompleteList")?.itemsSource?.Count, Is.GreaterThan(0));
+            yield return SetInputText(query);
+            _terminal.CompleteCommand();
+            yield return WaitForHintCount(8);
+            ListView list = _terminal._autoCompleteContainer;
+            Assert.AreEqual(6 * list.fixedItemHeight, list.style.height.value.value);
+            for (int index = 1; index < 8; ++index)
+            {
+                _terminal.CompleteCommand();
+                yield return null;
+            }
 
-            yield return SetInputText("spawn g");
-            yield return SetInputCaret(7);
-            yield return WaitForCompletionLabel(root, "CommandInputHighlight", "oblin");
-            Assert.That(root.Q<ListView>("AutoCompleteList")?.itemsSource?.Count, Is.EqualTo(3));
-            Assert.That(root.Q<Label>("CompletionArgument")?.text, Does.Contain("prefab"));
-            Assert.That(root.Q<Label>(className: "completion-argument-active")?.text, Does.Contain("goblin|ghoul|golem"));
-
-            yield return SetInputText("spawn goblin 1");
-            yield return SetInputCaret(14);
-            yield return WaitForCompletionLabel(root, "SignatureDescription", "Spawns enemies at a point");
-            Assert.That(root.Q<Label>(className: "completion-argument-active")?.text, Does.Contain("[count: int 1–50 = 1]"));
+            yield return WaitForSelectedHint(list, query + "7", "Selection scrolls to the eighth result");
+            VisualElement row = list.Q<VisualElement>(className: "autocomplete-item-selected");
+            Assert.That(row.Q<Label>("CompletionDescription").text, Is.EqualTo("Description 7"));
+            Assert.That(row.Q<Label>("CompletionGroup").text, Is.EqualTo("Example"));
+            Assert.That(row.Q<Label>("CompletionName").text, Does.Contain("<u>" + query + "</u>"));
         }
 
         [UnityTest]
@@ -328,12 +313,12 @@
 
             _terminal.CompleteCommand(true);
 
-            ScrollView hints = null;
+            ListView hints = null;
             int frameBudget = FrameBudget;
             while (0 < frameBudget--)
             {
                 hints = _terminal._autoCompleteContainer;
-                if (hints != null && hints.childCount == 2)
+                if (hints != null && hints.itemsSource.Count == 2)
                 {
                     break;
                 }
@@ -341,15 +326,10 @@
                 yield return null;
             }
 
-            Assert.That(hints != null && hints.childCount == 2, "Completion must render one hint per candidate");
+            Assert.That(hints != null && hints.itemsSource.Count == 2, "Completion must render one hint per candidate");
             yield return WaitForInputText("alphabet", "The first completion must apply the first candidate");
             yield return WaitForSelectedHint(hints, "alphabet", "The selected hint must match the applied candidate");
 
-            /*
-                The hint view is a carousel: cycling rotates the rendered
-                hints so the selected candidate stays in view, so the
-                selection is pinned by text, not by child position.
-             */
             _terminal.CompleteCommand(true);
 
             yield return WaitForInputText("alphacmd", "Cycling must apply the next candidate to the input");
@@ -602,19 +582,19 @@
 
         private int HintRowCount()
         {
-            ScrollView hints = _terminal._autoCompleteContainer;
-            return hints == null ? 0 : hints.childCount;
+            ListView hints = _terminal._autoCompleteContainer;
+            return hints == null ? 0 : hints.itemsSource.Count;
         }
 
         private bool IsSingleHint(string expectedText)
         {
-            ScrollView hints = _terminal._autoCompleteContainer;
-            if (hints == null || hints.childCount != 1)
+            ListView hints = _terminal._autoCompleteContainer;
+            if (hints == null || hints.itemsSource.Count != 1)
             {
                 return false;
             }
 
-            return string.Equals((hints[0] as TextElement)?.text, expectedText, StringComparison.Ordinal);
+            return string.Equals(RenderedName(hints.Q<Label>("CompletionName")), expectedText, StringComparison.Ordinal);
         }
 
         private IEnumerator WaitForFocusedInput(string message)
@@ -660,51 +640,20 @@
             LateUpdate, so the rig polls for it like every other frame-
             coupled surface.
          */
-        private IEnumerator WaitForSelectedHint(ScrollView hints, string expectedText, string message)
+        private IEnumerator WaitForSelectedHint(ListView hints, string expectedText, string message)
         {
+            Label Selected()
+            {
+                return hints.Q<VisualElement>(className: "autocomplete-item-selected")?.Q<Label>("CompletionName");
+            }
+
             int frameBudget = FrameBudget;
-            while (0 < frameBudget-- && !HasSingleSelectedHint(hints, expectedText))
+            while (0 < frameBudget-- && !string.Equals(RenderedName(Selected()), expectedText, StringComparison.Ordinal))
             {
                 yield return null;
             }
 
-            Assert.IsTrue(HasSingleSelectedHint(hints, expectedText), $"{message}: {DescribeSelectedHints(hints)}");
-        }
-
-        private bool HasSingleSelectedHint(ScrollView hints, string expectedText)
-        {
-            int selectedCount = 0;
-            bool matchedText = false;
-            for (int index = 0; index < hints.childCount; ++index)
-            {
-                VisualElement hint = hints[index];
-                if (!hint.ClassListContains("autocomplete-item-selected"))
-                {
-                    continue;
-                }
-
-                ++selectedCount;
-                matchedText |= string.Equals((hint as TextElement)?.text, expectedText, StringComparison.Ordinal);
-            }
-
-            return selectedCount == 1 && matchedText;
-        }
-
-        private string DescribeSelectedHints(ScrollView hints)
-        {
-            string description = "selected=";
-            for (int index = 0; index < hints.childCount; ++index)
-            {
-                VisualElement hint = hints[index];
-                if (!hint.ClassListContains("autocomplete-item-selected"))
-                {
-                    continue;
-                }
-
-                description += $"'{(hint as TextElement)?.text}' ";
-            }
-
-            return description;
+            Assert.That(RenderedName(Selected()), Is.EqualTo(expectedText), message);
         }
 
         /*

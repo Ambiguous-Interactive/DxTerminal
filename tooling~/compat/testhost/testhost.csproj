@@ -76,6 +76,7 @@
     <Compile Include="../../../Runtime/**/*.cs" Exclude="../../../Runtime/Analyzers/**" />
     <Compile Remove="../../../Runtime/CommandTerminal/UI/TerminalUI.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/UI/CommandInputHighlight.cs" />
+    <Compile Remove="../../../Runtime/CommandTerminal/UI/TerminalCompletionView.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/UI/CommandPaletteUI.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/UI/KeyEvents.cs" />
     <Compile Remove="../../../Runtime/CommandTerminal/Themes/TerminalThemePack.cs" />
