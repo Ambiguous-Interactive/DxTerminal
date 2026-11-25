@@ -496,6 +496,98 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 Assert.That(span.Role, Is.Not.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Invalid));
                 Assert.That(span.Role, Is.Not.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.UnknownCommand));
             }
+
+            CommandHelpCard card = entry.HelpCard;
+            Assert.That(card, Is.Not.Null);
+            Assert.That(card.SignaturePlainText, Is.EqualTo("spawn prefab [count] [at]"));
+            Assert.That(card.Arguments.Length, Is.EqualTo(3));
+            Assert.That(card.Arguments[0].TypeRole, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Choice));
+            Assert.That(card.Arguments[1].TypeRole, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Number));
+            Assert.That(card.Arguments[2].TypeRole, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Number));
+            Assert.That(card.ExampleSpans.Length, Is.EqualTo(spans.Count));
+            for (int i = 0; i < spans.Count; ++i)
+            {
+                Assert.That((card.ExampleSpans[i].Start, card.ExampleSpans[i].End, card.ExampleSpans[i].Role), Is.EqualTo((spans[i].Start, spans[i].End, spans[i].Role)));
+            }
+
+            Assert.That(LogFilter.Matches(entry, "Combat"), Is.True);
+            Assert.That(LogFilter.Matches(entry, "int 1–50"), Is.True);
+            string copied = RunCopyAndReadClipboard("copy-last", BuiltInCommands.ClipboardRefusalMessage);
+            Assert.That(string.Equals(copied, text, StringComparison.Ordinal), Is.True, "copy-last must copy the plain text of the help card");
+        }
+
+        [Test]
+        public void HelpCommandSupportsExplicitExampleSubcommandsLegacyAndErrors()
+        {
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies")
+                        .Example("spawn golem 2 (0,0,10)")
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Arg<Vector3>("at", spec =>
+                        {
+                            return spec.Default(Vector3.zero, "player");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("inventory", "Manage items")
+                        .Group("Items")
+                        .Contexts(CommandExecutionContexts.EditorEditMode)
+                        .Subcommand("add", sub =>
+                        {
+                            sub.Help("Adds an item")
+                                .Arg<string>("item", spec =>
+                                {
+                                    return spec.Required();
+                                })
+                                .Handler((_, _) => { });
+                        })
+                        .Subcommand("clear", sub =>
+                        {
+                            sub.Help("Clears inventory").Handler((_, _) => { });
+                        }),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(_shell.AddCommand("bare", _ => { }, minArgs: 0, maxArgs: 0, help: string.Empty), Is.True);
+
+            Assert.That(Run("help SPAWN"), Is.Null);
+            CommandHelpCard spawnCard = Newest(1)[0].HelpCard;
+            Assert.That(spawnCard.CommandName, Is.EqualTo("spawn"));
+            Assert.That(spawnCard.ExampleLine, Is.EqualTo("spawn golem 2 (0,0,10)"));
+            Assert.That(spawnCard.ExampleSpans[0].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Command));
+            Assert.That(spawnCard.ExampleSpans[1].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Choice));
+            Assert.That(spawnCard.ExampleSpans[2].Role, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Number));
+
+            Assert.That(Run("help inventory"), Is.Null);
+            CommandHelpCard routerCard = Newest(1)[0].HelpCard;
+            Assert.That(routerCard.SignaturePlainText, Is.EqualTo("inventory <subcommand>"));
+            Assert.That(routerCard.DescriptionLine, Does.Contain("Group: Items.").And.Contain("Edit Mode only."));
+            Assert.That(routerCard.Arguments.Length, Is.EqualTo(2));
+            Assert.That(routerCard.Arguments[0].TypeRole, Is.EqualTo(CommandSyntaxClassifier.CommandSyntaxRole.Choice));
+            Assert.That(routerCard.ExampleLine, Is.EqualTo("inventory add item"));
+
+            Assert.That(Run("help bare"), Is.Null);
+            CommandHelpCard bareCard = Newest(1)[0].HelpCard;
+            Assert.That(bareCard.DescriptionLine, Does.Contain("bare does not provide any help documentation.").And.Contain("All contexts."));
+            Assert.That(bareCard.ExampleLine, Is.EqualTo("bare"));
+
+            Assert.That(Run("help does-not-exist"), Is.EqualTo("Command does-not-exist could not be found."));
         }
 
         /*

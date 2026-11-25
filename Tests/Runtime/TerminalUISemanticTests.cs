@@ -987,6 +987,35 @@
 
             Assert.That(echoHighlight.text, Is.Not.EqualTo(darkEcho), "Theme switch must update syntax-colored echo spans");
             Assert.That(example.text, Is.Not.EqualTo(darkExample), "Theme switch must update syntax-colored help card spans");
+
+            Terminal.Buffer.Clear();
+            Terminal.Log(TerminalLogType.Input, "spawn <b>");
+            _terminal.RefreshUI();
+            yield return null;
+
+            TextField escapedEcho = (TextField)logContent[0];
+            Label escapedHighlight = escapedEcho.Q<Label>("LogSyntaxHighlight");
+            Assert.That(escapedEcho.value, Is.EqualTo("spawn <b>"));
+            Assert.That(escapedHighlight.text, Does.Contain("<noparse><</noparse>b<noparse>></noparse>"));
+
+            Terminal.Buffer.Clear();
+            Terminal.Log("plain message");
+            _terminal.RefreshUI();
+            yield return null;
+
+            TextField recycledRow = (TextField)logContent[0];
+            Assert.That(recycledRow.value, Is.EqualTo("plain message"));
+            Label recycledHighlight = recycledRow.Q<Label>("LogSyntaxHighlight");
+            VisualElement recycledCard = recycledRow.Q<VisualElement>("CommandHelpCard");
+            if (recycledHighlight != null)
+            {
+                Assert.That(recycledHighlight.style.display.value, Is.EqualTo(DisplayStyle.None));
+            }
+
+            if (recycledCard != null)
+            {
+                Assert.That(recycledCard.style.display.value, Is.EqualTo(DisplayStyle.None));
+            }
         }
 #endif
 

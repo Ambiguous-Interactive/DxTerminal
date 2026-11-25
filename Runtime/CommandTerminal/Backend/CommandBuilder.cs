@@ -39,6 +39,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private string _group;
         private string _help = string.Empty;
         private string _hint;
+        private string _example;
         private CommandExecutionContexts _contexts = CommandExecutionContextSets.Gameplay;
         private bool _addToHistory = true;
         private TypedCommandHandler _handler;
@@ -538,6 +539,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return this;
         }
 
+        /// <summary>Sets the example command line shown in the help card.</summary>
+        public CommandBuilder Example(string example)
+        {
+            _example = example;
+            return this;
+        }
+
         public CommandBuilder AddToHistory(bool addToHistory)
         {
             _addToHistory = addToHistory;
@@ -809,6 +817,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 Name = name,
                 FullPath = path,
                 Help = _help,
+                Example = _example,
                 Usage = usage,
                 PathUsage = _hint ?? (string.Equals(path, name, StringComparison.Ordinal) ? usage : BuildUsageHint(path, specs)),
                 Specs = specs,
@@ -860,6 +869,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 Name = name,
                 FullPath = path,
                 Help = _help,
+                Example = _example,
                 Usage = _hint ?? $"{name} <subcommand>",
                 PathUsage = _hint ?? $"{path} <subcommand>",
                 Fallback = _handler,
@@ -1045,6 +1055,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             public string FullPath { get; internal set; }
 
             public string Help { get; internal set; }
+
+            public string Example { get; internal set; }
 
             /// <summary>Usage within a route listing, e.g. <c>add &lt;item:string&gt;</c>.</summary>
             public string Usage { get; internal set; }

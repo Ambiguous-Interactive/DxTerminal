@@ -13,6 +13,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add syntax-colored command echoes in the log and a syntax-colored `help <command>` card with signature, group, availability, argument table, and example
+  ([#336](https://github.com/Ambiguous-Interactive/DxTerminal/issues/336)).
 - Add inline command validation under the terminal input with did-you-mean Tab fixes and unclosed-quote notes
   ([#336](https://github.com/Ambiguous-Interactive/DxTerminal/issues/336)).
 - Add a typed signature line and argument details while completing commands ([#335](https://github.com/Ambiguous-Interactive/DxTerminal/issues/335)).

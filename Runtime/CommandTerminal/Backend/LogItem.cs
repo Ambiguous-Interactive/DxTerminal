@@ -12,11 +12,12 @@
         public readonly string stackTrace;
         internal readonly long Sequence;
         internal readonly DateTime TimestampUtc;
+        internal readonly CommandHelpCard HelpCard;
 
         public LogItem(TerminalLogType type, string message, string stackTrace)
-            : this(type, message, stackTrace, DateTime.UtcNow) { }
+            : this(type, message, stackTrace, DateTime.UtcNow, helpCard: null) { }
 
-        internal LogItem(TerminalLogType type, string message, string stackTrace, DateTime timestampUtc)
+        internal LogItem(TerminalLogType type, string message, string stackTrace, DateTime timestampUtc, CommandHelpCard helpCard = null)
         {
             if (timestampUtc.Kind != DateTimeKind.Utc)
             {
@@ -25,6 +26,7 @@
 
             Sequence = Interlocked.Increment(ref _sequenceCounter);
             TimestampUtc = timestampUtc;
+            HelpCard = helpCard;
             this.type = type;
             this.message = message ?? string.Empty;
             this.stackTrace = stackTrace ?? string.Empty;

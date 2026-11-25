@@ -165,47 +165,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 text is normalized.
              */
             LogItem log = new(type, LogTextSanitizer.Sanitize(message), CapturesStackTrace(type) ? LogTextSanitizer.Sanitize(stackTrace) : string.Empty, _utcNow());
-
-            lock (_logs.SyncRoot)
-            {
-                /*
-                    The filter is re-checked in the critical section that
-                    owns the write, so the final decision is atomic with the
-                    version bump and the ring write: an entry the filter
-                    drops can no more land than it can half-land. The window
-                    this closes - a filter change landing between the cheap
-                    check above and this lock - is a bounded stretch of pure
-                    string work with no reachable hook, so no test can
-                    interpose there; the concurrent-filter storm in
-                    CommandLogConcurrencyTests pins the observable contract
-                    (an applied filter empties the flood) and the rest is
-                    this paragraph.
-                 */
-                if (_ignoredLogTypes.Contains(type))
-                {
-                    return false;
-                }
-
-                /*
-                    The version bump and the ring write share this lock, so a
-                    reader never sees a version claiming an entry the ring does
-                    not hold. An entry a later writer overwrote is gone, as it
-                    was before: the version is a change signal, not a receipt.
-                 */
-                Interlocked.Increment(ref _version);
-                int capacity = _logs.Capacity;
-                if (0 < capacity)
-                {
-                    if (_logs.Count == capacity)
-                    {
-                        --_severityCounts[(int)SeverityOf(_logs[0].type)];
-                    }
-                    ++_severityCounts[(int)SeverityOf(type)];
-                }
-                _logs.Add(log);
-            }
-
-            return true;
+            return EnqueueLog(log);
         }
 
         public int Clear()
@@ -395,6 +355,16 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
         }
 
+        internal bool HandleHelpCard(CommandHelpCard card)
+        {
+            if (card == null || IsIgnored(TerminalLogType.ShellMessage))
+            {
+                return false;
+            }
+
+            return EnqueueLog(new LogItem(TerminalLogType.ShellMessage, LogTextSanitizer.Sanitize(card.PlainText), string.Empty, _utcNow(), card));
+        }
+
         /*
             The only modes that filter or skip capture. Everything else (the
             obsolete zero sentinel a stale serialized asset can hold, and any
@@ -412,6 +382,33 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 default:
                     return true;
             }
+        }
+
+        private bool EnqueueLog(LogItem log)
+        {
+            TerminalLogType type = log.type;
+            lock (_logs.SyncRoot)
+            {
+                // Re-check inside the lock so a concurrent ApplyFilter cannot slip an ignored entry in.
+                if (_ignoredLogTypes.Contains(type))
+                {
+                    return false;
+                }
+
+                Interlocked.Increment(ref _version);
+                int capacity = _logs.Capacity;
+                if (0 < capacity)
+                {
+                    if (_logs.Count == capacity)
+                    {
+                        --_severityCounts[(int)SeverityOf(_logs[0].type)];
+                    }
+                    ++_severityCounts[(int)SeverityOf(type)];
+                }
+                _logs.Add(log);
+            }
+
+            return true;
         }
     }
 }

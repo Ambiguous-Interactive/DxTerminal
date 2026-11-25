@@ -4,6 +4,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     using System.Collections.Generic;
     using System.Globalization;
     using System.Text;
+    using UnityEngine;
     using CommandSyntaxRole = CommandSyntaxClassifier.CommandSyntaxRole;
 
     /// <summary>
@@ -65,16 +66,29 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     return remaining;
                 }
 
-                string display = _defaultDisplay;
-                if (display == null)
+                return string.Concat(remaining, " = ", DefaultDisplayText, "]");
+            }
+        }
+
+        internal override string HelpType
+        {
+            get
+            {
+                string baseType = HasChoices && typeof(T) == typeof(string) ? "choice" : TypeName + _rangeText;
+                return _isRemaining ? baseType + "..." : baseType;
+            }
+        }
+
+        internal override string DefaultDisplayText
+        {
+            get
+            {
+                if (_defaultDisplay != null)
                 {
-                    display = "null";
-                    if (_defaultValue is not null)
-                    {
-                        display = FormatValue(_defaultValue);
-                    }
+                    return _defaultDisplay;
                 }
-                return string.Concat(remaining, " = ", display, "]");
+
+                return _defaultValue is not null ? FormatValue(_defaultValue) : "null";
             }
         }
 
@@ -242,6 +256,75 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             return texts;
+        }
+
+        private static string FormatExampleValue(T value)
+        {
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            return value switch
+            {
+                Vector2 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)})",
+                Vector3 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)})",
+                Vector4 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)},{v.w.ToString(inv)})",
+                Vector2Int v => $"({v.x.ToString(inv)},{v.y.ToString(inv)})",
+                Vector3Int v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)})",
+                Color c => $"({c.r.ToString(inv)},{c.g.ToString(inv)},{c.b.ToString(inv)},{c.a.ToString(inv)})",
+                _ => QuoteExampleToken(FormatValue(value)),
+            };
+        }
+
+        private static string QuoteExampleToken(string token)
+        {
+            if (string.IsNullOrEmpty(token))
+            {
+                return "\"\"";
+            }
+
+            bool needsQuote = CommandArg.Quotes.Contains(token[0]);
+            for (int i = 0; !needsQuote && i < token.Length; ++i)
+            {
+                needsQuote = CommandTokenizer.IsSeparator(token[i]);
+            }
+
+            if (!needsQuote)
+            {
+                return token;
+            }
+
+            char quote = 0 <= token.IndexOf('"') ? '\'' : '"';
+            return string.Concat(quote, token, quote);
+        }
+
+        private static string FormatTypeExample(string argumentName)
+        {
+            Type type = typeof(T);
+            if (type == typeof(bool))
+            {
+                return "true";
+            }
+
+            if (type.IsEnum)
+            {
+                Array values = Enum.GetValues(type);
+                return 0 < values.Length ? values.GetValue(0).ToString() : "0";
+            }
+
+            if (type == typeof(Vector2) || type == typeof(Vector2Int))
+            {
+                return "(0,0)";
+            }
+
+            if (type == typeof(Vector3) || type == typeof(Vector3Int))
+            {
+                return "(0,0,0)";
+            }
+
+            if (type == typeof(Vector4))
+            {
+                return "(0,0,0,0)";
+            }
+
+            return type == typeof(Color) ? "white" : (TypeSyntaxRole == CommandSyntaxRole.Number ? "1" : QuoteExampleToken(argumentName));
         }
 
         /// <summary>Shows a short hint beside each matching choice.</summary>
@@ -730,6 +813,30 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             builder.Append(_required ? '>' : ']');
+        }
+
+        internal override string GetExampleToken()
+        {
+            if (_staticChoiceTexts != null && 0 < _staticChoiceTexts.Length)
+            {
+                return QuoteExampleToken(_staticChoiceTexts[0]);
+            }
+
+            if (!_required && _hasExplicitDefault && _defaultValue is not null)
+            {
+                return FormatExampleValue(_defaultValue);
+            }
+
+            if (_rangeText != null)
+            {
+                int dashIndex = _rangeText.IndexOf('–');
+                if (1 < dashIndex)
+                {
+                    return QuoteExampleToken(_rangeText.Substring(1, dashIndex - 1));
+                }
+            }
+
+            return FormatTypeExample(Name);
         }
 
         internal override void AppendCompletions(in CommandCompletionContext context, List<CommandCompletion> results)

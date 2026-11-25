@@ -504,6 +504,87 @@
     padding: 0;
 }
 
+.terminal-log-highlight {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    white-space: normal;
+    -unity-text-align: upper-left;
+    margin: 0;
+    padding: 0;
+}
+
+.terminal-help-card {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    flex-direction: column;
+    margin: 4px 8px 4px 0;
+    padding: 8px 12px;
+    border-width: 1px;
+    border-color: var(--dxt-line);
+    border-radius: 8px;
+    background-color: var(--dxt-surface-raised);
+}
+
+.terminal-help-signature,
+.terminal-help-description,
+.terminal-help-example {
+    white-space: normal;
+    margin: 0 0 4px 0;
+    padding: 0;
+    font-size: 12.5px;
+    color: var(--dxt-ink-body);
+}
+
+.terminal-help-signature {
+    color: var(--dxt-ink);
+}
+
+.terminal-help-example {
+    margin-bottom: 0;
+    font-size: 12px;
+}
+
+.terminal-help-arguments {
+    flex-direction: column;
+    margin-bottom: 6px;
+}
+
+.terminal-help-arg-row {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 2px;
+}
+
+.terminal-help-arg-name,
+.terminal-help-arg-type,
+.terminal-help-arg-default {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-width: 0;
+    white-space: normal;
+    margin: 0 8px 0 0;
+    padding: 0;
+    font-size: 12px;
+}
+
+.terminal-help-arg-name {
+    color: var(--dxt-ink);
+}
+
+.terminal-help-arg-type.completion-type-Choice {
+    -unity-font-style: bold;
+}
+
+.terminal-help-arg-default {
+    margin-right: 0;
+    color: var(--dxt-ink-muted);
+}
+
 .terminal-copy-status {
     flex-shrink: 0;
     color: var(--dxt-warning);
