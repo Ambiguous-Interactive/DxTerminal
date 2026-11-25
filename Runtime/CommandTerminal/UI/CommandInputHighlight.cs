@@ -32,18 +32,21 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         private readonly Label _label;
         private readonly VisualElement _nativeText;
-        private readonly bool _nativeScrollFollowsLabel;
+        private readonly bool _labelFollowsNativeScroll;
         private readonly CommandSyntaxClassifier _classifier = new();
         private readonly List<CommandSyntaxSpan> _spans = new();
         private readonly string[] _tags = new string[(int)CommandSyntaxRole.Invalid + 1];
         private string _line;
         private CommandShell _shell;
+        private long _commandsVersion;
+        private long _variablesVersion;
         private Color _error;
         private string _monoTag;
         private float _advance;
         private float _fontSize;
+        private float _legacyTextWidth;
         private FontDefinition _font;
-        private bool _paletteChanged = true;
+        private bool _labelDirty = true;
         private bool _geometryChanged = true;
         private bool _visible;
         private int _regularColumns;
@@ -57,7 +60,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         internal CommandInputHighlight(VisualElement root, VisualElement input)
         {
             _nativeText = input.Q<TextElement>(className: "unity-text-element") ?? input;
-            _nativeScrollFollowsLabel = _nativeText is TextElement;
+            _labelFollowsNativeScroll = _nativeText is TextElement;
             _label = new Label
             {
                 name = "CommandInputHighlight",
@@ -115,7 +118,14 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         internal void Refresh(string line, CommandShell shell)
         {
-            if (!ReferenceEquals(_shell, shell) || !string.Equals(_line, line, StringComparison.Ordinal))
+            long commandsVersion = shell?.CommandsVersion ?? 0;
+            long variablesVersion = shell?.VariablesVersion ?? 0;
+            if (
+                !ReferenceEquals(_shell, shell)
+                || _commandsVersion != commandsVersion
+                || _variablesVersion != variablesVersion
+                || !string.Equals(_line, line, StringComparison.Ordinal)
+            )
             {
                 _shell = shell;
                 _line = line;
@@ -125,6 +135,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     _classifier.Classify(line, shell, _spans);
                 }
 
+                _commandsVersion = shell?.CommandsVersion ?? 0;
+                _variablesVersion = shell?.VariablesVersion ?? 0;
                 _regularColumns = 0;
                 _hasLineBreak = false;
                 bool regular = true;
@@ -148,7 +160,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     }
                 }
 
-                _paletteChanged = true;
+                _labelDirty = true;
             }
 
             IResolvedStyle nativeStyle = _nativeText.resolvedStyle;
@@ -157,17 +169,21 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 RefreshGeometry(nativeStyle);
             }
 
-            if (_paletteChanged)
+            if (_labelDirty)
             {
                 WriteLabel();
+                if (!_labelFollowsNativeScroll && !string.IsNullOrEmpty(line) && !_hasLineBreak)
+                {
+                    _legacyTextWidth = 0 < _advance && line.Length == _regularColumns ? _advance * line.Length : MeasureWidth(_label.text);
+                }
             }
 
             bool visible = !IsComposing() && !string.IsNullOrEmpty(line) && !_hasLineBreak;
 
-            if (visible && !_nativeScrollFollowsLabel)
+            if (visible && !_labelFollowsNativeScroll)
             {
                 // Unity 2021 keeps the single-line scroll offset inside its text editor.
-                visible = line.Length == _regularColumns && 0 < _advance && _advance * line.Length < _nativeText.contentRect.width;
+                visible = 0 < _legacyTextWidth && _legacyTextWidth < _nativeText.contentRect.width;
             }
 
             if (_visible != visible)
@@ -241,7 +257,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             SetTag(CommandSyntaxRole.Variable, Read(styles, InkBody, ink));
             SetTag(CommandSyntaxRole.Punctuation, muted);
             SetTag(CommandSyntaxRole.Invalid, _error);
-            _paletteChanged = true;
+            _labelDirty = true;
             _geometryChanged = true;
         }
 
@@ -277,9 +293,10 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 float wide = MeasureWidth(WideGlyphs);
                 _advance = 0 < narrow && Mathf.Approximately(narrow, wide) ? wide / WideGlyphs.Length : 0;
                 _monoTag = 0 < _advance ? "<mspace=" + _advance.ToString("0.####", CultureInfo.InvariantCulture) + ">" : string.Empty;
-                _paletteChanged = true;
+                _labelDirty = true;
             }
 
+            _labelDirty |= !_labelFollowsNativeScroll && !float.IsFinite(_legacyTextWidth);
             _label.MarkDirtyRepaint();
         }
 
@@ -290,7 +307,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         private void WriteLabel()
         {
-            _paletteChanged = false;
+            _labelDirty = false;
             // A Label change event would reach the command field as another edit.
             INotifyValueChanged<string> display = _label;
             if (string.IsNullOrEmpty(_line))

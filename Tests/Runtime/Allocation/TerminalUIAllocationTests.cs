@@ -222,6 +222,38 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
         }
 
         [UnityTest]
+        public IEnumerator CommandInputUpdatesWhenShellChangesWithoutAnEdit()
+        {
+            yield return SpawnTerminal(HintDisplayMode.Always);
+            TextField field = _terminal._commandInput;
+            Label highlight = field.Q<Label>("CommandInputHighlight");
+            const string input = "live-highlight $highlight-value";
+            field.value = input;
+            _terminal.RefreshUI();
+            string unknown = highlight.text;
+
+            CommandShell shell = Terminal.Shell;
+            Assert.That(shell.AddCommand(CommandBuilder.Create("live-highlight").Arg<int>("value").Handler((_, _) => { }), out _), Is.True);
+            _terminal.RefreshUI();
+            string missing = highlight.text;
+            Assert.That(missing, Is.Not.EqualTo(unknown));
+            Assert.That(missing, Does.Not.Contain("<i>"));
+
+            Assert.That(shell.SetVariable("highlight-value", "7"), Is.True);
+            _terminal.RefreshUI();
+            string valid = highlight.text;
+            Assert.That(valid, Does.Contain("<i>highlight-value</i>"));
+            Assert.That(shell.SetVariable("highlight-value", "7"), Is.True);
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.SameAs(valid));
+
+            Assert.That(shell.ClearVariable("highlight-value"), Is.True);
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.EqualTo(missing));
+            Assert.That(field.value, Is.EqualTo(input));
+        }
+
+        [UnityTest]
         public IEnumerator PerKeystrokeHintSweepIsAllocationFree()
         {
             yield return SpawnTerminal(HintDisplayMode.Always);
