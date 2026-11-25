@@ -302,5 +302,42 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(controlBytes, Is.GreaterThanOrEqualTo(256));
         }
 #endif
+
+        [TestCase("spawn goblin 80", "count must be 1–50. You typed 80.")]
+        [TestCase("spwan goblin", "No command spwan. Did you mean spawn")]
+        [TestCase("xyzzy goblin", "No command xyzzy.")]
+        public void LoggedValidationErrorMatchesT13Text(string line, string expectedMessage)
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            int runs = 0;
+            Assert.That(
+                shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Handler(
+                            (_, _) =>
+                            {
+                                ++runs;
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+
+            shell.RunCommand(line);
+            Assert.That(runs, Is.Zero);
+            Assert.That(shell.TryConsumeErrorMessage(out string error), Is.True);
+            Assert.That(error, Is.EqualTo(expectedMessage));
+        }
     }
 }

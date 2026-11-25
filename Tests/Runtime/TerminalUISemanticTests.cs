@@ -431,6 +431,54 @@
         }
 
         [UnityTest]
+        public IEnumerator InlineValidationMatchesLoggedErrorForSpawnCases()
+        {
+            yield return SpawnOpenTerminal();
+            int spawnRuns = 0;
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Handler(
+                            (_, _) =>
+                            {
+                                ++spawnRuns;
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            yield return SetInputText("spawn goblin 80");
+            yield return SetInputCaret(15);
+            yield return null;
+
+            VisualElement bar = root.Q<VisualElement>("CommandValidation");
+            Label message = root.Q<Label>("CommandValidationMessage");
+            Assert.That(bar, Is.Not.Null, "An invalid line must show an inline validation bar");
+            Assert.That(message, Is.Not.Null, "The inline validation bar must expose its message");
+            Assert.That(bar.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            string inlineMessage = RenderedName(message);
+            Assert.That(inlineMessage, Is.EqualTo("count must be 1–50. You typed 80."));
+
+            _terminal.EnterCommand();
+            Assert.That(spawnRuns, Is.Zero, "Enter must not run an invalid line");
+            Assert.That(Terminal.Buffer.TryGetLast(out LogItem last), Is.True);
+            Assert.That(last.type, Is.EqualTo(TerminalLogType.Error));
+            Assert.That(last.message, Is.EqualTo(inlineMessage), "The logged error must equal the inline message");
+        }
+
+        [UnityTest]
         public IEnumerator SubcommandSignatureTracksExactNamesAndVariableRoutes()
         {
             yield return SpawnOpenTerminal();
