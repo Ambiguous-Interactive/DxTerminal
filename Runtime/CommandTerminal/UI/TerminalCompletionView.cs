@@ -22,6 +22,7 @@
 
         private static readonly CustomStyleProperty<Color> AccentSoft = new("--dxt-accent-soft");
         private static readonly Comparison<Row> CompareRows = CompareRank;
+        private static readonly string[] FooterLabels = BuildFooterLabels();
 
         internal VisualElement Panel { get; }
 
@@ -183,6 +184,43 @@
                 keys |= KeyHints.Dismiss;
             }
             return keys;
+        }
+
+        private static string[] BuildFooterLabels()
+        {
+            string[] labels = new string[(int)KeyHints.Word << 1];
+            StringBuilder text = new(64);
+            for (int index = 0; index < labels.Length; ++index)
+            {
+                KeyHints visible = (KeyHints)index;
+                text.Clear();
+                switch (visible & (KeyHints.Previous | KeyHints.Next))
+                {
+                    case KeyHints.Previous | KeyHints.Next:
+                        AppendHint(text, "↑↓ select");
+                        break;
+                    case KeyHints.Previous:
+                        AppendHint(text, "↑ select");
+                        break;
+                    case KeyHints.Next:
+                        AppendHint(text, "↓ select");
+                        break;
+                }
+                if ((visible & KeyHints.Accept) != 0)
+                {
+                    AppendHint(text, "Tab accept");
+                }
+                if ((visible & KeyHints.Word) != 0)
+                {
+                    AppendHint(text, "→ accept word");
+                }
+                if ((visible & KeyHints.Dismiss) != 0)
+                {
+                    AppendHint(text, "Esc dismiss");
+                }
+                labels[index] = text.ToString();
+            }
+            return labels;
         }
 
         private static void AppendHint(StringBuilder builder, string hint)
@@ -580,33 +618,7 @@
             if (visible != _footerHints)
             {
                 _footerHints = visible;
-                using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(64);
-                StringBuilder text = scope.Builder;
-                switch (visible & (KeyHints.Previous | KeyHints.Next))
-                {
-                    case KeyHints.Previous | KeyHints.Next:
-                        AppendHint(text, "↑↓ select");
-                        break;
-                    case KeyHints.Previous:
-                        AppendHint(text, "↑ select");
-                        break;
-                    case KeyHints.Next:
-                        AppendHint(text, "↓ select");
-                        break;
-                }
-                if ((visible & KeyHints.Accept) != 0)
-                {
-                    AppendHint(text, "Tab accept");
-                }
-                if ((visible & KeyHints.Word) != 0)
-                {
-                    AppendHint(text, "→ accept word");
-                }
-                if ((visible & KeyHints.Dismiss) != 0)
-                {
-                    AppendHint(text, "Esc dismiss");
-                }
-                _keys.text = text.ToString();
+                _keys.text = FooterLabels[(int)visible];
             }
             return visible == default ? 0 : FooterHeight;
         }
