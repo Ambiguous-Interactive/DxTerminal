@@ -131,6 +131,111 @@
     min-height: 44px;
 }
 
+.completion-body {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex-shrink: 1;
+    min-height: 0;
+    padding: 0 6px;
+}
+
+.completion-suggestions {
+    align-self: stretch;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
+}
+
+.completion-details {
+    background-color: var(--dxt-surface-raised);
+    border-radius: 4px;
+    padding: 3px 5px;
+}
+
+.completion-detail-title,
+.completion-detail-description,
+.completion-signature-part,
+.completion-signature-description {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.completion-signature,
+.completion-signature-argument {
+    flex-direction: row;
+    align-items: center;
+}
+
+.completion-detail-title,
+.completion-signature-description {
+    color: var(--dxt-ink-muted);
+    font-size: 11px;
+}
+
+.completion-signature-description {
+    flex-grow: 1;
+    flex-shrink: 1;
+    -unity-text-align: middle-right;
+}
+
+.completion-details {
+    width: 48%;
+    align-self: flex-end;
+    margin-left: 6px;
+}
+
+.completion-signature {
+    padding: 0 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+    font-size: 12.5px;
+}
+
+.completion-detail-description {
+    color: var(--dxt-ink-body);
+}
+
+.completion-signature-name,
+.completion-signature-part {
+    color: var(--dxt-ink);
+}
+
+.completion-signature-name {
+    -unity-font-style: bold;
+    margin-right: 5px;
+}
+
+.completion-signature-argument {
+    margin-right: 3px;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 3px;
+}
+
+.completion-signature-part {
+    margin: 0;
+    padding: 0;
+}
+
+.completion-argument-active {
+    background-color: var(--dxt-selection);
+    border-color: var(--dxt-selection-line);
+}
+
+.completion-type-Number {
+    color: var(--dxt-syn-number);
+}
+
+.completion-type-String {
+    color: var(--dxt-syn-string);
+}
+
+.completion-type-Choice {
+    color: var(--dxt-syn-choice);
+}
+
 .terminal-root--narrow .input-container {
     flex-wrap: wrap;
     height: auto;
@@ -233,9 +338,16 @@
     height: 24px;
 }
 
+.completion-row > .unity-label {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    -unity-text-align: middle-left;
+}
+
 .completion-name,
 .completion-description,
-.completion-group {
+.completion-hint {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -249,10 +361,16 @@
 
 .completion-description {
     flex-grow: 1;
+    min-width: 0;
+}
+
+.completion-row > .completion-hint {
+    flex-shrink: 0;
+    max-width: 32%;
+    -unity-text-align: middle-right;
 }
 
 .completion-description,
-.completion-group,
 .completion-hint,
 .completion-kind,
 .completion-keys {

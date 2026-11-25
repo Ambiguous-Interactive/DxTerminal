@@ -405,6 +405,15 @@
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesCompletionHintsSurface), CaptureBounds.Default());
             AssertAcceptable(_lastOutcome);
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            ScrollView log = root.Q<ScrollView>("LogScrollView");
+            ScrollView suggestions = _terminal.CompletionList.Q<ScrollView>();
+            Rect viewport = suggestions.contentViewport.worldBound;
+            Label keys = root.Q<Label>("CompletionKeys");
+            Assert.That(viewport.yMin + 1f, Is.GreaterThanOrEqualTo(log.worldBound.yMax), "The list stays below the log and toolbar");
+            Assert.That(keys.worldBound.yMin + 1f, Is.GreaterThanOrEqualTo(viewport.yMax), "The list stops above the key hints");
+            Assert.That(keys.worldBound.height, Is.GreaterThan(0f));
+            Assert.That(keys.worldBound.yMax, Is.LessThanOrEqualTo(_terminal._commandInput.worldBound.yMin + 1f));
         }
 
 #if UNITY_EDITOR
@@ -415,22 +424,41 @@
             _terminal.SetState(TerminalState.OpenFull);
             yield return WaitForTerminalInputVisible();
 
+            Vector3 player = Vector3.zero;
             CommandBuilder spawn = CommandBuilder
                 .Create("spawn", "Spawns enemies at a point")
                 .Group("Combat")
                 .Arg<string>("prefab", spec =>
                 {
-                    return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                    return spec.Required()
+                        .Choices("goblin", "ghoul", "golem")
+                        .Describe("Enemy prefab")
+                        .DescribeChoices(value =>
+                        {
+                            return value switch
+                            {
+                                "goblin" => "HP 30",
+                                "ghoul" => "HP 55",
+                                _ => "HP 400",
+                            };
+                        });
                 })
                 .Arg<int>("count", spec =>
                 {
                     return spec.Range(1, 50).Default(1);
                 })
-                .Arg<Vector3>("at")
+                .Arg<Vector3>("at", spec =>
+                {
+                    return spec.Default(player, nameof(player));
+                })
                 .Handler((_, _) => { });
             Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
             _terminal._commandInput.value = "spawn g";
             yield return WaitForCompletionHints("spawn g");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Assert.That(root.Q<Label>("CompletionArgument").text, Is.EqualTo("prefab · 1 of 3 arguments"));
+            Assert.That(root.Q<Label>("CompletionHint").text, Is.EqualTo("HP 30"));
+            Assert.That(root.Q<VisualElement>(className: "completion-argument-active"), Is.Not.Null);
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesArgumentCompletionSurface), CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
             AssertAcceptable(_lastOutcome);

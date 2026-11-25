@@ -50,6 +50,34 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         public override bool HasChoices => _staticChoices != null || _dynamicChoices != null;
 
+        internal override string SignatureType
+        {
+            get { return _staticChoiceTexts == null ? TypeName + _rangeText : string.Join("|", _staticChoiceTexts); }
+        }
+
+        internal override string SignatureSuffix
+        {
+            get
+            {
+                string remaining = _isRemaining ? "..." : string.Empty;
+                if (_required)
+                {
+                    return remaining;
+                }
+
+                string display = _defaultDisplay;
+                if (display == null)
+                {
+                    display = "null";
+                    if (_defaultValue is not null)
+                    {
+                        display = FormatValue(_defaultValue);
+                    }
+                }
+                return string.Concat(remaining, " = ", display, "]");
+            }
+        }
+
         internal override Type DeclaredType => typeof(T);
 
         internal override CommandSyntaxRole SyntaxRole => TypeSyntaxRole;
@@ -83,13 +111,16 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private readonly bool _isRemaining;
         private readonly bool _hasExplicitDefault;
         private readonly T _defaultValue;
+        private readonly string _defaultDisplay;
         private readonly CommandArgParser<T> _parserOverride;
         private readonly bool _useRawInput;
         private readonly IReadOnlyList<T> _staticChoices;
         private readonly string[] _staticChoiceTexts;
         private readonly Func<CommandCompletionContext, IReadOnlyList<T>> _dynamicChoices;
         private readonly Func<T, string> _choiceFormatter;
+        private readonly Func<T, string> _choiceHint;
         private readonly Func<T, string> _rangeValidator;
+        private readonly string _rangeText;
         private readonly Func<T, string> _validator;
 
         internal CommandArgumentSpec(string name)
@@ -132,7 +163,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             bool isRemaining = false,
             bool hasExplicitDefault = false,
             Func<T, string> choiceFormatter = null,
-            bool useRawInput = false
+            bool useRawInput = false,
+            string rangeText = null,
+            Func<T, string> choiceHint = null,
+            string defaultDisplay = null
         )
             : base(name, GetTypeName(typeof(T)))
         {
@@ -140,6 +174,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             _isRemaining = isRemaining;
             _hasExplicitDefault = hasExplicitDefault;
             _defaultValue = defaultValue;
+            _defaultDisplay = defaultDisplay;
             _parserOverride = parserOverride;
             _useRawInput = useRawInput;
 
@@ -165,7 +200,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             _staticChoiceTexts = _staticChoices == null ? null : FormatChoices(_staticChoices);
             _dynamicChoices = dynamicChoices;
             _choiceFormatter = choiceFormatter;
+            _choiceHint = choiceHint;
             _rangeValidator = rangeValidator;
+            _rangeText = rangeText;
             _validator = validator;
             Description = description;
         }
@@ -207,12 +244,32 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return texts;
         }
 
-        private static void AppendCandidate(string text, string description, in CommandCompletionContext context, List<CommandCompletion> results)
+        /// <summary>Shows a short hint beside each matching choice.</summary>
+        public CommandArgumentSpec<T> DescribeChoices(Func<T, string> hint)
         {
-            if (!string.IsNullOrEmpty(text) && text.StartsWith(context.Token, StringComparison.OrdinalIgnoreCase))
+            if (hint == null)
             {
-                results.Add(new CommandCompletion(text, description: description));
+                throw new ArgumentNullException(nameof(hint));
             }
+
+            return new CommandArgumentSpec<T>(
+                name: Name,
+                required: _required,
+                defaultValue: _defaultValue,
+                parserOverride: _parserOverride,
+                staticChoices: _staticChoices,
+                dynamicChoices: _dynamicChoices,
+                rangeValidator: _rangeValidator,
+                validator: _validator,
+                description: Description,
+                isRemaining: _isRemaining,
+                hasExplicitDefault: _hasExplicitDefault,
+                choiceFormatter: _choiceFormatter,
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: hint,
+                defaultDisplay: _defaultDisplay
+            );
         }
 
         /// <summary>Marks the argument required. Omitting it fails the invocation.</summary>
@@ -231,7 +288,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: _choiceFormatter,
-                useRawInput: _useRawInput
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -242,6 +302,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         ///     argument mandatory again and leaves the default unused.
         /// </summary>
         public CommandArgumentSpec<T> Default(T value)
+        {
+            return Default(value, null);
+        }
+
+        /// <summary>Sets an optional argument default and its display text in the signature.</summary>
+        public CommandArgumentSpec<T> Default(T value, string displayText)
         {
             return new CommandArgumentSpec<T>(
                 Name,
@@ -256,7 +322,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: true,
                 choiceFormatter: _choiceFormatter,
-                useRawInput: _useRawInput
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: _choiceHint,
+                defaultDisplay: displayText
             );
         }
 
@@ -276,7 +345,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: _choiceFormatter,
-                useRawInput: _useRawInput
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -312,7 +384,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: _choiceFormatter,
-                useRawInput: _useRawInput
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -354,7 +429,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: formatter,
-                useRawInput: _useRawInput
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -464,7 +542,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: _choiceFormatter,
-                useRawInput: _useRawInput
+                useRawInput: _useRawInput,
+                rangeText: $" {FormatValue(min)}–{FormatValue(max)}",
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -493,7 +574,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: _choiceFormatter,
-                useRawInput: _useRawInput
+                useRawInput: _useRawInput,
+                rangeText: _rangeText,
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 
@@ -653,7 +737,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 for (int i = 0; i < _staticChoiceTexts.Length; ++i)
                 {
-                    AppendCandidate(_staticChoiceTexts[i], Description, context, results);
+                    AppendCandidate(_staticChoiceTexts[i], _staticChoices[i], context, results);
                 }
 
                 return;
@@ -673,8 +757,16 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             int providedCount = provided.Count;
             for (int i = 0; i < providedCount; ++i)
             {
-                string text = _choiceFormatter(provided[i]);
-                AppendCandidate(text, Description, context, results);
+                T value = provided[i];
+                AppendCandidate(_choiceFormatter(value), value, context, results);
+            }
+        }
+
+        private void AppendCandidate(string text, T value, in CommandCompletionContext context, List<CommandCompletion> results)
+        {
+            if (!string.IsNullOrEmpty(text) && text.StartsWith(context.Token, StringComparison.OrdinalIgnoreCase))
+            {
+                results.Add(new CommandCompletion(text, displayLabel: null, Description, replacement: null, hint: _choiceHint?.Invoke(value)));
             }
         }
 
@@ -698,7 +790,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 isRemaining: _isRemaining,
                 hasExplicitDefault: _hasExplicitDefault,
                 choiceFormatter: _choiceFormatter,
-                useRawInput: useRawInput
+                useRawInput: useRawInput,
+                rangeText: _rangeText,
+                choiceHint: _choiceHint,
+                defaultDisplay: _defaultDisplay
             );
         }
 

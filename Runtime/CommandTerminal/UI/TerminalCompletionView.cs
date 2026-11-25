@@ -6,6 +6,7 @@
     using Backend;
     using Extensions;
     using Helper;
+    using Input;
     using UnityEngine;
     using UnityEngine.UIElements;
 
@@ -13,11 +14,22 @@
     {
         private const int RowHeight = 24;
         private const int VisibleRows = 6;
+        private const int FooterHeight = 16;
+        private const int BodyPadding = 3;
+        private const int DetailsHeight = 36;
+        private const int SignatureHeight = 30;
+        private const KeyHints DefaultKeyHints = KeyHints.Previous | KeyHints.Next | KeyHints.Accept | KeyHints.Dismiss;
 
         private static readonly CustomStyleProperty<Color> AccentSoft = new("--dxt-accent-soft");
         private static readonly Comparison<Row> CompareRows = CompareRank;
+        private static readonly string[] FooterLabels = BuildFooterLabels();
 
         internal VisualElement Panel { get; }
+
+        internal float MinimumHeight
+        {
+            get { return Panel.style.minHeight.value.value; }
+        }
 
         internal ListView List
         {
@@ -46,6 +58,12 @@
         private readonly List<CommandToken> _tokens = new();
         private readonly ListView _list;
         private readonly Label _keys;
+        private readonly VisualElement _body;
+        private readonly VisualElement _suggestions;
+        private readonly VisualElement _signature;
+        private readonly VisualElement _details;
+        private readonly Label _argument;
+        private readonly Label _argumentDescription;
         private readonly Action<int> _accept;
         private CommandShell _shell;
         private long _commandsVersion;
@@ -61,6 +79,9 @@
         private bool _requested;
         private HintDisplayMode _mode;
         private string _ghost;
+        private CommandArgument _activeArgument;
+        private CommandBuilder.SubcommandRoute _signatureRoute;
+        private int _signatureStage;
         private string _matchTag = "<u>";
         private string _matchEnd = "</u>";
         private Color? _matchColor;
@@ -68,6 +89,8 @@
         private bool _clickable;
         private VisualElement _focusedRow;
         private bool _previewAllowed;
+        private KeyHints _boundHints;
+        private KeyHints _footerHints;
 
         internal TerminalCompletionView(VisualElement root, VisualElement parent, Action<int> accept)
         {
@@ -75,6 +98,13 @@
             root.RegisterCallback<CustomStyleResolvedEvent>(ApplyColors);
             Panel = new VisualElement { name = "CompletionPanel" };
             Panel.AddToClassList("completion-panel");
+            _details = new VisualElement();
+            _details.AddToClassList("completion-details");
+            _details.style.minHeight = DetailsHeight;
+            _argument = MakeLabel("CompletionArgument", "completion-detail-title");
+            _argumentDescription = MakeLabel("CompletionArgumentDescription", "completion-detail-description");
+            _details.Add(_argument);
+            _details.Add(_argumentDescription);
             _list = new ListView
             {
                 name = "AutoCompletePopup",
@@ -88,8 +118,23 @@
             _list.itemsSource = _rows;
             _list.AddToClassList("autocomplete-popup");
             _keys = MakeLabel("CompletionKeys", "completion-keys");
-            Panel.Add(_list);
-            Panel.Add(_keys);
+            _keys.style.height = FooterHeight;
+            _keys.style.flexShrink = 0f;
+            _suggestions = new VisualElement();
+            _suggestions.AddToClassList("completion-suggestions");
+            _suggestions.Add(_list);
+            _suggestions.Add(_keys);
+            _body = new VisualElement();
+            _body.AddToClassList("completion-body");
+            _body.style.paddingTop = BodyPadding;
+            _body.style.paddingBottom = BodyPadding;
+            _body.Add(_suggestions);
+            _body.Add(_details);
+            Panel.Add(_body);
+            _signature = new VisualElement { name = "CommandSignature" };
+            _signature.AddToClassList("completion-signature");
+            _signature.style.height = SignatureHeight;
+            Panel.Add(_signature);
             parent.Add(Panel);
             Panel.style.display = DisplayStyle.None;
         }
@@ -114,13 +159,96 @@
             return label;
         }
 
-        internal void Refresh(CommandShell shell, string line, int? fieldCaret, HintDisplayMode mode, bool clickable, bool previewAllowed, List<string> prefixCandidates)
+        private static KeyHints ReadBindings(TerminalKeyboardController keyboard)
+        {
+            if (keyboard == null || !keyboard.isActiveAndEnabled)
+            {
+                return DefaultKeyHints;
+            }
+
+            KeyHints keys = default;
+            if (keyboard.UsesCompletionBinding(KeyCode.UpArrow))
+            {
+                keys |= KeyHints.Previous;
+            }
+            if (keyboard.UsesCompletionBinding(KeyCode.DownArrow))
+            {
+                keys |= KeyHints.Next;
+            }
+            if (keyboard.UsesCompletionBinding(KeyCode.Tab))
+            {
+                keys |= KeyHints.Accept;
+            }
+            if (keyboard.UsesCompletionBinding(KeyCode.Escape))
+            {
+                keys |= KeyHints.Dismiss;
+            }
+            return keys;
+        }
+
+        private static string[] BuildFooterLabels()
+        {
+            string[] labels = new string[(int)KeyHints.Word << 1];
+            StringBuilder text = new(64);
+            for (int index = 0; index < labels.Length; ++index)
+            {
+                KeyHints visible = (KeyHints)index;
+                text.Clear();
+                switch (visible & (KeyHints.Previous | KeyHints.Next))
+                {
+                    case KeyHints.Previous | KeyHints.Next:
+                        AppendHint(text, "↑↓ select");
+                        break;
+                    case KeyHints.Previous:
+                        AppendHint(text, "↑ select");
+                        break;
+                    case KeyHints.Next:
+                        AppendHint(text, "↓ select");
+                        break;
+                }
+                if ((visible & KeyHints.Accept) != 0)
+                {
+                    AppendHint(text, "Tab accept");
+                }
+                if ((visible & KeyHints.Word) != 0)
+                {
+                    AppendHint(text, "→ accept word");
+                }
+                if ((visible & KeyHints.Dismiss) != 0)
+                {
+                    AppendHint(text, "Esc dismiss");
+                }
+                labels[index] = text.ToString();
+            }
+            return labels;
+        }
+
+        private static void AppendHint(StringBuilder builder, string hint)
+        {
+            if (0 < builder.Length)
+            {
+                builder.Append("   ");
+            }
+            builder.Append(hint);
+        }
+
+        internal void Refresh(
+            CommandShell shell,
+            string line,
+            int? fieldCaret,
+            HintDisplayMode mode,
+            bool clickable,
+            bool previewAllowed,
+            List<string> prefixCandidates,
+            TerminalKeyboardController keyboard
+        )
         {
             if (shell == null || mode is not (HintDisplayMode.Always or HintDisplayMode.AutoCompleteOnly))
             {
                 if (_shell != null)
                 {
                     Panel.style.display = DisplayStyle.None;
+                    Panel.style.minHeight = 0f;
                     _rows.Clear();
                     _ghost = null;
                     _shell = null;
@@ -133,6 +261,9 @@
             bool sameLine = string.Equals(line, _line, StringComparison.Ordinal);
             int caret = line.SnapToTextBoundary(fieldCaret ?? (sameLine ? _caret : line.Length));
             bool sameInput = sameLine && caret == _caret;
+            KeyHints boundHints = ReadBindings(keyboard);
+            bool changedBindings = _boundHints != boundHints;
+            _boundHints = boundHints;
             if (
                 sameInput
                 && ReferenceEquals(shell, _shell)
@@ -143,6 +274,10 @@
                 && _variablesVersion == shell.VariablesVersion
             )
             {
+                if (changedBindings)
+                {
+                    RefreshSelection();
+                }
                 return;
             }
 
@@ -293,6 +428,7 @@
             CommandTokenizer.Tokenize(_line, _tokens);
             bool found = CommandTokenizer.TryFindActiveToken(_line, _caret, _tokens, out int active, out _start, out _length, out _);
             _shell.EnsureAutoCommandsRegistered();
+            RefreshSignature(active);
             bool showSuggestions = _requested || _mode == HintDisplayMode.Always || _line.Length != 0;
             if (showSuggestions && !_suppressed)
             {
@@ -300,9 +436,10 @@
                 {
                     _query = context.Token;
                     _quoted = context.IsQuoted;
+                    string badge = _activeArgument?.DeclaredType.IsEnum == true ? "enum" : string.Empty;
                     foreach (CommandCompletion candidate in _providerRows)
                     {
-                        _rows.Add(new Row(candidate, string.Empty, candidate.Hint, rank: 0, order: _rows.Count, wholeLine: false));
+                        _rows.Add(new Row(candidate, badge, candidate.Hint, rank: 0, order: _rows.Count, wholeLine: false));
                     }
                 }
                 else
@@ -433,16 +570,57 @@
                 _ghost = insertion.Substring(_caret - start);
             }
 
+            bool showSuggestions = 0 < count;
+            bool showDetails =
+                !_suppressed && _activeArgument != null && (showSuggestions || _activeArgument.HasChoices || !string.IsNullOrWhiteSpace(_activeArgument.Description));
+            _body.style.display = showSuggestions || showDetails ? DisplayStyle.Flex : DisplayStyle.None;
+            _suggestions.style.display = showSuggestions ? DisplayStyle.Flex : DisplayStyle.None;
+            _details.style.display = showDetails ? DisplayStyle.Flex : DisplayStyle.None;
             _list.style.height = Math.Min(count, VisibleRows) * RowHeight;
-            _keys.text = (1 < count, _ghost != null) switch
+            int footerHeight = RefreshFooter(count);
+            int bodyHeight = 0;
+            if (showSuggestions)
             {
-                (true, true) => "↑↓ select   Tab accept   → accept word   Esc dismiss",
-                (true, false) => "↑↓ select   Tab accept   Esc dismiss",
-                (false, true) => "Tab accept   → accept word   Esc dismiss",
-                _ => "Tab accept   Esc dismiss",
-            };
-            Panel.style.display = count != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+                bodyHeight = RowHeight + footerHeight;
+            }
+            if (showDetails)
+            {
+                bodyHeight = Math.Max(bodyHeight, DetailsHeight);
+            }
+            if (0 < bodyHeight)
+            {
+                bodyHeight += 2 * BodyPadding;
+            }
+            int signatureHeight = _signature.childCount == 0 ? 0 : SignatureHeight;
+            _signature.style.display = signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            Panel.style.minHeight = bodyHeight + signatureHeight;
+            Panel.style.display = bodyHeight + signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
             _list.RefreshItems();
+        }
+
+        private int RefreshFooter(int count)
+        {
+            KeyHints visible = default;
+            if (0 < count)
+            {
+                visible = _boundHints;
+                if (count == 1)
+                {
+                    visible &= ~(KeyHints.Previous | KeyHints.Next);
+                }
+                if (_ghost != null)
+                {
+                    visible |= KeyHints.Word;
+                }
+            }
+
+            _keys.style.display = visible == default ? DisplayStyle.None : DisplayStyle.Flex;
+            if (visible != _footerHints)
+            {
+                _footerHints = visible;
+                _keys.text = FooterLabels[(int)visible];
+            }
+            return visible == default ? 0 : FooterHeight;
         }
 
         private void ApplyColors(CustomStyleResolvedEvent evt)
@@ -460,6 +638,94 @@
             {
                 _list.RefreshItems();
             }
+        }
+
+        private void RefreshSignature(int active)
+        {
+            CommandBuilder.SubcommandRoute route = null;
+            if (
+                0 < _tokens.Count
+                && _shell.TryResolveToken(_tokens[0], _tokens[0].GetVariableName(), out CommandArg nameToken)
+                && !string.IsNullOrWhiteSpace(nameToken.contents)
+                && _shell.TryGetCommand(CommandShell.NormalizeCommandName(nameToken.contents), out CommandInfo command)
+            )
+            {
+                route = command.SyntaxRoute;
+            }
+
+            int routed = 1;
+            while (route is { IsRouter: true } && routed <= active && routed < _tokens.Count)
+            {
+                CommandToken selector = _tokens[routed];
+                if (routed == active && _caret < selector.End)
+                {
+                    break;
+                }
+
+                if (
+                    !_shell.TryResolveToken(selector, selector.GetVariableName(), out CommandArg resolved)
+                    || !route.Lookup.TryGetValue(resolved.contents ?? string.Empty, out CommandBuilder.SubcommandRoute child)
+                )
+                {
+                    break;
+                }
+
+                route = child;
+                ++routed;
+            }
+
+            CommandArgument[] specs = route?.Specs ?? Array.Empty<CommandArgument>();
+            int stage = active - routed;
+            if (route?.HasRemaining == true && specs.Length <= stage)
+            {
+                stage = specs.Length - 1;
+            }
+
+            if (ReferenceEquals(_signatureRoute, route) && _signatureStage == stage)
+            {
+                return;
+            }
+
+            _signatureRoute = route;
+            _signatureStage = stage;
+            _signature.Clear();
+            _activeArgument = null;
+            if (route == null)
+            {
+                return;
+            }
+
+            Label name = MakeLabel("SignatureCommand", "completion-signature-name");
+            name.text = LogTextSanitizer.Sanitize(route.FullPath);
+            _signature.Add(name);
+            for (int i = 0; i < specs.Length; ++i)
+            {
+                CommandArgument spec = specs[i];
+                VisualElement argument = new();
+                argument.AddToClassList("completion-signature-argument");
+                argument.EnableInClassList("completion-argument-active", i == stage);
+                Label argumentName = MakeLabel(null, "completion-signature-part");
+                argumentName.text = spec.IsRequired ? spec.Name + ": " : "[" + spec.Name + ": ";
+                Label type = MakeLabel(null, "completion-signature-part");
+                type.text = LogTextSanitizer.Sanitize(spec.SignatureType);
+                type.AddToClassList("completion-type-" + (spec.HasChoices ? CommandSyntaxClassifier.CommandSyntaxRole.Choice : spec.SyntaxRole));
+                Label suffix = MakeLabel(null, "completion-signature-part");
+                suffix.text = LogTextSanitizer.Sanitize(spec.SignatureSuffix);
+                argument.Add(argumentName);
+                argument.Add(type);
+                argument.Add(suffix);
+                _signature.Add(argument);
+                if (i == stage)
+                {
+                    _activeArgument = spec;
+                    _argument.text = $"{spec.Name} · {i + 1} of {specs.Length} arguments";
+                    _argumentDescription.text = LogTextSanitizer.Sanitize(spec.Description ?? string.Empty);
+                }
+            }
+
+            Label description = MakeLabel("SignatureDescription", "completion-signature-description");
+            description.text = LogTextSanitizer.Sanitize(route.Help ?? string.Empty);
+            _signature.Add(description);
         }
 
         private VisualElement MakeRow()
@@ -537,8 +803,23 @@
             using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(64);
             AppendMatch(scope.Builder, LogTextSanitizer.Sanitize(row.Value.EffectiveDisplayLabel));
             ((Label)element[1]).text = scope.Builder.ToString();
-            ((Label)element[2]).text = LogTextSanitizer.Sanitize(row.Value.Description ?? string.Empty);
+            string description = row.Value.Description;
+            ((Label)element[2]).text = string.Equals(description, _activeArgument?.Description, StringComparison.Ordinal)
+                ? string.Empty
+                : LogTextSanitizer.Sanitize(description ?? string.Empty);
             ((Label)element[3]).text = LogTextSanitizer.Sanitize(row.Hint ?? string.Empty);
+        }
+
+        [Flags]
+        private enum KeyHints
+        {
+            [Obsolete("Use default or a valid key hint")]
+            None = 0,
+            Previous = 1 << 0,
+            Next = 1 << 1,
+            Accept = 1 << 2,
+            Dismiss = 1 << 3,
+            Word = 1 << 4,
         }
 
         private readonly struct Row

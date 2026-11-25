@@ -382,10 +382,10 @@
         {
             return key switch
             {
-                KeyCode.Escape => string.Equals(closeHotkey, "escape", StringComparison.OrdinalIgnoreCase),
-                KeyCode.UpArrow => string.Equals(previousHotkey, "up", StringComparison.OrdinalIgnoreCase),
-                KeyCode.DownArrow => string.Equals(nextHotkey, "down", StringComparison.OrdinalIgnoreCase),
-                KeyCode.Tab => string.Equals(completeHotkey, "tab", StringComparison.OrdinalIgnoreCase),
+                KeyCode.Escape => string.Equals(closeHotkey, "escape", StringComparison.OrdinalIgnoreCase) && _controlOrder?.Contains(TerminalControlTypes.Close) == true,
+                KeyCode.UpArrow => string.Equals(previousHotkey, "up", StringComparison.OrdinalIgnoreCase) && _controlOrder?.Contains(TerminalControlTypes.Previous) == true,
+                KeyCode.DownArrow => string.Equals(nextHotkey, "down", StringComparison.OrdinalIgnoreCase) && _controlOrder?.Contains(TerminalControlTypes.Next) == true,
+                KeyCode.Tab => string.Equals(completeHotkey, "tab", StringComparison.OrdinalIgnoreCase) && _controlOrder?.Contains(TerminalControlTypes.CompleteForward) == true,
                 _ => false,
             };
         }

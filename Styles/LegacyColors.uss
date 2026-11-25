@@ -251,6 +251,7 @@
     color: var(--text-error);
 }
 
+.dxt-legacy .completion-keys,
 .dxt-legacy .palette-footer {
     color: var(--text-shell);
 }
@@ -267,4 +268,9 @@
 .dxt-legacy .autocomplete-item-selected {
     border-width: 0;
     padding: 0 4px;
+}
+
+.dxt-legacy .completion-argument-active {
+    background-color: var(--button-selected-bg);
+    border-color: var(--button-selected-text);
 }

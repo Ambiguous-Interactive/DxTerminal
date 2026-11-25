@@ -71,6 +71,23 @@
             return row != null && 0 < row.worldBound.height && scroll != null && scroll.contentViewport.worldBound.Contains(row.worldBound.center);
         }
 
+        private static string ActiveSignature(VisualElement root)
+        {
+            VisualElement argument = root.Q<VisualElement>(className: "completion-argument-active");
+            return argument == null ? null : ((Label)argument[0]).text + ((Label)argument[1]).text + ((Label)argument[2]).text;
+        }
+
+        private static IEnumerator WaitForActiveSignature(VisualElement root, string expected)
+        {
+            int frames = FrameBudget;
+            while (0 < frames-- && !string.Equals(expected, ActiveSignature(root), StringComparison.Ordinal))
+            {
+                yield return null;
+            }
+
+            Assert.That(ActiveSignature(root), Is.EqualTo(expected));
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -338,6 +355,136 @@
             Assert.That(ListOwnsFocus(), Is.True);
             _terminal.SubmitNavigation();
             yield return WaitForInputText("submitcandidate", "Navigation submit accepts the focused row");
+        }
+
+        [UnityTest]
+        public IEnumerator SpawnCompletionShowsCommandChoicesGhostAndActiveArgument()
+        {
+            yield return SpawnOpenTerminal();
+            Vector3 player = new(1f, 2f, 3f);
+            Vector3? spawnPosition = null;
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required()
+                                .Choices("goblin", "ghoul", "golem")
+                                .Describe("Enemy prefab")
+                                .DescribeChoices(value =>
+                                {
+                                    return string.Equals(value, "goblin", StringComparison.Ordinal) ? "HP 30" : null;
+                                });
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Arg<Vector3>("at", spec =>
+                        {
+                            return spec.Default(player, nameof(player)).Describe("Spawn position");
+                        })
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                spawnPosition = arguments.Get<Vector3>("at");
+                            }
+                        ),
+                    out _
+                ),
+                Is.True
+            );
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            yield return SetInputText("sp");
+            yield return SetInputCaret(2);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "spawn", "A prefix selects the spawn command");
+            Assert.That(root.Q<Label>("CommandInputHighlight").text, Does.Contain("awn"));
+
+            yield return SetInputText("spawn g");
+            yield return SetInputCaret(7);
+            yield return WaitForActiveSignature(root, "prefab: goblin|ghoul|golem");
+            Assert.That(_terminal.CompletionList.itemsSource.Count, Is.EqualTo(3));
+            yield return WaitForSelectedHint(_terminal.CompletionList, "goblin", "The choice list selects goblin");
+            VisualElement row = _terminal.CompletionList.Q(className: "autocomplete-item-selected");
+            Assert.That(row.Q<Label>("CompletionHint").text, Is.EqualTo("HP 30"));
+            Assert.That(root.Q<Label>("CompletionArgument").text, Is.EqualTo("prefab · 1 of 3 arguments"));
+            Assert.That(root.Q<Label>("CommandInputHighlight").text, Does.Contain("oblin"));
+
+            yield return SetInputText("spawn goblin 1");
+            yield return SetInputCaret(14);
+            yield return WaitForActiveSignature(root, "[count: int 1–50 = 1]");
+            Assert.That(root.Q<Label>("SignatureDescription").text, Is.EqualTo("Spawns enemies at a point"));
+
+            yield return SetInputText("spawn goblin 1 ");
+            yield return SetInputCaret(15);
+            yield return WaitForActiveSignature(root, "[at: Vector3 = player]");
+            VisualElement detailBody = root.Q(className: "completion-body");
+            Label argumentDescription = root.Q<Label>("CompletionArgumentDescription");
+            Assert.That(_terminal.CompletionList.itemsSource, Is.Empty);
+            Assert.That(detailBody.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Keep the active argument description visible without suggestions");
+            Assert.That(argumentDescription.text, Is.EqualTo("Spawn position"));
+            Assert.That(root.Q(className: "completion-suggestions").resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+            RunThroughInput("spawn goblin 1");
+            Assert.That(spawnPosition, Is.EqualTo(player));
+        }
+
+        [UnityTest]
+        public IEnumerator SubcommandSignatureTracksExactNamesAndVariableRoutes()
+        {
+            yield return SpawnOpenTerminal();
+            int dispatched = 0;
+            CommandBuilder router = CommandBuilder
+                .Create("sigroute")
+                .Subcommand("wave", wave =>
+                {
+                    wave.Arg<int>("count", spec =>
+                        {
+                            return spec.Default(1);
+                        })
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                dispatched = arguments.Get<int>("count");
+                            }
+                        );
+                });
+            Assert.That(Terminal.Shell.AddCommand(router, out _), Is.True);
+            Assert.That(Terminal.Shell.SetVariable("sigwave", "wave"), Is.True);
+            Assert.That(Terminal.Shell.SetVariable("sigcommand", "sig route"), Is.True);
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            yield return SetInputText("sigroute wa");
+            yield return SetInputCaret(11);
+            yield return null;
+            string partial = root.Q<Label>("SignatureCommand")?.text;
+
+            yield return SetInputText("sigroute wave");
+            yield return SetInputCaret(13);
+            yield return null;
+            string exact = root.Q<Label>("SignatureCommand")?.text;
+
+            yield return SetInputText("sigroute $sigwave ");
+            yield return SetInputCaret(18);
+            yield return null;
+            string resolved = root.Q<Label>("SignatureCommand")?.text;
+            string argument = ActiveSignature(root);
+
+            yield return SetInputText("$sigcommand $sigwave ");
+            yield return SetInputCaret(21);
+            yield return null;
+            string normalized = root.Q<Label>("SignatureCommand")?.text;
+            RunThroughInput("$sigcommand $sigwave 3");
+
+            Assert.That(partial, Is.EqualTo("sigroute"), "An incomplete selector keeps the parent signature");
+            Assert.That(dispatched, Is.EqualTo(3));
+            Assert.That(normalized, Is.EqualTo("sigroute wave"), "The signature normalizes a variable-selected command like dispatch");
+            Assert.That(
+                new[] { exact, resolved, argument },
+                Is.EqualTo(new[] { "sigroute wave", "sigroute wave", "[count: int = 1]" }),
+                $"Exact selector: {exact}. Variable selector: {resolved}. Active argument: {argument}."
+            );
         }
 
         [UnityTest]

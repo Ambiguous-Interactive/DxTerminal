@@ -38,6 +38,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         public abstract bool HasChoices { get; }
 
         /// <summary>The runtime type the argument parses and validates as.</summary>
+        internal abstract string SignatureType { get; }
+
+        internal abstract string SignatureSuffix { get; }
+
         internal abstract Type DeclaredType { get; }
 
         internal abstract CommandSyntaxRole SyntaxRole { get; }

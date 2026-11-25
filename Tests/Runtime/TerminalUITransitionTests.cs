@@ -624,6 +624,18 @@
             _hotkeyController.PressedHotkey = _hotkeyController.nextHotkey;
             _hotkeyController.DriveUpdate();
             Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("keyprobe"));
+            _hotkeyController.completeHotkey = "f6";
+            using (KeyDownEvent oldBinding = KeyDownEvent.GetPooled('\0', KeyCode.Tab, EventModifiers.None))
+            {
+                oldBinding.target = field.focusController.focusedElement;
+                field.SendEvent(oldBinding);
+            }
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("keyprobe"), "The old Tab binding must leave the input unchanged");
+            field.Focus();
+            yield return WaitForFocusedInput("The remapped key should be exercised with the terminal field focused");
+            yield return null;
+            Label keyHints = _terminal._uiDocument.rootVisualElement.Q<Label>("CompletionKeys");
+            Assert.That(keyHints.text, Does.Not.Contain("Tab accept"));
             _hotkeyController.PressedHotkey = _hotkeyController.completeHotkey;
             _hotkeyController.DriveUpdate();
             Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("keyprobe-b"));

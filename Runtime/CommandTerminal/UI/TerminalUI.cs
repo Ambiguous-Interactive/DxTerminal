@@ -2427,6 +2427,16 @@
                 }
                 smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, minimumHeight));
             }
+            float popupHeight = _completionView?.MinimumHeight ?? 0f;
+            if (0f < popupHeight && _logScrollView != null && _inputContainer != null)
+            {
+                float fit = _logScrollView.layout.y + popupHeight + _inputContainer.layout.height;
+                if (float.IsFinite(fit))
+                {
+                    smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, fit));
+                }
+            }
+
             float oldTargetHeight = _targetWindowHeight;
             try
             {
@@ -3994,7 +4004,12 @@
 
             if (TryGetComponent(out TerminalKeyboardController keyboard) && keyboard.isActiveAndEnabled)
             {
-                return keyboard.UsesCompletionBinding(key) && (key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true);
+                if (!keyboard.UsesCompletionBinding(key))
+                {
+                    return false;
+                }
+
+                return key is KeyCode.Tab or KeyCode.Escape || _completionView?.HasSelection == true;
             }
 
 #if ENABLE_INPUT_SYSTEM
@@ -4039,6 +4054,7 @@
             int? caret = _pendingCaretIndex ?? (InputOwnsFocus ? _commandInput.cursorIndex : null);
             List<string> prefixCandidates =
                 hintDisplayMode == HintDisplayMode.Always && string.Equals(line, _lastKnownCommandText, StringComparison.Ordinal) ? _lastCompletionBuffer : null;
+            TryGetComponent(out TerminalKeyboardController keyboard);
             _completionView.Refresh(
                 Terminal.Shell,
                 line,
@@ -4046,7 +4062,8 @@
                 IsOpenState(_state) ? hintDisplayMode : HintDisplayMode.Never,
                 makeHintsClickable,
                 _commandInput.cursorIndex == _commandInput.selectIndex,
-                prefixCandidates
+                prefixCandidates,
+                keyboard
             );
         }
 
