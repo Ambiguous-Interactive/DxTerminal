@@ -348,9 +348,10 @@
 
                 foreach (KeyValuePair<string, CommandInfo> pair in _shell.CommandsSorted)
                 {
-                    if (_query.Length == 0 || CommandPaletteSearch.Rank(_query, pair.Key) != CommandPaletteSearch.NoMatch)
+                    int rank = CommandPaletteSearch.Rank(_query, pair.Key);
+                    if (_query.Length == 0 || rank != CommandPaletteSearch.NoMatch)
                     {
-                        AddRow(new CommandCompletion(pair.Key, description: pair.Value.help), "cmd", pair.Value.Group);
+                        AddRow(new CommandCompletion(pair.Key, description: pair.Value.help), "cmd", pair.Value.Group, rank);
                     }
                 }
 
@@ -358,9 +359,10 @@
                 string query = _query.StartsWith('$') ? _query[1..] : _query;
                 foreach (KeyValuePair<string, CommandArg> pair in _shell.Variables)
                 {
-                    if (query.Length == 0 || CommandPaletteSearch.Rank(query, pair.Key) != CommandPaletteSearch.NoMatch)
+                    int rank = CommandPaletteSearch.Rank(query, pair.Key);
+                    if (query.Length == 0 || rank != CommandPaletteSearch.NoMatch)
                     {
-                        AddRow(new CommandCompletion("$" + pair.Key, description: pair.Value.contents), "var", null);
+                        AddRow(new CommandCompletion("$" + pair.Key, description: pair.Value.contents), "var", null, rank);
                     }
                 }
 
@@ -371,14 +373,13 @@
             {
                 if (!commandSlot || !_shell.TryGetCommand(entry, out _))
                 {
-                    AddRow(new CommandCompletion(entry), string.Empty, null, wholeLine: true);
+                    AddRow(new CommandCompletion(entry), string.Empty, null, CommandPaletteSearch.Rank(_query, entry), wholeLine: true);
                 }
             }
         }
 
-        private void AddRow(CommandCompletion candidate, string badge, string hint, bool wholeLine = false)
+        private void AddRow(CommandCompletion candidate, string badge, string hint, int rank, bool wholeLine = false)
         {
-            int rank = CommandPaletteSearch.Rank(_query, candidate.InsertionText);
             if (rank == CommandPaletteSearch.NoMatch)
             {
                 rank = CommandPaletteSearch.SubsequenceMatch;

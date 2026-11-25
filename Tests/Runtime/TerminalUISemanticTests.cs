@@ -404,6 +404,20 @@
         }
 
         [UnityTest]
+        public IEnumerator ExactVariableRanksAheadOfCommandPrefix()
+        {
+            yield return SpawnOpenTerminal();
+            Assert.That(Terminal.Shell.AddCommand("rankvar-prefix", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+            Assert.That(Terminal.Shell.SetVariable("rankvar", "value"), Is.True);
+            yield return SetInputText("rankvar");
+            yield return SetInputCaret(7);
+            yield return WaitForHintCount(2);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "$rankvar", "The exact variable ranks first");
+            VisualElement row = _terminal.CompletionList.Q(className: "autocomplete-item-selected");
+            Assert.That(row.Q<Label>("CompletionKind").text, Is.EqualTo("var"));
+        }
+
+        [UnityTest]
         public IEnumerator CompletionProviderKeepsItsOwnCandidateOrder()
         {
             yield return SpawnOpenTerminal();
