@@ -289,7 +289,8 @@
             Internal for test coverage of hint selection (see
             WallstopStudios.DxCommandTerminal.Tests.Runtime).
          */
-        internal ScrollView _autoCompleteContainer;
+        internal ListView _autoCompleteContainer;
+        private TerminalCompletionView _completionView;
 
         private TerminalState _state = TerminalState.Closed;
         private bool _isClosingForDisable;
@@ -339,7 +340,6 @@
         private bool _needsInitialRefresh;
         private string _lastKnownCommandText;
         private int? _lastCompletionIndex;
-        private int? _previousLastCompletionIndex;
         private string _focusedControl;
         private bool _isCommandFromCode;
         private bool _commandIssuedThisFrame;
@@ -376,21 +376,9 @@
         private Label _logCopyStatus;
         private VisualElement _stateButtonContainer;
         private Label _inputCaretLabel;
-        private bool _lastKnownHintsClickable;
         private IVisualElementScheduledItem _cursorBlinkSchedule;
         private readonly List<string> _lastCompletionBufferTempCache = new();
         private readonly HashSet<string> _lastCompletionBufferTempSet = new(StringComparer.OrdinalIgnoreCase);
-        private readonly List<VisualElement> _autoCompleteChildren = new();
-
-        /*
-            The candidate each drawn suggestion row carries, so a pass can
-            tell whether the bar still shows the buffer. A row is built once
-            and re-used, so a candidate set that changes without changing
-            count - one more keystroke in Always mode - left the previous
-            candidates on screen and let a click apply a candidate the
-            developer could not see.
-         */
-        private readonly List<string> _renderedHintCandidates = new();
 
         /*
             Provider-based token completion state. Cycled the same way the
@@ -417,6 +405,7 @@
 #if UNITY_EDITOR
         private readonly EditorApplication.CallbackFunction _checkForChanges;
 #endif
+
         /*
             Caret to restore on the next focus pass; negative keeps the
             focus-at-end behavior. Token completions set it. Internal for
@@ -695,7 +684,6 @@
             ConsumeAndLogErrors();
             ResetAutoComplete();
             _started = true;
-            _lastKnownHintsClickable = makeHintsClickable;
         }
 
         private void LateUpdate()
@@ -887,8 +875,6 @@
 
             if (CheckForRefresh(_autoCompleteProperties))
             {
-                _autoCompleteContainer?.Clear();
-                _renderedHintCandidates.Clear();
                 ResetAutoComplete();
             }
 
@@ -1755,7 +1741,10 @@
                 StepLogSearch(true);
                 return;
             }
-            DispatchNavigationEvent(target, NavigationSubmitEvent.GetPooled());
+            if (_completionView?.TryAcceptFocusedRow(target) != true)
+            {
+                DispatchNavigationEvent(target, NavigationSubmitEvent.GetPooled());
+            }
         }
 
         /// <summary>Returns to command input, then closes on the next cancel.</summary>
@@ -1867,10 +1856,7 @@
                         {
                             _lastCompletionBuffer.Add(item);
                         }
-                        _previousLastCompletionIndex = null;
                     }
-
-                    _previousLastCompletionIndex ??= _lastCompletionIndex;
                 }
             }
             finally
@@ -1959,7 +1945,6 @@
                 if (!equivalent)
                 {
                     _lastCompletionIndex = null;
-                    _previousLastCompletionIndex = null;
                     _lastCompletionBuffer.Clear();
                     foreach (string completion in _lastCompletionBufferTempCache)
                     {
@@ -1970,7 +1955,6 @@
             else
             {
                 _lastCompletionIndex = null;
-                _previousLastCompletionIndex = null;
                 _lastCompletionBuffer.Clear();
             }
         }
@@ -2047,6 +2031,7 @@
             _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
             _autoCompleteContainer = null;
+            _completionView = null;
             _inputContainer = null;
             _runButton = null;
             _jumpLatestButton = null;
@@ -2168,29 +2153,13 @@
             RefreshStateButtons();
         }
 
-        /*
-            A click applies the candidate its row shows now. Two things move
-            under the bar while it is open - the candidate set, and the
-            carousel's row order - so the row's position is resolved at click
-            time and the text is read then; the closure used to capture both
-            when the row was built, so it applied a candidate the developer
-            could not see. The queued caret matches the palette: a row
-            replaces the whole line, so the caret belongs at its end. 2022.1
-            and newer write it; see RecallHistoryLine for 2021.3.
-
-            Internal for test coverage of what a row applies (see
-            WallstopStudios.DxCommandTerminal.Tests.Runtime); Unity's
-            dispatcher drops synthetic pointer events, so the click itself is
-            driven at this level.
-         */
         internal void ApplyHint(int index)
         {
-            if (index < 0 || _renderedHintCandidates.Count <= index)
+            if (_completionView == null || !_completionView.TryGetCandidate(index, out string candidate))
             {
                 return;
             }
 
-            string candidate = _renderedHintCandidates[index];
             _input.CommandText = candidate;
             _pendingCaretIndex = candidate.Length;
             _lastCompletionIndex = index;
@@ -2880,8 +2849,8 @@
             /* A fresh view starts at zero, so no earlier pin describes it. */
             _logTail.Attach();
 
-            _autoCompleteContainer = new ScrollView(ScrollViewMode.Horizontal) { name = "AutoCompletePopup" };
-            _autoCompleteContainer.AddToClassList("autocomplete-popup");
+            _completionView = new TerminalCompletionView(root, ApplyHint);
+            _autoCompleteContainer = _completionView.List;
             _terminalContainer.Add(_autoCompleteContainer);
 
             _logCopyStatus = new Label("Clipboard copy could not be verified.") { name = "LogCopyStatus", pickingMode = PickingMode.Ignore };
@@ -2940,16 +2909,10 @@
                         return;
                     }
 
-                    if (
-                        context._commandIssuedThisFrame
-                        || Array.Exists(
-                            context._inputHandlers,
-                            handler =>
-                            {
-                                return handler.ShouldHandleInputThisFrame;
-                            }
-                        )
-                    )
+                    if (context._commandIssuedThisFrame || Array.Exists(context._inputHandlers, handler =>
+                        {
+                            return handler.ShouldHandleInputThisFrame;
+                        }))
                     {
                         if (!string.Equals(context._commandInput.value, context._input.CommandText))
                         {
@@ -3125,25 +3088,15 @@
             Label title = new("DxTerminal");
             title.AddToClassList("terminal-header-title");
             header.Add(title);
-            _sizeButton = AddToolbarButton(
-                header,
-                "TerminalSizeButton",
-                "Full",
-                () =>
-                {
-                    SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull);
-                }
-            );
+            _sizeButton = AddToolbarButton(header, "TerminalSizeButton", "Full", () =>
+            {
+                SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull);
+            });
             _sizeButton.AddToClassList("terminal-header-size");
-            AddToolbarButton(
-                    header,
-                    "TerminalCloseButton",
-                    "Close",
-                    () =>
-                    {
-                        SetState(TerminalState.Closed);
-                    }
-                )
+            AddToolbarButton(header, "TerminalCloseButton", "Close", () =>
+                {
+                    SetState(TerminalState.Closed);
+                })
                 .AddToClassList("terminal-header-close");
             VisualElement search = new() { name = "LogSearch" };
             search.AddToClassList("terminal-search");
@@ -3186,65 +3139,40 @@
             _logSearchCount = new Label { name = "LogSearchCount", tooltip = "Matching lines of searchable lines (current match / matching lines)." };
             _logSearchCount.AddToClassList("terminal-search-count");
             search.Add(_logSearchCount);
-            _logSearchPrevious = AddToolbarButton(
-                search,
-                "LogSearchPrevious",
-                "Prev",
-                () =>
-                {
-                    StepLogSearch(false);
-                }
-            );
-            _logSearchNext = AddToolbarButton(
-                search,
-                "LogSearchNext",
-                "Next",
-                () =>
-                {
-                    StepLogSearch(true);
-                }
-            );
-            _logSearchClear = AddToolbarButton(
-                search,
-                "LogSearchClear",
-                "Clear",
-                () =>
-                {
-                    ClearLogFilter(false);
-                }
-            );
+            _logSearchPrevious = AddToolbarButton(search, "LogSearchPrevious", "Prev", () =>
+            {
+                StepLogSearch(false);
+            });
+            _logSearchNext = AddToolbarButton(search, "LogSearchNext", "Next", () =>
+            {
+                StepLogSearch(true);
+            });
+            _logSearchClear = AddToolbarButton(search, "LogSearchClear", "Clear", () =>
+            {
+                ClearLogFilter(false);
+            });
             VisualElement types = new() { name = "LogSeverities" };
             types.AddToClassList("terminal-severities");
             _logToolbar.Add(types);
             AddSeverityButton(types, 0, TerminalLogType.Message, "LogMessages");
             AddSeverityButton(types, 1, TerminalLogType.Warning, "LogWarnings");
             AddSeverityButton(types, 2, TerminalLogType.Error, "LogErrors");
-            _collapseButton = AddToolbarButton(
-                types,
-                "LogCollapse",
-                "Collapse",
-                () =>
-                {
-                    _collapseLogs = !_collapseLogs;
-                    DropFindScroll();
-                }
-            );
+            _collapseButton = AddToolbarButton(types, "LogCollapse", "Collapse", () =>
+            {
+                _collapseLogs = !_collapseLogs;
+                DropFindScroll();
+            });
             _collapseButton.AddToClassList("terminal-type-chip");
             _collapseButton.tooltip = "Group consecutive entries with the same message, type, and trace.";
         }
 
         private void AddSeverityButton(VisualElement parent, int index, TerminalLogType severity, string name)
         {
-            Button button = AddToolbarButton(
-                parent,
-                name,
-                string.Empty,
-                () =>
-                {
-                    _logFilter.ToggleSeverity(severity);
-                    DropFindScroll();
-                }
-            );
+            Button button = AddToolbarButton(parent, name, string.Empty, () =>
+            {
+                _logFilter.ToggleSeverity(severity);
+                DropFindScroll();
+            });
             button.AddToClassList("terminal-type-chip");
             button.tooltip = severity switch
             {
@@ -4017,271 +3945,8 @@
 
         private void RefreshAutoCompleteHints()
         {
-            bool shouldDisplay = 0 < _lastCompletionBuffer.Count && hintDisplayMode is HintDisplayMode.Always or HintDisplayMode.AutoCompleteOnly && _autoCompleteContainer != null;
-
-            if (!shouldDisplay)
-            {
-                if (0 < _autoCompleteContainer?.childCount)
-                {
-                    _autoCompleteContainer.Clear();
-                }
-
-                _renderedHintCandidates.Clear();
-                _previousLastCompletionIndex = null;
-                return;
-            }
-
-            int bufferLength = _lastCompletionBuffer.Count;
-            if (_lastKnownHintsClickable != makeHintsClickable)
-            {
-                _autoCompleteContainer.Clear();
-                _renderedHintCandidates.Clear();
-                _lastKnownHintsClickable = makeHintsClickable;
-            }
-
-            int currentChildCount = _autoCompleteContainer.childCount;
-
-            /*
-                The bar is a view of the buffer, so a pass compares the rows
-                it drew against the buffer instead of inferring a change from
-                a child count and a selection index. In Always mode one more
-                keystroke swaps the candidates without changing their count,
-                and the bar then showed the previous keystroke's text.
-             */
-            bool contentsChanged = currentChildCount != bufferLength || !RenderedCandidatesMatch(bufferLength);
-            bool dirty = contentsChanged || _lastCompletionIndex != _previousLastCompletionIndex;
-            if (contentsChanged)
-            {
-                if (currentChildCount < bufferLength)
-                {
-                    for (int i = currentChildCount; i < bufferLength; ++i)
-                    {
-                        string hint = _lastCompletionBuffer[i];
-                        VisualElement hintElement;
-
-                        if (makeHintsClickable)
-                        {
-                            Button hintButton = new();
-                            hintButton.clicked += () =>
-                            {
-                                ApplyHint(_autoCompleteContainer.IndexOf(hintButton));
-                            };
-                            hintButton.text = LogTextSanitizer.Sanitize(hint);
-                            hintElement = hintButton;
-                        }
-                        else
-                        {
-                            Label hintText = new(LogTextSanitizer.Sanitize(hint));
-                            hintElement = hintText;
-                        }
-
-                        hintElement.name = $"SuggestionText{i}";
-                        _autoCompleteContainer.Add(hintElement);
-
-                        bool isSelected = i == _lastCompletionIndex;
-                        hintElement.AddToClassList("terminal-button");
-                        hintElement.EnableInClassList("autocomplete-item-selected", isSelected);
-                        hintElement.EnableInClassList("autocomplete-item", !isSelected);
-                    }
-                }
-                else if (bufferLength < currentChildCount)
-                {
-                    for (int i = currentChildCount - 1; bufferLength <= i; --i)
-                    {
-                        _autoCompleteContainer.RemoveAt(i);
-                    }
-                }
-            }
-
-            bool shouldUpdateCompletionIndex = false;
-            try
-            {
-                shouldUpdateCompletionIndex = _autoCompleteContainer.childCount == bufferLength;
-                if (shouldUpdateCompletionIndex)
-                {
-                    UpdateAutoCompleteView();
-                }
-
-                if (dirty)
-                {
-                    int hintCount = _autoCompleteContainer.childCount;
-                    int rowCount = hintCount < bufferLength ? hintCount : bufferLength;
-                    for (int i = 0; i < rowCount; ++i)
-                    {
-                        VisualElement hintElement = _autoCompleteContainer[i];
-                        string hintText = LogTextSanitizer.Sanitize(_lastCompletionBuffer[i]);
-                        switch (hintElement)
-                        {
-                            case Button button:
-                                button.text = hintText;
-                                break;
-                            case Label label:
-                                label.text = hintText;
-                                break;
-                        }
-
-                        bool isSelected = i == _lastCompletionIndex;
-
-                        hintElement.EnableInClassList("autocomplete-item-selected", isSelected);
-                        hintElement.EnableInClassList("autocomplete-item", !isSelected);
-                    }
-
-                    /*
-                        The mirror is written with the rows it describes, so a
-                        row loop that stops early leaves it short and the next
-                        pass rebuilds. It runs after UpdateAutoCompleteView,
-                        the only writer of the buffer, so the order it reads
-                        is the order the rows show.
-                     */
-                    if (rowCount == bufferLength)
-                    {
-                        _renderedHintCandidates.Clear();
-                        for (int i = 0; i < bufferLength; ++i)
-                        {
-                            _renderedHintCandidates.Add(_lastCompletionBuffer[i]);
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                if (shouldUpdateCompletionIndex)
-                {
-                    _previousLastCompletionIndex = _lastCompletionIndex;
-                }
-            }
-        }
-
-        private bool RenderedCandidatesMatch(int bufferLength)
-        {
-            if (_renderedHintCandidates.Count != bufferLength)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < bufferLength; ++i)
-            {
-                if (!string.Equals(_renderedHintCandidates[i], _lastCompletionBuffer[i], StringComparison.Ordinal))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private void UpdateAutoCompleteView()
-        {
-            if (_lastCompletionIndex == null)
-            {
-                return;
-            }
-
-            if (_autoCompleteContainer?.contentContainer == null)
-            {
-                return;
-            }
-
-            int childCount = _autoCompleteContainer.childCount;
-            if (childCount == 0)
-            {
-                return;
-            }
-
-            if (childCount <= _lastCompletionIndex)
-            {
-                _lastCompletionIndex = (_lastCompletionIndex % childCount + childCount) % childCount;
-            }
-
-            if (_previousLastCompletionIndex == _lastCompletionIndex)
-            {
-                return;
-            }
-
-            VisualElement current = _autoCompleteContainer[_lastCompletionIndex.Value];
-            float viewportWidth = _autoCompleteContainer.contentViewport.resolvedStyle.width;
-
-            // Use layout properties relative to the content container
-            float targetElementLeft = current.layout.x;
-            float targetElementWidth = current.layout.width;
-            float targetElementRight = targetElementLeft + targetElementWidth;
-
-            const float epsilon = 0.01f;
-
-            bool isFullyVisible = epsilon <= targetElementLeft && targetElementRight <= viewportWidth + epsilon;
-
-            if (isFullyVisible)
-            {
-                return;
-            }
-
-            bool isIncrementing;
-            if (_previousLastCompletionIndex == childCount - 1 && _lastCompletionIndex == 0)
-            {
-                isIncrementing = true;
-            }
-            else if (_previousLastCompletionIndex == 0 && _lastCompletionIndex == childCount - 1)
-            {
-                isIncrementing = false;
-            }
-            else
-            {
-                isIncrementing = _previousLastCompletionIndex < _lastCompletionIndex;
-            }
-
-            _autoCompleteChildren.Clear();
-            for (int i = 0; i < childCount; ++i)
-            {
-                _autoCompleteChildren.Add(_autoCompleteContainer[i]);
-            }
-
-            int shiftAmount;
-            if (isIncrementing)
-            {
-                shiftAmount = -1 * _lastCompletionIndex.Value;
-                _lastCompletionIndex = 0;
-            }
-            else
-            {
-                shiftAmount = 0;
-                float accumulatedWidth = 0;
-                for (int i = 1; i <= childCount; ++i)
-                {
-                    shiftAmount++;
-                    int index = -i % childCount;
-                    index = (index + childCount) % childCount;
-                    VisualElement element = _autoCompleteChildren[index];
-                    accumulatedWidth +=
-                        element.resolvedStyle.width
-                        + element.resolvedStyle.marginLeft
-                        + element.resolvedStyle.marginRight
-                        + element.resolvedStyle.borderLeftWidth
-                        + element.resolvedStyle.borderRightWidth;
-
-                    if (accumulatedWidth <= viewportWidth)
-                    {
-                        continue;
-                    }
-
-                    if (element != current)
-                    {
-                        --shiftAmount;
-                    }
-
-                    break;
-                }
-
-                _lastCompletionIndex = (shiftAmount - 1 + childCount) % childCount;
-            }
-
-            _autoCompleteChildren.Shift(shiftAmount);
-            _lastCompletionBuffer.Shift(shiftAmount);
-
-            _autoCompleteContainer.Clear();
-            foreach (VisualElement element in _autoCompleteChildren)
-            {
-                _autoCompleteContainer.Add(element);
-            }
+            bool visible = IsOpenState(_state) && hintDisplayMode is HintDisplayMode.Always or HintDisplayMode.AutoCompleteOnly;
+            _completionView?.Refresh(_lastCompletionBuffer, _lastKnownCommandText, _lastCompletionIndex, visible, makeHintsClickable, Terminal.Shell);
         }
 
         private void RefreshStateButtons()

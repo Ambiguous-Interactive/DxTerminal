@@ -1,4 +1,4 @@
-namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
+﻿namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 {
     using System;
     using System.Collections;
@@ -59,6 +59,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             return asset;
         }
 #endif
+
+        private static string RenderedName(Label label)
+        {
+            return label == null ? null : Regex.Replace(label.text, "</?[^>]+>", string.Empty);
+        }
+
+        private static bool IsVisibleInList(VisualElement row, ListView list)
+        {
+            ScrollView scroll = list.Q<ScrollView>();
+            return row != null && 0 < row.worldBound.height && scroll != null && scroll.contentViewport.worldBound.Contains(row.worldBound.center);
+        }
 
         [TearDown]
         public void TearDown()
@@ -258,6 +269,77 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         }
 
         [UnityTest]
+        public IEnumerator CompletionListScrollsPastSixRowsAndShowsDescriptions()
+        {
+            yield return SpawnOpenTerminal();
+            const string query = "virtualrow";
+            for (int index = 0; index < 8; ++index)
+            {
+                Assert.That(
+                    Terminal.Shell.AddCommand(
+                        new CommandDefinition
+                        {
+                            Name = query + index,
+                            Help = "Description " + index,
+                            Group = "Example",
+                            LegacyHandler = _ => { },
+                        }
+                    ),
+                    Is.True
+                );
+            }
+
+            yield return SetInputText(query);
+            _terminal.CompleteCommand();
+            yield return WaitForHintCount(8);
+            ListView list = _terminal._autoCompleteContainer;
+            Assert.AreEqual(6 * list.fixedItemHeight, list.style.height.value.value);
+            for (int index = 1; index < 8; ++index)
+            {
+                _terminal.CompleteCommand();
+                yield return null;
+            }
+
+            yield return WaitForSelectedHint(list, query + "7", "Selection scrolls to the eighth result", requireVisible: true);
+            VisualElement row = list.Q<VisualElement>(className: "autocomplete-item-selected");
+            Assert.That(row.Q<Label>("CompletionDescription").text, Is.EqualTo("Description 7"));
+            Assert.That(row.Q<Label>("CompletionGroup").text, Is.EqualTo("Example"));
+            Assert.That(row.Q<Label>("CompletionName").text, Does.Contain("<u>" + query + "</u>"));
+        }
+
+        [UnityTest]
+        public IEnumerator FocusedCompletionRowAppliesThroughNavigationSubmit()
+        {
+            yield return SpawnOpenTerminal();
+            _terminal.hintDisplayMode = HintDisplayMode.Always;
+            _terminal.makeHintsClickable = true;
+            Assert.That(Terminal.Shell.AddCommand("submitcandidate", _ => { }, minArgs: 0, maxArgs: 0), Is.True);
+
+            yield return SetInputText("submitc");
+            yield return WaitForSingleHintText("submitcandidate", "The list renders the hint");
+            VisualElement row = _terminal._autoCompleteContainer.Q<VisualElement>(className: "completion-row");
+            row.Focus();
+            int remaining = FrameBudget;
+            ListView list = _terminal._autoCompleteContainer;
+            bool ListOwnsFocus()
+            {
+                VisualElement focused = list.panel.focusController.focusedElement as VisualElement;
+                return focused != null && (focused == list || list.Contains(focused));
+            }
+
+            while (0 < remaining-- && !ListOwnsFocus())
+            {
+                row.Focus();
+                yield return null;
+            }
+
+            Assert.That(row.focusable, Is.True);
+            Assert.That(ListOwnsFocus(), Is.True);
+            _terminal.SubmitNavigation();
+            yield return WaitForInputText("submitcandidate", "Navigation submit accepts the focused row");
+        }
+
+        [UnityTest]
         public IEnumerator CompletionHintsRenderAndSelectionFollowsCycling()
         {
             yield return SpawnOpenTerminal();
@@ -269,12 +351,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             _terminal.CompleteCommand(true);
 
-            ScrollView hints = null;
+            ListView hints = null;
             int frameBudget = FrameBudget;
             while (0 < frameBudget--)
             {
                 hints = _terminal._autoCompleteContainer;
-                if (hints != null && hints.childCount == 2)
+                if (hints != null && hints.itemsSource.Count == 2)
                 {
                     break;
                 }
@@ -282,15 +364,10 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 yield return null;
             }
 
-            Assert.That(hints != null && hints.childCount == 2, "Completion must render one hint per candidate");
+            Assert.That(hints != null && hints.itemsSource.Count == 2, "Completion must render one hint per candidate");
             yield return WaitForInputText("alphabet", "The first completion must apply the first candidate");
             yield return WaitForSelectedHint(hints, "alphabet", "The selected hint must match the applied candidate");
 
-            /*
-                The hint view is a carousel: cycling rotates the rendered
-                hints so the selected candidate stays in view, so the
-                selection is pinned by text, not by child position.
-             */
             _terminal.CompleteCommand(true);
 
             yield return WaitForInputText("alphacmd", "Cycling must apply the next candidate to the input");
@@ -538,24 +615,24 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 yield return null;
             }
 
-            Assert.IsTrue(IsSingleHint(expectedText), message);
+            Assert.IsTrue(IsSingleHint(expectedText), $"{message}. List bounds: {_terminal._autoCompleteContainer?.worldBound}");
         }
 
         private int HintRowCount()
         {
-            ScrollView hints = _terminal._autoCompleteContainer;
-            return hints == null ? 0 : hints.childCount;
+            ListView hints = _terminal._autoCompleteContainer;
+            return hints == null ? 0 : hints.itemsSource.Count;
         }
 
         private bool IsSingleHint(string expectedText)
         {
-            ScrollView hints = _terminal._autoCompleteContainer;
-            if (hints == null || hints.childCount != 1)
+            ListView hints = _terminal._autoCompleteContainer;
+            if (hints == null || hints.itemsSource.Count != 1)
             {
                 return false;
             }
 
-            return string.Equals((hints[0] as TextElement)?.text, expectedText, StringComparison.Ordinal);
+            return string.Equals(RenderedName(hints.Q<Label>("CompletionName")), expectedText, StringComparison.Ordinal);
         }
 
         private IEnumerator WaitForFocusedInput(string message)
@@ -601,51 +678,29 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             LateUpdate, so the rig polls for it like every other frame-
             coupled surface.
          */
-        private IEnumerator WaitForSelectedHint(ScrollView hints, string expectedText, string message)
+        private IEnumerator WaitForSelectedHint(ListView hints, string expectedText, string message, bool requireVisible = false)
         {
+            VisualElement Selected()
+            {
+                return hints.Q<VisualElement>(className: "autocomplete-item-selected");
+            }
+
+            string SelectedName()
+            {
+                return RenderedName(Selected()?.Q<Label>("CompletionName"));
+            }
+
             int frameBudget = FrameBudget;
-            while (0 < frameBudget-- && !HasSingleSelectedHint(hints, expectedText))
+            while (0 < frameBudget-- && (!string.Equals(SelectedName(), expectedText, StringComparison.Ordinal) || (requireVisible && !IsVisibleInList(Selected(), hints))))
             {
                 yield return null;
             }
 
-            Assert.IsTrue(HasSingleSelectedHint(hints, expectedText), $"{message}: {DescribeSelectedHints(hints)}");
-        }
-
-        private bool HasSingleSelectedHint(ScrollView hints, string expectedText)
-        {
-            int selectedCount = 0;
-            bool matchedText = false;
-            for (int index = 0; index < hints.childCount; ++index)
+            Assert.That(SelectedName(), Is.EqualTo(expectedText), $"{message}. List bounds: {hints.worldBound}");
+            if (requireVisible)
             {
-                VisualElement hint = hints[index];
-                if (!hint.ClassListContains("autocomplete-item-selected"))
-                {
-                    continue;
-                }
-
-                ++selectedCount;
-                matchedText |= string.Equals((hint as TextElement)?.text, expectedText, StringComparison.Ordinal);
+                Assert.That(IsVisibleInList(Selected(), hints), Is.True, $"{message}. Row bounds: {Selected()?.worldBound}");
             }
-
-            return selectedCount == 1 && matchedText;
-        }
-
-        private string DescribeSelectedHints(ScrollView hints)
-        {
-            string description = "selected=";
-            for (int index = 0; index < hints.childCount; ++index)
-            {
-                VisualElement hint = hints[index];
-                if (!hint.ClassListContains("autocomplete-item-selected"))
-                {
-                    continue;
-                }
-
-                description += $"'{(hint as TextElement)?.text}' ";
-            }
-
-            return description;
         }
 
         /*

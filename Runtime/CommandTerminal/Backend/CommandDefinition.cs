@@ -68,6 +68,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// </summary>
         public CommandCompletionProvider CompletionProvider { get; set; }
 
+        /// <summary>Optional group shown beside the command in completion lists.</summary>
+        public string Group { get; set; }
+
         internal CommandBuilder.SubcommandRoute SyntaxRoute { get; set; }
     }
 }

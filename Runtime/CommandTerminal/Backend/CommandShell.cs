@@ -1344,7 +1344,8 @@
                 definition.Help,
                 definition.Hint,
                 definition.AddToHistory,
-                definition.SyntaxRoute
+                definition.SyntaxRoute,
+                definition.Group
             );
             return AddCommand(name, info);
         }

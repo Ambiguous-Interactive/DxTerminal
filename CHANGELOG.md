@@ -13,6 +13,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add a vertical completion list with command descriptions ([#335](https://github.com/Ambiguous-Interactive/DxTerminal/issues/335)).
+
 - Add syntax colors and error underlines to the terminal input ([#334](https://github.com/Ambiguous-Interactive/DxTerminal/issues/334)).
 - Add JetBrains Mono and IBM Plex Sans terminal font packs ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
 - Add a Convert Legacy Theme menu item that creates a semantic theme copy ([#238](https://github.com/Ambiguous-Interactive/DxTerminal/issues/238)).
