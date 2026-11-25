@@ -405,6 +405,36 @@
             AssertAcceptable(_lastOutcome);
         }
 
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator CapturesArgumentCompletionSurface()
+        {
+            yield return SpawnTerminal(useEditorDefaults: true);
+            _terminal.SetState(TerminalState.OpenFull);
+            yield return WaitForTerminalInputVisible();
+
+            CommandBuilder spawn = CommandBuilder
+                .Create("spawn", "Spawns enemies at a point")
+                .Group("Combat")
+                .Arg<string>("prefab", spec =>
+                {
+                    return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                })
+                .Arg<int>("count", spec =>
+                {
+                    return spec.Range(1, 50).Default(1);
+                })
+                .Arg<Vector3>("at")
+                .Handler((_, _) => { });
+            Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
+            _terminal._commandInput.value = "spawn g";
+            yield return WaitForCompletionHints("spawn g");
+            _terminal.SetCursorBlinkPaused(true);
+            yield return CaptureSurface(nameof(CapturesArgumentCompletionSurface), CaptureBounds.Default());
+            AssertAcceptable(_lastOutcome);
+        }
+#endif
+
         /*
             Scrolling surface: enough log volume to overflow the small-state
             log view, so the scrollbar engages and the auto scroll-to-end
