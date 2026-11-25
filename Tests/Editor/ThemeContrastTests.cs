@@ -19,7 +19,10 @@
     {
         private const string PackageRoot = "Packages/com.wallstop-studios.dxcommandterminal/";
         private const string ThemeSheet = "Styles/Themes/DxThemes.uss";
-        private static readonly string[] ThemeClasses = { "dx-dark-theme", "dx-paper-theme", "phosphor-theme" };
+        private const string HighContrastTheme = "dx-high-contrast-theme";
+        private const double HighContrastTextMinimum = 7.0;
+        private const double HighContrastOutlineMinimum = 4.5;
+        private static readonly string[] ThemeClasses = { "dx-dark-theme", "dx-paper-theme", "phosphor-theme", HighContrastTheme };
         private static readonly Lazy<Dictionary<string, Dictionary<string, Rgb>>> Themes = new(LoadThemes);
 
         private static readonly (string Name, Rgb Color)[] Backdrops = { ("black", new Rgb(0x000000)), ("mid gray", new Rgb(0x808080)), ("white", new Rgb(0xFFFFFF)) };
@@ -129,6 +132,17 @@
             }
         }
 
+        private static IEnumerable<TestCaseData> HighContrastCases()
+        {
+            foreach ((string foreground, string background, double minimum) in ThemeContrast.Pairs)
+            {
+                double required = minimum < HighContrastOutlineMinimum ? HighContrastOutlineMinimum : HighContrastTextMinimum;
+                yield return new TestCaseData(foreground, background, required);
+            }
+
+            yield return new TestCaseData("line", "surface", HighContrastOutlineMinimum);
+        }
+
         private static double Apca(Rgb foreground, Rgb background)
         {
             double text = foreground.ApcaLuminance();
@@ -210,9 +224,18 @@
             Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum), result);
         }
 
+        // Xbox Accessibility Guideline 102 asks a high-contrast mode for 7:1 text.
+        [TestCaseSource(nameof(HighContrastCases))]
+        public void HighContrastRolesMeetEnhancedContrast(string foregroundRole, string backgroundRole, double minimum)
+        {
+            (double ratio, string result) = MeasureContrast(HighContrastTheme, foregroundRole, backgroundRole);
+            Assert.That(ratio, Is.GreaterThanOrEqualTo(minimum), result);
+        }
+
         [TestCase("dx-dark-theme")]
         [TestCase("dx-paper-theme")]
         [TestCase("phosphor-theme")]
+        [TestCase(HighContrastTheme)]
         public void WidgetVariablesMatchSemanticRoles(string theme)
         {
             Dictionary<string, Rgb> colors = Themes.Value[theme];
@@ -261,6 +284,12 @@
         [TestCase("dx-paper-theme", "syn-string", "error-text", true)]
         [TestCase("phosphor-theme", "syn-number", "error-text", false)]
         [TestCase("phosphor-theme", "syn-choice", "error-text", false)]
+        [TestCase(HighContrastTheme, "syn-number", "syn-string", false)]
+        [TestCase(HighContrastTheme, "syn-number", "syn-choice", false)]
+        [TestCase(HighContrastTheme, "syn-number", "error-text", false)]
+        [TestCase(HighContrastTheme, "syn-string", "syn-choice", false)]
+        [TestCase(HighContrastTheme, "syn-string", "error-text", false)]
+        [TestCase(HighContrastTheme, "syn-choice", "error-text", false)]
         public void SyntaxHuesMeetDistanceMinimum(string theme, string first, string second, bool errorUnderline)
         {
             Dictionary<string, Rgb> colors = Themes.Value[theme];
@@ -344,7 +373,7 @@
             TerminalThemePack classic = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(PackageRoot + "Packs/Themes/ClassicThemes.asset");
             TerminalThemePack dx = AssetDatabase.LoadAssetAtPath<TerminalThemePack>(PackageRoot + "Packs/Themes/Dx.asset");
             Assert.That(classic != null && dx != null, Is.True);
-            Assert.That(TerminalUIEditor.FriendlyThemeNames(dx), Is.EqualTo(new[] { "dx-dark", "dx-paper", "phosphor" }));
+            Assert.That(TerminalUIEditor.FriendlyThemeNames(dx), Is.EqualTo(new[] { "dx-dark", "dx-paper", "phosphor", "dx-high-contrast" }));
 
             string[] labels = TerminalUIEditor.FriendlyThemeNames(classic);
             Assert.That(labels.Length, Is.EqualTo(classic.ThemeNames.Count));
