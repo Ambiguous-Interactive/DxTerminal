@@ -242,9 +242,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 if (depth < MaxRouterExampleDepth && route.Children is { Length: > 0 })
                 {
-                    CommandBuilder.SubcommandRoute firstChild = route.Children[0];
                     int nextDepth = depth + 1;
-                    return BuildRouteExample(firstChild, nextDepth);
+                    foreach (CommandBuilder.SubcommandRoute child in route.Children)
+                    {
+                        string childExample = BuildRouteExample(child, nextDepth);
+                        if (!string.IsNullOrWhiteSpace(childExample))
+                        {
+                            return childExample;
+                        }
+                    }
                 }
 
                 return route.Fallback != null ? route.FullPath : null;

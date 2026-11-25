@@ -665,6 +665,30 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             CommandHelpCard unparseableCard = Newest(1)[0].HelpCard;
             Assert.That(unparseableCard.ExampleLine, Is.Null);
             Assert.That(unparseableCard.PlainText, Does.Not.Contain("e.g."));
+
+            Assert.That(
+                _shell.AddCommand(
+                    CommandBuilder
+                        .Create("jobs")
+                        .Subcommand("at", sub =>
+                        {
+                            sub.Arg<DateTime>("when", spec =>
+                                {
+                                    return spec.Required();
+                                })
+                                .Handler((_, _) => { });
+                        })
+                        .Subcommand("list", sub =>
+                        {
+                            sub.Handler((_, _) => { });
+                        }),
+                    out _
+                ),
+                Is.True
+            );
+            Assert.That(Run("help jobs"), Is.Null);
+            CommandHelpCard routerCard = Newest(1)[0].HelpCard;
+            Assert.That(routerCard.ExampleLine, Is.EqualTo("jobs list"));
         }
 
         /*
