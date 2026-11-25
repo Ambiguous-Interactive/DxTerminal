@@ -63,6 +63,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         internal abstract bool TryValidateSyntax(CommandArg input, out bool isNamedConstant);
 
+        internal abstract bool IsSimpleSyntaxValid(ReadOnlySpan<char> input);
+
         /// <summary>
         ///     Parses and validates every argument from
         ///     <paramref name="start"/> to the end of

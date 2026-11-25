@@ -545,6 +545,38 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return parsed && error == null;
         }
 
+        internal override bool IsSimpleSyntaxValid(ReadOnlySpan<char> input)
+        {
+            if (!CanCacheSyntax || _staticChoices != null || _rangeValidator != null)
+            {
+                return false;
+            }
+
+            Type type = typeof(T);
+            if (type == typeof(string))
+            {
+                return CommandArg.DoNotCleanTypes.Contains(type);
+            }
+
+            if (type != typeof(int))
+            {
+                return false;
+            }
+
+            if (!CommandArg.DoNotCleanTypes.Contains(type))
+            {
+                foreach (string ignoredValue in CommandArg.IgnoredValuesForCleanedTypes)
+                {
+                    if (string.IsNullOrEmpty(ignoredValue) || 0 <= input.IndexOf(ignoredValue.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return CommandArgParsers.Int(input, out _);
+        }
+
         internal override bool TryParseAll(BorrowedCommandArguments arguments, int start, object[] parsedValues, int slot, out CommandArg failedToken, out string validationError)
         {
             if (!IsRemaining)

@@ -242,6 +242,32 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         }
 
 #if NET
+        [Test]
+        public void TypingSimpleArgumentsDoesNotMaterializeTokenStrings()
+        {
+            CommandShell shell = new(new CommandHistory(16));
+            Assert.That(shell.AddCommand(CommandBuilder.Create("bench-highlight").Arg<int>("number").Arg<string>("text").Handler((_, _) => { }), out _), Is.True);
+            CommandSyntaxClassifier classifier = new();
+            List<CommandSyntaxSpan> spans = new();
+            const string line = "bench-highlight 123 \"allocation samples\"";
+            string[] edits = new string[line.Length];
+            long[] samples = new long[line.Length];
+            for (int index = 0; index < edits.Length; ++index)
+            {
+                edits[index] = line.Substring(0, index + 1);
+            }
+            for (int pass = 0; pass < 100; ++pass)
+            {
+                for (int index = 0; index < edits.Length; ++index)
+                {
+                    long before = GC.GetAllocatedBytesForCurrentThread();
+                    classifier.Classify(edits[index], shell, spans);
+                    samples[index] = GC.GetAllocatedBytesForCurrentThread() - before;
+                }
+            }
+            Assert.That(samples, Is.All.Zero);
+        }
+
         [TestCase("point \"(1, 2, 3)\"")]
         [TestCase("point zero")]
         [TestCase("gain 21")]

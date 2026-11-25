@@ -14,7 +14,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private readonly List<string> _ignoredForCleanedTypes = new();
         private readonly List<string> _ignoredForComplexTypes = new();
         private readonly List<Type> _doNotCleanTypes = new();
-        private readonly List<string> _variableNames = new();
+        private readonly List<(string Contents, string VariableName)> _resolvedTokens = new();
         private readonly List<Validation> _validations = new();
         private CultureInfo _validationCulture;
         private string _tokenizedLine;
@@ -84,11 +84,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
         }
 
-        private static void AddComponentSpans(List<CommandSyntaxSpan> results, in CommandToken token, Type type)
+        private static void AddComponentSpans(List<CommandSyntaxSpan> results, in CommandToken token, string line, Type type)
         {
             int start = token.Start;
-            string contents = token.Contents;
-            bool hasColorPrefix = type == typeof(Color) && contents.StartsWith("RGBA", StringComparison.OrdinalIgnoreCase);
+            ReadOnlySpan<char> contents = line.AsSpan(start, token.End - start);
+            bool hasColorPrefix = type == typeof(Color) && contents.StartsWith("RGBA".AsSpan(), StringComparison.OrdinalIgnoreCase);
             if (hasColorPrefix)
             {
                 AddSpan(results, start, start + 4, CommandSyntaxRole.Punctuation);
@@ -97,7 +97,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
             for (int index = start; index < token.End; ++index)
             {
-                char character = contents[index - token.Start];
+                char character = line[index];
                 bool isSurrogate = char.IsSurrogate(character);
                 bool isPunctuation = character is '(' or ')' or '[' or ']' or '{' or '}' or '<' or '>' || CommandArg.Delimiters.Contains(character);
                 if (isSurrogate || !isPunctuation)
@@ -172,15 +172,14 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             for (int index = 0; index < tokenCount; ++index)
             {
                 CommandToken token = _tokens[index];
-                string variableName = _variableNames[index];
-                bool hasVariableName = !string.IsNullOrWhiteSpace(variableName);
+                ReadOnlySpan<char> contents = line.AsSpan(token.Start, token.End - token.Start);
+                bool canExpand = token.EndQuote == null && !contents.IsEmpty && contents[0] == '$' && !contents[1..].Trim().IsEmpty;
                 if (token.StartQuote != null)
                 {
                     AddSpan(results, token.Start - 1, token.Start, CommandSyntaxRole.Punctuation);
                 }
 
-                bool resolvedToken = shell.TryResolveToken(token, variableName, out CommandArg argument);
-                if (!resolvedToken)
+                if (token.EndQuote == null && contents.Trim().IsEmpty)
                 {
                     continue;
                 }
@@ -190,6 +189,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 if (!foundCommandToken)
                 {
                     foundCommandToken = true;
+                    CommandArg argument = ResolveArgument(shell, line, contents, token, index, canExpand);
                     string normalizedName = NormalizeName(argument.contents ?? string.Empty);
                     bool foundCommand = shell.TryGetCommand(normalizedName, out CommandInfo command);
                     if (foundCommand)
@@ -205,11 +205,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 }
                 else if (route is { IsRouter: true })
                 {
+                    CommandArg argument = ResolveArgument(shell, line, contents, token, index, canExpand);
                     bool foundRoute = route.Lookup.TryGetValue(argument.contents ?? string.Empty, out route);
                     role = CommandSyntaxRole.Invalid;
                     if (foundRoute)
                     {
-                        role = hasVariableName ? CommandSyntaxRole.Variable : CommandSyntaxRole.Choice;
+                        role = canExpand ? CommandSyntaxRole.Variable : CommandSyntaxRole.Choice;
                         maxArguments = route.IsRouter || route.HasRemaining ? null : route.Specs.Length;
                     }
                 }
@@ -223,10 +224,18 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     {
                         int specIndex = Math.Min(argumentIndex, route.Specs.Length - 1);
                         spec = route.Specs[specIndex];
-                        role = GetArgumentRole(index, spec, argument);
+                        if (!canExpand && spec.IsSimpleSyntaxValid(contents))
+                        {
+                            role = spec.HasChoices ? CommandSyntaxRole.Choice : spec.SyntaxRole;
+                        }
+                        else
+                        {
+                            CommandArg argument = ResolveArgument(shell, line, contents, token, index, canExpand);
+                            role = GetArgumentRole(index, spec, argument);
+                        }
                     }
 
-                    if (role != CommandSyntaxRole.Invalid && hasVariableName)
+                    if (role != CommandSyntaxRole.Invalid && canExpand)
                     {
                         role = CommandSyntaxRole.Variable;
                     }
@@ -236,7 +245,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
                 if (role == CommandSyntaxRole.Number && spec is { HasSyntaxComponents: true })
                 {
-                    AddComponentSpans(results, token, spec.DeclaredType);
+                    AddComponentSpans(results, token, line, spec.DeclaredType);
                 }
                 else
                 {
@@ -269,18 +278,51 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             _tokens.Clear();
-            CommandTokenizer.Tokenize(line, _tokens);
+            CommandTokenizer.Tokenize(line, _tokens, includeContents: false);
             _tokenizedLine = line;
             _quotes.Clear();
             _quotes.AddRange(quotes);
-
-            _variableNames.Clear();
-            foreach (CommandToken token in _tokens)
+            int count = _tokens.Count;
+            int cached = _resolvedTokens.Count;
+            if (count < cached)
             {
-                _variableNames.Add(token.GetVariableName());
+                _resolvedTokens.RemoveRange(count, cached - count);
+            }
+            else
+            {
+                for (int index = cached; index < count; ++index)
+                {
+                    _resolvedTokens.Add(default);
+                }
             }
 
             ResetValidationCache();
+        }
+
+        private CommandArg ResolveArgument(CommandShell shell, string line, ReadOnlySpan<char> contents, in CommandToken token, int index, bool canExpand)
+        {
+            (string text, string variable) = _resolvedTokens[index];
+            if (text == null || !contents.SequenceEqual(text.AsSpan()))
+            {
+                text = line.Substring(token.Start, contents.Length);
+                variable = null;
+                _resolvedTokens[index] = (text, variable);
+            }
+
+            if (!canExpand)
+            {
+                return new CommandArg(text, token.StartQuote, token.EndQuote);
+            }
+
+            if (variable == null)
+            {
+                variable = text.Substring(1);
+                _resolvedTokens[index] = (text, variable);
+            }
+
+            CommandToken materialized = new(text, token.StartQuote, token.EndQuote, token.Start, token.End);
+            shell.TryResolveToken(materialized, variable, out CommandArg argument);
+            return argument;
         }
 
         private void ResetValidationCache()
