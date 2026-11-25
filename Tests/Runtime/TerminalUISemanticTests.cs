@@ -403,6 +403,31 @@
             Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("zpspawn gob"));
         }
 
+        [UnityTest]
+        public IEnumerator CompletionProviderKeepsItsOwnCandidateOrder()
+        {
+            yield return SpawnOpenTerminal();
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    new CommandDefinition
+                    {
+                        Name = "suggest-file",
+                        LegacyHandler = _ => { },
+                        CompletionProvider = (in CommandCompletionContext _, List<CommandCompletion> values) =>
+                        {
+                            values.Add(new CommandCompletion("preferred.txt"));
+                            values.Add(new CommandCompletion("abc.txt"));
+                        },
+                    }
+                ),
+                Is.True
+            );
+            yield return SetInputText("suggest-file ab");
+            yield return SetInputCaret(15);
+            yield return WaitForHintCount(2);
+            yield return WaitForSelectedHint(_terminal.CompletionList, "preferred.txt", "The provider owns matching and ordering");
+        }
+
         /*
             A recalled line is a new value, so its caret belongs at the end.
             The field was already focused, so FocusInput wrote no caret and the

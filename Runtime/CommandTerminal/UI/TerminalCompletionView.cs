@@ -302,16 +302,16 @@
                     _quoted = context.IsQuoted;
                     foreach (CommandCompletion candidate in _providerRows)
                     {
-                        AddRow(candidate, string.Empty, candidate.Hint);
+                        _rows.Add(new Row(candidate, string.Empty, candidate.Hint, rank: 0, order: _rows.Count, wholeLine: false));
                     }
                 }
                 else
                 {
                     RefreshNames(!found || active == 0);
+                    _rows.Sort(CompareRows);
                 }
             }
 
-            _rows.Sort(CompareRows);
             _commandsVersion = _shell.CommandsVersion;
             _variablesVersion = _shell.VariablesVersion;
             RefreshSelection();
