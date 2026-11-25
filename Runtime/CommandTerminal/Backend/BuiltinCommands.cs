@@ -356,25 +356,16 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             string commandName = args[0].contents ?? string.Empty;
-
-            if (!shell.Commands.TryGetValue(commandName, out CommandInfo info))
+            string normalized = CommandShell.NormalizeCommandName(commandName);
+            shell.EnsureAutoCommandsRegistered();
+            if (!shell.TryGetCommand(normalized, out CommandInfo info))
             {
                 shell.IssueErrorMessage($"Command {commandName} could not be found.");
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(info.help))
-            {
-                Terminal.Log($"{commandName} does not provide any help documentation.");
-            }
-            else if (string.IsNullOrWhiteSpace(info.hint))
-            {
-                Terminal.Log(info.help);
-            }
-            else
-            {
-                Terminal.Log($"{info.help}\nUsage: {info.hint}");
-            }
+            CommandHelpCard card = CommandHelpCard.Create(normalized, info, shell);
+            Terminal.Buffer?.HandleHelpCard(card);
         }
 
         [RegisterCommand(isDefault: true, Name = "time", Help = "Time the execution of a command", MinArgCount = 1)]

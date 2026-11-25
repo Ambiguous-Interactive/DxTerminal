@@ -7,6 +7,7 @@
     using System.IO;
     using Backend;
     using Components;
+    using Input;
     using NUnit.Framework;
     using Themes;
     using UI;
@@ -461,6 +462,60 @@
             Assert.That(root.Q<VisualElement>(className: "completion-argument-active"), Is.Not.Null);
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesArgumentCompletionSurface), CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+        }
+
+        [UnityTest]
+        public IEnumerator CapturesEchoAndHelpCardSurface()
+        {
+            yield return SpawnTerminal(useEditorDefaults: true);
+            _terminal.SetState(TerminalState.OpenFull);
+            yield return WaitForTerminalInputVisible();
+
+            Vector3 player = Vector3.zero;
+            CommandBuilder spawn = CommandBuilder
+                .Create("spawn", "Spawns enemies at a point")
+                .Group("Combat")
+                .Example("spawn golem 2 (0,0,10)")
+                .Arg<string>("prefab", spec =>
+                {
+                    return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                })
+                .Arg<int>("count", spec =>
+                {
+                    return spec.Range(1, 50).Default(1);
+                })
+                .Arg<Vector3>("at", spec =>
+                {
+                    return spec.Default(player, nameof(player));
+                })
+                .Handler(
+                    (_, arguments) =>
+                    {
+                        Terminal.Log(TerminalLogType.Message, $"Spawned {arguments.Get<int>("count")} × {arguments.Get<string>("prefab")}");
+                    }
+                );
+            Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
+            Terminal.Buffer.Clear();
+            DefaultTerminalInput.Instance.CommandText = "spawn goblin 3";
+            _terminal.EnterCommand();
+            DefaultTerminalInput.Instance.CommandText = "help spawn";
+            _terminal.EnterCommand();
+            _terminal.RefreshUI();
+            yield return null;
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            Assert.That(root.Q<Label>("LogSyntaxHighlight"), Is.Not.Null);
+            Assert.That(root.Q<VisualElement>("CommandHelpCard"), Is.Not.Null);
+            _terminal.SetCursorBlinkPaused(true);
+            yield return CaptureSurface(nameof(CapturesEchoAndHelpCardSurface), CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+
+            _terminal.SetTheme("dx-paper-theme");
+            root.panel?.Pick(Vector2.zero);
+            yield return null;
+            _terminal.RefreshUI();
+            yield return null;
+            yield return CaptureSurface(nameof(CapturesEchoAndHelpCardSurface) + "-paper", CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
             AssertAcceptable(_lastOutcome);
         }
 #endif

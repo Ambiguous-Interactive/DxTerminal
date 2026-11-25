@@ -301,6 +301,12 @@
          */
         private TerminalCompletionView _completionView;
         private TerminalValidationView _validationView;
+        private readonly CommandInputHighlight.Palette _syntaxPalette = new();
+        private readonly CommandSyntaxClassifier _echoClassifier = new();
+        private readonly List<CommandSyntaxClassifier.CommandSyntaxSpan> _echoSpans = new();
+        private VisualElement _syntaxStyleRoot;
+        private long _lastSeenSyntaxPaletteVersion = -1;
+        private string _lastSeenEchoMonoTag;
 
         private TerminalState _state = TerminalState.Closed;
         private bool _isClosingForDisable;
@@ -2048,6 +2054,14 @@
             _completionView = null;
             _validationView?.Dispose();
             _validationView = null;
+            if (_syntaxStyleRoot != null)
+            {
+                _syntaxStyleRoot.UnregisterCallback<CustomStyleResolvedEvent>(OnSyntaxStyleResolved);
+                _syntaxStyleRoot = null;
+            }
+
+            _lastSeenSyntaxPaletteVersion = -1;
+            _lastSeenEchoMonoTag = null;
             _inputContainer = null;
             _runButton = null;
             _jumpLatestButton = null;
@@ -2848,6 +2862,10 @@
             root.name = TerminalRootName;
             root.AddToClassList("terminal-root");
             LegacyThemeStyles.Register(root);
+            _syntaxStyleRoot = root;
+            _syntaxStyleRoot.RegisterCallback<CustomStyleResolvedEvent>(OnSyntaxStyleResolved);
+            _lastSeenSyntaxPaletteVersion = -1;
+            _lastSeenEchoMonoTag = null;
             root.RegisterCallback<NavigationMoveEvent, TerminalUI>(
                 static (evt, terminal) =>
                 {
@@ -3624,7 +3642,9 @@
             VisualElement content = _logScrollView.contentContainer;
             long bufferVersion = buffer.Version;
             bool newLogs = !ReferenceEquals(_lastSeenBuffer, buffer) || _lastSeenBufferVersion != bufferVersion;
-            bool dirty = newLogs || _lastSeenFilterGeneration != _logFilter.Generation || _lastSeenCollapse != _collapseLogs;
+            string echoMonoTag = _commandInputHighlight?.MonoTag;
+            bool styleChanged = _lastSeenSyntaxPaletteVersion != _syntaxPalette.Version || !string.Equals(_lastSeenEchoMonoTag, echoMonoTag, StringComparison.Ordinal);
+            bool dirty = newLogs || styleChanged || _lastSeenFilterGeneration != _logFilter.Generation || _lastSeenCollapse != _collapseLogs;
 
             /*
                 One consistent read of the whole window, not a count followed
@@ -3698,7 +3718,8 @@
                     LogItem logItem = rendered[i];
                     SetupLogText(logText, logItem);
                     logText.SetMetadata(logItem.TimestampUtc, logItem.type, _logWindowCache.GetRepeatCount(i));
-                    if (logText.Sequence != logItem.Sequence)
+                    bool sequenceChanged = logText.Sequence != logItem.Sequence;
+                    if (sequenceChanged)
                     {
                         if (!string.Equals(logText.value, logItem.message, StringComparison.Ordinal))
                         {
@@ -3707,6 +3728,11 @@
 
                         logText.Sequence = logItem.Sequence;
                         logText.SelectRange(0, 0);
+                    }
+
+                    if (sequenceChanged || styleChanged)
+                    {
+                        ApplyLogRichContent(logText, logItem, echoMonoTag);
                     }
                 }
 
@@ -3717,6 +3743,8 @@
                     _lastSeenBufferVersion = bufferVersion;
                     _lastSeenFilterGeneration = _logFilter.Generation;
                     _lastSeenCollapse = _collapseLogs;
+                    _lastSeenSyntaxPaletteVersion = _syntaxPalette.Version;
+                    _lastSeenEchoMonoTag = echoMonoTag;
                 }
             }
 
@@ -4346,6 +4374,31 @@
             }
         }
 
+        private void OnSyntaxStyleResolved(CustomStyleResolvedEvent evt)
+        {
+            _syntaxPalette.Apply(evt.customStyle);
+        }
+
+        private void ApplyLogRichContent(LogTextField logText, LogItem logItem, string echoMonoTag)
+        {
+            if (logItem.HelpCard != null)
+            {
+                logText.SetHelpCard(logItem.HelpCard, _syntaxPalette);
+                return;
+            }
+
+            if (logItem.type == TerminalLogType.Input && Terminal.Shell is CommandShell shell && !string.IsNullOrWhiteSpace(logItem.message))
+            {
+                _echoClassifier.Classify(logItem.message, shell, _echoSpans);
+                string richText = _syntaxPalette.FormatEchoLine(logItem.message, _echoSpans, echoMonoTag);
+                Color echoInk = _syntaxPalette.Ink;
+                logText.SetEchoHighlight(richText, echoInk);
+                return;
+            }
+
+            logText.ClearRichContent();
+        }
+
         private sealed class LogTextField : TextField
         {
             public long Sequence { get; set; }
@@ -4353,10 +4406,43 @@
             private long? _timestampSecond;
             private TerminalLogType? _type;
             private int _repeatCount;
+            private VisualElement _textInputContainer;
+            private VisualElement _nativeText;
+            private Label _echoHighlight;
+            private VisualElement _helpCardRoot;
+            private VisualElement _helpCardBody;
+            private Label _helpSignature;
+            private Button _helpSelectButton;
+            private Label _helpDescription;
+            private VisualElement _helpArguments;
+            private Label _helpExample;
+            private bool _helpPlainTextMode;
 
             public LogTextField()
             {
                 labelElement.pickingMode = PickingMode.Ignore;
+            }
+
+            private static Label CreateCardLabel(string name, string className, bool richText)
+            {
+                Label label = new()
+                {
+                    name = name,
+                    enableRichText = richText,
+                    pickingMode = PickingMode.Ignore,
+                };
+#if UNITY_2022_2_OR_NEWER
+                label.parseEscapeSequences = false;
+#endif
+#if UNITY_6000_0_OR_NEWER
+                if (richText)
+                {
+                    // Advanced Text's worker stack overflows when it lays out a long line of rich-text spans.
+                    label.style.unityTextGenerator = TextGeneratorType.Standard;
+                }
+#endif
+                label.AddToClassList(className);
+                return label;
             }
 
             public void SetMetadata(DateTime timestampUtc, TerminalLogType type, int repeatCount)
@@ -4385,6 +4471,195 @@
                 _repeatCount = repeatCount;
                 _timestampSecond = second;
                 _type = type;
+            }
+
+            public void SetEchoHighlight(string richText, Color defaultColor)
+            {
+                ClearRichContent();
+                EnsureTextInputReferences();
+                if (_nativeText == null)
+                {
+                    return;
+                }
+
+                if (_echoHighlight == null)
+                {
+                    _echoHighlight = CreateCardLabel("LogSyntaxHighlight", "terminal-log-highlight", richText: true);
+                    _nativeText.Add(_echoHighlight);
+                }
+
+                StyleColor clearColor = new(Color.clear);
+                _nativeText.style.color = clearColor;
+                _echoHighlight.style.color = defaultColor;
+                _echoHighlight.style.display = DisplayStyle.Flex;
+                // SetValueWithoutNotify avoids bubbling a Label ChangeEvent into this TextField.
+                ((INotifyValueChanged<string>)_echoHighlight).SetValueWithoutNotify(richText);
+            }
+
+            public void SetHelpCard(CommandHelpCard card, CommandInputHighlight.Palette palette)
+            {
+                ClearRichContent();
+                EnsureTextInputReferences();
+                EnsureHelpCardView();
+                _helpPlainTextMode = false;
+                ApplyHelpCardSelectionMode();
+                AddToClassList("terminal-output-label--help-card");
+                _helpCardRoot.style.display = DisplayStyle.Flex;
+                string signatureMarkup = palette.FormatHelpSignature(card);
+                ((INotifyValueChanged<string>)_helpSignature).SetValueWithoutNotify(signatureMarkup);
+                _helpDescription.text = LogTextSanitizer.Sanitize(card.DescriptionLine);
+
+                CommandHelpCard.ArgumentRow[] arguments = card.Arguments;
+                int rowCount = arguments.Length;
+                while (_helpArguments.childCount < rowCount)
+                {
+                    VisualElement row = new();
+                    row.AddToClassList("terminal-help-arg-row");
+                    Label nameLabel = CreateCardLabel("HelpCardArgName", "terminal-help-arg-name", richText: false);
+                    Label typeLabel = CreateCardLabel("HelpCardArgType", "terminal-help-arg-type", richText: false);
+                    Label defaultLabel = CreateCardLabel("HelpCardArgDefault", "terminal-help-arg-default", richText: false);
+                    row.Add(nameLabel);
+                    row.Add(typeLabel);
+                    row.Add(defaultLabel);
+                    _helpArguments.Add(row);
+                }
+
+                for (int i = _helpArguments.childCount - 1; rowCount <= i; --i)
+                {
+                    _helpArguments.RemoveAt(i);
+                }
+
+                for (int i = 0; i < rowCount; ++i)
+                {
+                    CommandHelpCard.ArgumentRow argument = arguments[i];
+                    VisualElement row = _helpArguments[i];
+                    Label nameLabel = (Label)row[0];
+                    Label typeLabel = (Label)row[1];
+                    Label defaultLabel = (Label)row[2];
+                    nameLabel.text = LogTextSanitizer.Sanitize(argument.Name);
+                    typeLabel.text = LogTextSanitizer.Sanitize(argument.TypeText);
+                    bool isChoice = argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.Choice;
+                    bool isNumber = argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.Number;
+                    bool isString = argument.TypeRole == CommandSyntaxClassifier.CommandSyntaxRole.String;
+                    typeLabel.EnableInClassList("completion-type-Choice", isChoice);
+                    typeLabel.EnableInClassList("completion-type-Number", isNumber);
+                    typeLabel.EnableInClassList("completion-type-String", isString);
+                    defaultLabel.text = LogTextSanitizer.Sanitize(argument.RequirementText);
+                }
+
+                _helpArguments.style.display = 0 < rowCount ? DisplayStyle.Flex : DisplayStyle.None;
+                string exampleMarkup = palette.FormatHelpExample(card);
+                ((INotifyValueChanged<string>)_helpExample).SetValueWithoutNotify(exampleMarkup);
+                _helpExample.style.display = !string.IsNullOrWhiteSpace(exampleMarkup) ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            public void ClearRichContent()
+            {
+                _helpPlainTextMode = false;
+                if (_echoHighlight != null)
+                {
+                    _echoHighlight.style.display = DisplayStyle.None;
+                }
+
+                if (_nativeText != null)
+                {
+                    StyleColor resetColor = new(StyleKeyword.Null);
+                    _nativeText.style.color = resetColor;
+                }
+
+                if (_helpCardRoot != null)
+                {
+                    _helpCardRoot.RemoveFromClassList("terminal-help-card--plain-text");
+                    _helpCardRoot.style.display = DisplayStyle.None;
+                }
+
+                if (_textInputContainer != null)
+                {
+                    _textInputContainer.style.display = StyleKeyword.Null;
+                }
+
+                RemoveFromClassList("terminal-output-label--help-card");
+            }
+
+            private void EnsureTextInputReferences()
+            {
+                if (_textInputContainer == null)
+                {
+                    _textInputContainer = this.Q<VisualElement>("unity-text-input");
+                }
+
+                if (_nativeText == null && _textInputContainer != null)
+                {
+                    _nativeText = _textInputContainer.Q<TextElement>(className: "unity-text-element") ?? _textInputContainer;
+                }
+            }
+
+            private void EnsureHelpCardView()
+            {
+                if (_helpCardRoot != null)
+                {
+                    return;
+                }
+
+                _helpCardRoot = new VisualElement { name = "CommandHelpCard" };
+                _helpCardRoot.AddToClassList("terminal-help-card");
+                VisualElement header = new();
+                header.AddToClassList("terminal-help-header");
+                _helpSignature = CreateCardLabel("HelpCardSignature", "terminal-help-signature", richText: true);
+                _helpSelectButton = new Button(ToggleHelpCardSelectionMode) { name = "HelpCardSelectButton", text = "Select text" };
+                _helpSelectButton.AddToClassList("terminal-button");
+                _helpSelectButton.AddToClassList("terminal-help-select-button");
+                header.Add(_helpSignature);
+                header.Add(_helpSelectButton);
+                _helpCardBody = new VisualElement { name = "HelpCardBody", pickingMode = PickingMode.Ignore };
+                _helpDescription = CreateCardLabel("HelpCardDescription", "terminal-help-description", richText: false);
+                _helpArguments = new VisualElement { name = "HelpCardArguments", pickingMode = PickingMode.Ignore };
+                _helpArguments.AddToClassList("terminal-help-arguments");
+                _helpExample = CreateCardLabel("HelpCardExample", "terminal-help-example", richText: true);
+                _helpCardBody.Add(_helpDescription);
+                _helpCardBody.Add(_helpArguments);
+                _helpCardBody.Add(_helpExample);
+                _helpCardRoot.Add(header);
+                _helpCardRoot.Add(_helpCardBody);
+                Add(_helpCardRoot);
+            }
+
+            private void ToggleHelpCardSelectionMode()
+            {
+                _helpPlainTextMode = !_helpPlainTextMode;
+                ApplyHelpCardSelectionMode();
+                if (_helpPlainTextMode)
+                {
+                    Focus();
+                }
+            }
+
+            private void ApplyHelpCardSelectionMode()
+            {
+                if (_textInputContainer != null)
+                {
+                    _textInputContainer.style.display = _helpPlainTextMode ? StyleKeyword.Null : DisplayStyle.None;
+                }
+
+                if (_helpCardRoot != null)
+                {
+                    _helpCardRoot.EnableInClassList("terminal-help-card--plain-text", _helpPlainTextMode);
+                }
+
+                if (_helpSignature != null)
+                {
+                    _helpSignature.style.display = _helpPlainTextMode ? DisplayStyle.None : DisplayStyle.Flex;
+                }
+
+                if (_helpCardBody != null)
+                {
+                    _helpCardBody.style.display = _helpPlainTextMode ? DisplayStyle.None : DisplayStyle.Flex;
+                }
+
+                if (_helpSelectButton != null)
+                {
+                    _helpSelectButton.text = _helpPlainTextMode ? "Card view" : "Select text";
+                }
             }
         }
 

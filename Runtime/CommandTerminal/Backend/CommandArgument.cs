@@ -42,6 +42,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         internal abstract string SignatureSuffix { get; }
 
+        internal abstract string HelpType { get; }
+
+        internal abstract string DefaultDisplayText { get; }
+
         internal abstract Type DeclaredType { get; }
 
         internal abstract CommandSyntaxRole SyntaxRole { get; }
@@ -100,6 +104,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         }
 
         internal abstract void AppendUsage(StringBuilder builder);
+
+        internal abstract bool TryGetExampleToken(out string token);
 
         internal abstract void AppendCompletions(in CommandCompletionContext context, List<CommandCompletion> results);
     }

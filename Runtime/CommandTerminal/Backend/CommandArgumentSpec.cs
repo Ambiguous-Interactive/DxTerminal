@@ -4,6 +4,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     using System.Collections.Generic;
     using System.Globalization;
     using System.Text;
+    using UnityEngine;
     using CommandSyntaxRole = CommandSyntaxClassifier.CommandSyntaxRole;
 
     /// <summary>
@@ -65,16 +66,29 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     return remaining;
                 }
 
-                string display = _defaultDisplay;
-                if (display == null)
+                return string.Concat(remaining, " = ", DefaultDisplayText, "]");
+            }
+        }
+
+        internal override string HelpType
+        {
+            get
+            {
+                string baseType = HasChoices && typeof(T) == typeof(string) ? "choice" : TypeName + _rangeText;
+                return _isRemaining ? baseType + "..." : baseType;
+            }
+        }
+
+        internal override string DefaultDisplayText
+        {
+            get
+            {
+                if (_defaultDisplay != null)
                 {
-                    display = "null";
-                    if (_defaultValue is not null)
-                    {
-                        display = FormatValue(_defaultValue);
-                    }
+                    return _defaultDisplay;
                 }
-                return string.Concat(remaining, " = ", display, "]");
+
+                return _defaultValue is not null ? FormatValue(_defaultValue) : "null";
             }
         }
 
@@ -242,6 +256,54 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             return texts;
+        }
+
+        private static bool TryFormatExampleValue(T value, out string token)
+        {
+            CultureInfo inv = CultureInfo.InvariantCulture;
+            string raw = value switch
+            {
+                Vector2 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)})",
+                Vector3 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)})",
+                Vector4 v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)},{v.w.ToString(inv)})",
+                Vector2Int v => $"({v.x.ToString(inv)},{v.y.ToString(inv)})",
+                Vector3Int v => $"({v.x.ToString(inv)},{v.y.ToString(inv)},{v.z.ToString(inv)})",
+                Color c => $"({c.r.ToString(inv)},{c.g.ToString(inv)},{c.b.ToString(inv)},{c.a.ToString(inv)})",
+                _ => FormatValue(value),
+            };
+            return CommandTokenizer.TrySerializeValue(raw, out token, out _);
+        }
+
+        private static string FormatTypeExample(string argumentName)
+        {
+            Type type = typeof(T);
+            if (type == typeof(bool))
+            {
+                return "true";
+            }
+
+            if (type.IsEnum)
+            {
+                T defaultEnum = default;
+                return defaultEnum.ToString();
+            }
+
+            if (type == typeof(Vector2) || type == typeof(Vector2Int))
+            {
+                return "(0,0)";
+            }
+
+            if (type == typeof(Vector3) || type == typeof(Vector3Int))
+            {
+                return "(0,0,0)";
+            }
+
+            if (type == typeof(Vector4))
+            {
+                return "(0,0,0,0)";
+            }
+
+            return type == typeof(Color) ? "white" : (TypeSyntaxRole == CommandSyntaxRole.Number ? "1" : argumentName);
         }
 
         /// <summary>Shows a short hint beside each matching choice.</summary>
@@ -730,6 +792,69 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             builder.Append(_required ? '>' : ']');
+        }
+
+        internal override bool TryGetExampleToken(out string token)
+        {
+            if (_staticChoices != null)
+            {
+                int choiceCount = _staticChoices.Count;
+                for (int i = 0; i < choiceCount; ++i)
+                {
+                    T choice = _staticChoices[i];
+                    string choiceText = _staticChoiceTexts[i];
+                    if (ValidateValue(choice) == null && CommandTokenizer.TrySerializeValue(choiceText, out string serializedChoice, out _))
+                    {
+                        token = serializedChoice;
+                        return true;
+                    }
+                }
+
+                token = null;
+                return false;
+            }
+
+            if (!_required && _hasExplicitDefault && _defaultValue is not null)
+            {
+                if (ValidateValue(_defaultValue) == null && TryFormatExampleValue(_defaultValue, out string serializedDefault))
+                {
+                    token = serializedDefault;
+                    return true;
+                }
+
+                token = null;
+                return false;
+            }
+
+            if (_rangeText != null)
+            {
+                int dashIndex = _rangeText.IndexOf('–');
+                if (1 < dashIndex)
+                {
+                    int minLength = dashIndex - 1;
+                    string minText = _rangeText.Substring(1, minLength);
+                    CommandArg minArg = new(minText);
+                    if (CommandTokenizer.TrySerializeValue(minText, out string serializedMin, out _) && TryParseValue(minArg, out T parsedMin) && ValidateValue(parsedMin) == null)
+                    {
+                        token = serializedMin;
+                        return true;
+                    }
+                }
+
+                token = null;
+                return false;
+            }
+
+            string raw = FormatTypeExample(Name);
+            CommandArg rawArg = new(raw);
+            if (CommandTokenizer.TrySerializeValue(raw, out string serialized, out _) && TryParseValue(rawArg, out T parsed) && ValidateValue(parsed) == null)
+            {
+                token = serialized;
+                return true;
+            }
+
+            token = null;
+            return false;
         }
 
         internal override void AppendCompletions(in CommandCompletionContext context, List<CommandCompletion> results)

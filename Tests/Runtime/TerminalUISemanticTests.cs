@@ -911,12 +911,159 @@
             Assert.That(color.b, Is.EqualTo(54f / 255f).Within(0.001f));
             Assert.That(root.ClassListContains("dxt-legacy"), Is.True);
         }
+
+        [UnityTest]
+        public IEnumerator LogEchoAndHelpCardRenderSyntaxColorsAndUpdateOnThemeChange()
+        {
+            yield return SpawnOpenTerminal(themePackPath: "Packs/Themes/Dx.asset", persistedTheme: "dx-dark-theme", loadBaseTheme: true);
+            Terminal.Buffer.Clear();
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Group("Combat")
+                        .Contexts(CommandExecutionContextSets.Gameplay)
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Arg<Vector3>("at", spec =>
+                        {
+                            return spec.Default(new Vector3(1f, 2f, 3f), "player");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+
+            RunThroughInput("spawn goblin 3");
+            RunThroughInput("help spawn");
+            _terminal.RefreshUI();
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            root.panel.Pick(Vector2.zero);
+            yield return null;
+
+            VisualElement logContent = root.Q<ScrollView>("LogScrollView").contentContainer;
+            Assert.That(logContent.childCount, Is.GreaterThanOrEqualTo(3));
+
+            TextField echoRow = (TextField)logContent[0];
+            Assert.That(echoRow.value, Is.EqualTo("spawn goblin 3"));
+            Label echoHighlight = echoRow.Q<Label>("LogSyntaxHighlight");
+            Assert.That(echoHighlight, Is.Not.Null, "Command echoes must render syntax-highlighted spans");
+            Assert.That(echoHighlight.enableRichText, Is.True);
+            Assert.That(echoHighlight.pickingMode, Is.EqualTo(PickingMode.Ignore));
+            Assert.That(echoHighlight.text, Does.Contain("<color=#E6EDF3FF>").And.Contain("<color=#C2F5D8FF>").And.Contain("<color=#6CB6FFFF>3</color>"));
+            Assert.That(RenderedName(echoHighlight), Is.EqualTo("spawn goblin 3"));
+
+            TextField helpRow = (TextField)logContent[2];
+            VisualElement card = helpRow.Q<VisualElement>("CommandHelpCard");
+            Assert.That(card, Is.Not.Null, "help <command> must render a structured help card");
+            Assert.That(card.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+            Label signature = card.Q<Label>("HelpCardSignature");
+            Label description = card.Q<Label>("HelpCardDescription");
+            VisualElement arguments = card.Q<VisualElement>("HelpCardArguments");
+            Label example = card.Q<Label>("HelpCardExample");
+            Assert.That(RenderedName(signature), Is.EqualTo("spawn prefab [count] [at]"));
+            Assert.That(description.text, Does.Contain("Spawns enemies at a point.").And.Contain("Group: Combat."));
+            Assert.That(arguments.childCount, Is.EqualTo(3));
+            Label choiceType = arguments[0].Q<Label>("HelpCardArgType");
+            Label countType = arguments[1].Q<Label>("HelpCardArgType");
+            Label vectorType = arguments[2].Q<Label>("HelpCardArgType");
+            Assert.That(choiceType.ClassListContains("completion-type-Choice"), Is.True);
+            Assert.That(countType.ClassListContains("completion-type-Number"), Is.True);
+            Assert.That(vectorType.ClassListContains("completion-type-Number"), Is.True);
+            Assert.That(choiceType.resolvedStyle.color, Is.EqualTo((Color)new Color32(194, 245, 216, 255)), "Choice type must resolve to syn-choice, not muted shell ink");
+            Assert.That(countType.resolvedStyle.color, Is.EqualTo((Color)new Color32(108, 182, 255, 255)), "Numeric type must resolve to syn-number, not muted shell ink");
+            Assert.That(vectorType.resolvedStyle.color, Is.EqualTo((Color)new Color32(108, 182, 255, 255)));
+            Assert.That(example.text, Does.Contain("<color=#").And.Contain("<b>spawn</b>"));
+
+            Button selectButton = card.Q<Button>("HelpCardSelectButton");
+            Assert.That(selectButton, Is.Not.Null);
+            using (NavigationSubmitEvent toggle = NavigationSubmitEvent.GetPooled())
+            {
+                toggle.target = selectButton;
+                selectButton.SendEvent(toggle);
+            }
+
+            root.panel.Pick(Vector2.zero);
+            yield return null;
+            VisualElement nativeHelpInput = helpRow.Q<VisualElement>("unity-text-input");
+            Assert.That(nativeHelpInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "Plain-text toggle must reveal the selectable log text");
+            helpRow.Focus();
+            TextSelectionFixture.PrepareCaret(helpRow);
+            helpRow.SelectRange(0, 5);
+            Assert.That(helpRow.cursorIndex, Is.EqualTo(0));
+            Assert.That(helpRow.selectIndex, Is.EqualTo(5));
+            using (NavigationSubmitEvent toggleBack = NavigationSubmitEvent.GetPooled())
+            {
+                toggleBack.target = selectButton;
+                selectButton.SendEvent(toggleBack);
+            }
+
+            root.panel.Pick(Vector2.zero);
+            yield return null;
+            Assert.That(nativeHelpInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.None));
+
+            string darkEcho = echoHighlight.text;
+            string darkExample = example.text;
+            _terminal.SetTheme("dx-paper-theme");
+            root.panel.Pick(Vector2.zero);
+            yield return null;
+            _terminal.RefreshUI();
+            yield return null;
+
+            Assert.That(echoHighlight.text, Is.Not.EqualTo(darkEcho), "Theme switch must update syntax-colored echo spans");
+            Assert.That(example.text, Is.Not.EqualTo(darkExample), "Theme switch must update syntax-colored help card spans");
+
+            Terminal.Buffer.Clear();
+            Terminal.Log(TerminalLogType.Input, "spawn <b>");
+            _terminal.RefreshUI();
+            yield return null;
+
+            TextField escapedEcho = (TextField)logContent[0];
+            Label escapedHighlight = escapedEcho.Q<Label>("LogSyntaxHighlight");
+            Assert.That(escapedEcho.value, Is.EqualTo("spawn <b>"));
+            Assert.That(escapedHighlight.text, Does.Contain("<noparse><</noparse>b<noparse>></noparse>"));
+
+            Terminal.Buffer.Clear();
+            Terminal.Log("plain message");
+            _terminal.RefreshUI();
+            yield return null;
+
+            TextField recycledRow = (TextField)logContent[0];
+            Assert.That(recycledRow.value, Is.EqualTo("plain message"));
+            Label recycledHighlight = recycledRow.Q<Label>("LogSyntaxHighlight");
+            VisualElement recycledCard = recycledRow.Q<VisualElement>("CommandHelpCard");
+            if (recycledHighlight != null)
+            {
+                Assert.That(recycledHighlight.style.display.value, Is.EqualTo(DisplayStyle.None));
+            }
+
+            if (recycledCard != null)
+            {
+                Assert.That(recycledCard.style.display.value, Is.EqualTo(DisplayStyle.None));
+            }
+        }
 #endif
 
-        private IEnumerator SpawnOpenTerminal(bool logUnityMessages = false, string themePackPath = "Packs/Themes/Medium.asset", string persistedTheme = null)
+        private IEnumerator SpawnOpenTerminal(
+            bool logUnityMessages = false,
+            string themePackPath = "Packs/Themes/Medium.asset",
+            string persistedTheme = null,
+            bool loadBaseTheme = false
+        )
         {
 #if UNITY_EDITOR
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            if (loadBaseTheme)
+            {
+                _panelSettings.themeStyleSheet = LoadAsset<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
+            }
             _terminalObject = new GameObject("TerminalUISemantics");
             _terminalObject.SetActive(false);
             UIDocument document = _terminalObject.AddComponent<UIDocument>();
