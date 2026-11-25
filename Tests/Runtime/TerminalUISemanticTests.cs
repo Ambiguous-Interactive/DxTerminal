@@ -382,6 +382,13 @@
             yield return SetInputCaret(9);
             Assert.That(_terminal.TryCompletionKey(KeyCode.Tab), Is.True);
             yield return WaitForInputText("zpspawn goblin trailing", "Tab replaces only the active token");
+
+            yield return SetInputText("zpspawn gob");
+            yield return SetInputCaret(11);
+            yield return WaitForHintCount(1);
+            Assert.That(_terminal.TryCompletionKey(KeyCode.UpArrow), Is.True, "A single result owns the navigation key");
+            Assert.That(_terminal.TryCompletionKey(KeyCode.DownArrow), Is.True);
+            Assert.That(DefaultTerminalInput.Instance.CommandText, Is.EqualTo("zpspawn gob"));
         }
 
         /*

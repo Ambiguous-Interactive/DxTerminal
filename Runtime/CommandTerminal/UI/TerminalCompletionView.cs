@@ -190,15 +190,18 @@
 
         internal bool Move(int direction)
         {
-            if (!HasSelection || _rows.Count == 1)
+            if (!HasSelection)
             {
                 return false;
             }
 
             int count = _rows.Count;
-            _selection = (_selection + direction + count) % count;
-            RefreshSelection();
-            _list.ScrollToItem(_selection);
+            if (1 < count)
+            {
+                _selection = (_selection + direction + count) % count;
+                RefreshSelection();
+                _list.ScrollToItem(_selection);
+            }
             return true;
         }
 
