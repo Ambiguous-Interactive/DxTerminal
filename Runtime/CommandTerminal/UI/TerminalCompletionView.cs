@@ -496,6 +496,7 @@
             if (
                 _tokens.Count != 0
                 && _shell.TryResolveToken(_tokens[0], _tokens[0].GetVariableName(), out CommandArg nameToken)
+                && !string.IsNullOrEmpty(nameToken.contents)
                 && _shell.TryGetCommand(nameToken.contents, out CommandInfo command)
             )
             {
