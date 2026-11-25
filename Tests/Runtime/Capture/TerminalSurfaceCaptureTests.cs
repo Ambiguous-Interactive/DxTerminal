@@ -405,7 +405,13 @@
             _terminal.SetCursorBlinkPaused(true);
             yield return CaptureSurface(nameof(CapturesCompletionHintsSurface), CaptureBounds.Default());
             AssertAcceptable(_lastOutcome);
-            Label keys = _terminal._uiDocument.rootVisualElement.Q<Label>("CompletionKeys");
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            ScrollView log = root.Q<ScrollView>("LogScrollView");
+            ScrollView suggestions = _terminal.CompletionList.Q<ScrollView>();
+            Rect viewport = suggestions.contentViewport.worldBound;
+            Label keys = root.Q<Label>("CompletionKeys");
+            Assert.That(viewport.yMin + 1f, Is.GreaterThanOrEqualTo(log.worldBound.yMax), "The list stays below the log and toolbar");
+            Assert.That(keys.worldBound.yMin + 1f, Is.GreaterThanOrEqualTo(viewport.yMax), "The list stops above the key hints");
             Assert.That(keys.worldBound.height, Is.GreaterThan(0f));
             Assert.That(keys.worldBound.yMax, Is.LessThanOrEqualTo(_terminal._commandInput.worldBound.yMin + 1f));
         }

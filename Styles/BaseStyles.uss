@@ -141,6 +141,7 @@
 }
 
 .completion-suggestions {
+    align-self: stretch;
     flex-grow: 1;
     flex-shrink: 1;
     min-height: 0;

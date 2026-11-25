@@ -251,6 +251,7 @@
     color: var(--text-error);
 }
 
+.dxt-legacy .completion-keys,
 .dxt-legacy .palette-footer {
     color: var(--text-shell);
 }
