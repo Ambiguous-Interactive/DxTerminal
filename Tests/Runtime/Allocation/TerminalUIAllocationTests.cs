@@ -134,7 +134,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             long[] controlBytes = new long[editCount];
             long[] editBytes = new long[editCount];
             int[] extraEvents = new int[editCount];
-            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(2 * editCount))
+            using (ProfilerAllocationTrace trace = new ProfilerAllocationTrace(2 * editCount, captureLargeAllocationStacks: true))
             {
                 yield return trace.WaitUntilReady();
                 _terminal._commandInputHighlight = null;

@@ -9,6 +9,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
     using Unity.Profiling;
     using UnityEditor.Profiling;
     using UnityEditorInternal;
+    using UnityEngine.Profiling;
 
     internal sealed class ProfilerAllocationTrace : IDisposable
     {
@@ -22,12 +23,14 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
 
         private readonly List<(long Bytes, int Events)> _samples;
         private readonly bool _wasEnabled;
+        private readonly bool _wasCallstackEnabled;
+        private readonly List<ulong> _callstack;
         private readonly string _readyName;
         private readonly string _windowName;
         private readonly ProfilerMarker _ready;
         private readonly ProfilerMarker _window;
 
-        public ProfilerAllocationTrace(int capacity)
+        public ProfilerAllocationTrace(int capacity, bool captureLargeAllocationStacks = false)
         {
             string traceName = $"DxTerminal.AllocationTest.{Guid.NewGuid():N}";
             _readyName = traceName + ".Ready";
@@ -36,6 +39,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             _window = new ProfilerMarker(ProfilerCategory.Scripts, _windowName);
             _samples = new List<(long Bytes, int Events)>(capacity);
             _wasEnabled = ProfilerDriver.enabled;
+            _wasCallstackEnabled = Profiler.enableAllocationCallstacks;
+            if (captureLargeAllocationStacks)
+            {
+                _callstack = new List<ulong>();
+                Profiler.enableAllocationCallstacks = true;
+            }
+
             ProfilerDriver.enabled = true;
         }
 
@@ -47,6 +57,10 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
         public void Dispose()
         {
             ProfilerDriver.enabled = _wasEnabled;
+            if (_callstack != null)
+            {
+                Profiler.enableAllocationCallstacks = _wasCallstackEnabled;
+            }
         }
 
         public void Record(Action subject)
@@ -137,8 +151,19 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 {
                     if (frame.GetSampleMarkerId(child) == allocationId)
                     {
-                        bytes += frame.GetSampleMetadataAsLong(child, 0);
+                        long allocated = frame.GetSampleMetadataAsLong(child, 0);
+                        bytes += allocated;
                         ++events;
+                        if (_callstack != null && 1024 <= allocated)
+                        {
+                            _callstack.Clear();
+                            frame.GetSampleCallstack(child, _callstack);
+                            TestContext.Out.WriteLine($"T11 allocation in sample {_samples.Count}: {allocated} B");
+                            foreach (ulong address in _callstack)
+                            {
+                                TestContext.Out.WriteLine(frame.ResolveMethodInfo(address).methodName);
+                            }
+                        }
                     }
                 }
 
