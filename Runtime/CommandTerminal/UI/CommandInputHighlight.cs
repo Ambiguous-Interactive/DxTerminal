@@ -34,7 +34,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private readonly VisualElement _nativeText;
         private readonly bool _labelFollowsNativeScroll;
         private readonly CommandSyntaxClassifier _classifier = new();
-        private readonly List<CommandSyntaxSpan> _spans = new();
+        private List<CommandSyntaxSpan> _spans = new();
+        private List<CommandSyntaxSpan> _nextSpans = new();
         private readonly string[] _tags = new string[(int)CommandSyntaxRole.Invalid + 1];
         private string _line;
         private CommandShell _shell;
@@ -67,6 +68,9 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 pickingMode = PickingMode.Ignore,
                 enableRichText = true,
             };
+#if UNITY_2022_2_OR_NEWER
+            _label.parseEscapeSequences = false;
+#endif
 #if UNITY_6000_0_OR_NEWER
             // Advanced Text's worker stack overflows when it lays out a long line of rich-text spans.
             _label.style.unityTextGenerator = TextGeneratorType.Standard;
@@ -96,6 +100,27 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return styles.TryGetValue(property, out Color color) ? color : fallback;
         }
 
+        private static bool SpansMatch(List<CommandSyntaxSpan> previous, List<CommandSyntaxSpan> next)
+        {
+            int count = previous.Count;
+            if (count != next.Count)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < count; ++index)
+            {
+                CommandSyntaxSpan oldSpan = previous[index];
+                CommandSyntaxSpan newSpan = next[index];
+                if (oldSpan.Start != newSpan.Start || oldSpan.End != newSpan.End || oldSpan.Role != newSpan.Role)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static void AppendLiteral(StringBuilder builder, string line, int start, int end)
         {
             foreach (char value in line.AsSpan(start, end - start))
@@ -119,20 +144,29 @@ namespace WallstopStudios.DxCommandTerminal.UI
         {
             long commandsVersion = shell?.CommandsVersion ?? 0;
             long variablesVersion = shell?.VariablesVersion ?? 0;
+            bool lineChanged = !string.Equals(_line, line, StringComparison.Ordinal);
+            bool hasInput = shell != null && !string.IsNullOrEmpty(line);
             if (
                 !ReferenceEquals(_shell, shell)
                 || _commandsVersion != commandsVersion
                 || _variablesVersion != variablesVersion
-                || !string.Equals(_line, line, StringComparison.Ordinal)
+                || lineChanged
+                || (hasInput && _classifier.RefreshConfiguration())
             )
             {
                 _shell = shell;
                 _line = line;
-                _spans.Clear();
-                if (shell != null && !string.IsNullOrEmpty(line))
+                if (hasInput)
                 {
-                    _classifier.Classify(line, shell, _spans);
+                    _classifier.Classify(line, shell, _nextSpans);
                 }
+                else
+                {
+                    _nextSpans.Clear();
+                }
+
+                _labelDirty |= lineChanged || !SpansMatch(_spans, _nextSpans);
+                (_spans, _nextSpans) = (_nextSpans, _spans);
 
                 _commandsVersion = shell?.CommandsVersion ?? 0;
                 _variablesVersion = shell?.VariablesVersion ?? 0;
@@ -158,8 +192,6 @@ namespace WallstopStudios.DxCommandTerminal.UI
                         break;
                     }
                 }
-
-                _labelDirty = true;
             }
 
             IResolvedStyle nativeStyle = _nativeText.resolvedStyle;
@@ -171,6 +203,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             if (_labelDirty)
             {
                 WriteLabel();
+                _label.MarkDirtyRepaint();
                 if (!_labelFollowsNativeScroll && !string.IsNullOrEmpty(line) && !_hasLineBreak)
                 {
                     _legacyTextWidth = 0 < _advance && line.Length == _regularColumns ? _advance * line.Length : MeasureWidth(_label.text);

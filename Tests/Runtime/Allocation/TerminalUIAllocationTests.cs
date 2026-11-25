@@ -133,7 +133,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
                 // Complete hint hierarchy changes from the warm-up before starting this trace.
                 yield return null;
                 int sampleCount = editCount + (withHighlight ? 1 : 0);
-                using ProfilerAllocationTrace trace = new ProfilerAllocationTrace(sampleCount, captureLargeAllocationStacks: true);
+                using ProfilerAllocationTrace trace = new ProfilerAllocationTrace(sampleCount);
                 yield return trace.WaitUntilReady();
                 foreach (string edit in edits)
                 {
@@ -229,6 +229,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             Assert.That(highlight, Is.Not.Null, "The command field needs a syntax label");
             Assert.That(highlight.pickingMode, Is.EqualTo(PickingMode.Ignore));
 
+#if UNITY_2022_2_OR_NEWER
+            Assert.That(highlight.parseEscapeSequences, Is.False);
+#endif
 #if UNITY_6000_0_OR_NEWER
             Assert.That(highlight.style.unityTextGenerator.value, Is.EqualTo(TextGeneratorType.Standard));
 #endif
@@ -284,6 +287,23 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             _terminal.RefreshUI();
             Assert.That(highlight.text, Is.EqualTo(missing));
             Assert.That(field.value, Is.EqualTo(input));
+
+            field.value = "live-highlight 7FOO";
+            _terminal.RefreshUI();
+            string invalid = highlight.text;
+            Assert.That(CommandArg.IgnoredValuesForCleanedTypes.Add("foo"), Is.True);
+            try
+            {
+                _terminal.RefreshUI();
+                Assert.That(highlight.text, Is.Not.EqualTo(invalid));
+            }
+            finally
+            {
+                CommandArg.IgnoredValuesForCleanedTypes.Remove("foo");
+            }
+
+            _terminal.RefreshUI();
+            Assert.That(highlight.text, Is.EqualTo(invalid));
         }
 
         [UnityTest]

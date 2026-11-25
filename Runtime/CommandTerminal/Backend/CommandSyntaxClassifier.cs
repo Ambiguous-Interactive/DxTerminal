@@ -17,6 +17,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private readonly List<(string Contents, string VariableName)> _resolvedTokens = new();
         private readonly List<Validation> _validations = new();
         private CultureInfo _validationCulture;
+        private long _parserVersion;
         private string _tokenizedLine;
         private string _commandName;
         private string _normalizedName;
@@ -150,17 +151,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         {
             results.Clear();
             UpdateTokens(line);
-            bool delimitersChanged = UpdateSettings(CommandArg.Delimiters, _delimiters, EqualityComparer<char>.Default);
-            bool ignoredTextChanged = UpdateSettings(CommandArg.IgnoredValuesForCleanedTypes, _ignoredForCleanedTypes, StringComparer.Ordinal);
-            bool ignoredComponentsChanged = UpdateSettings(CommandArg.IgnoredValuesForComplexTypes, _ignoredForComplexTypes, StringComparer.Ordinal);
-            bool rawTypesChanged = UpdateSettings(CommandArg.DoNotCleanTypes, _doNotCleanTypes, EqualityComparer<Type>.Default);
-            CultureInfo culture = CultureInfo.CurrentCulture;
-            bool cultureChanged = !ReferenceEquals(_validationCulture, culture);
-            _validationCulture = culture;
-            if (delimitersChanged || ignoredTextChanged || ignoredComponentsChanged || rawTypesChanged || cultureChanged)
-            {
-                ResetValidationCache();
-            }
+            RefreshConfiguration();
             shell.EnsureAutoCommandsRegistered();
 
             bool foundCommandToken = false;
@@ -259,22 +250,49 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
         }
 
+        internal bool RefreshConfiguration()
+        {
+            bool delimitersChanged = UpdateSettings(CommandArg.Delimiters, _delimiters, EqualityComparer<char>.Default);
+            bool ignoredTextChanged = UpdateSettings(CommandArg.IgnoredValuesForCleanedTypes, _ignoredForCleanedTypes, StringComparer.Ordinal);
+            bool ignoredComponentsChanged = UpdateSettings(CommandArg.IgnoredValuesForComplexTypes, _ignoredForComplexTypes, StringComparer.Ordinal);
+            bool rawTypesChanged = UpdateSettings(CommandArg.DoNotCleanTypes, _doNotCleanTypes, EqualityComparer<Type>.Default);
+            CultureInfo culture = CultureInfo.CurrentCulture;
+            bool cultureChanged = !ReferenceEquals(_validationCulture, culture);
+            _validationCulture = culture;
+            long parserVersion = CommandArg.ParserVersion;
+            bool changed = delimitersChanged || ignoredTextChanged || ignoredComponentsChanged || rawTypesChanged || cultureChanged || _parserVersion != parserVersion;
+            _parserVersion = parserVersion;
+            if (changed)
+            {
+                ResetValidationCache();
+            }
+
+            return changed || !QuotesMatch(CommandArg.Quotes);
+        }
+
+        private bool QuotesMatch(List<char> quotes)
+        {
+            int count = quotes.Count;
+            if (_quotes.Count != count)
+            {
+                return false;
+            }
+
+            int index = 0;
+            while (index < count && _quotes[index] == quotes[index])
+            {
+                ++index;
+            }
+
+            return index == count;
+        }
+
         private void UpdateTokens(string line)
         {
             List<char> quotes = CommandArg.Quotes;
-            bool sameLine = string.Equals(_tokenizedLine, line, StringComparison.Ordinal);
-            if (sameLine && _quotes.Count == quotes.Count)
+            if (string.Equals(_tokenizedLine, line, StringComparison.Ordinal) && QuotesMatch(quotes))
             {
-                int index = 0;
-                while (index < quotes.Count && _quotes[index] == quotes[index])
-                {
-                    ++index;
-                }
-
-                if (index == quotes.Count)
-                {
-                    return;
-                }
+                return;
             }
 
             _tokens.Clear();
