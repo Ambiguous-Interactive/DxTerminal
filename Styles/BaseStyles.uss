@@ -43,11 +43,67 @@
 }
 
 .terminal-header-title {
-    flex-grow: 1;
-    flex-shrink: 1;
+    flex-grow: 0;
+    flex-shrink: 0;
     min-width: 0;
     white-space: normal;
     margin: 0 4px;
+}
+
+.terminal-header-spacer {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+}
+
+.terminal-header-tabs {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+    margin: 0 4px;
+}
+
+.terminal-header-tab {
+    min-height: 28px;
+    margin: 0 2px;
+    padding: 0 12px;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 6px;
+    background-color: transparent;
+    color: var(--dxt-ink-body);
+    flex-direction: row;
+    align-items: center;
+}
+
+.terminal-header-tab:disabled {
+    opacity: 0.6;
+}
+
+.terminal-header-tab--active {
+    border-color: var(--dxt-selection-line);
+    background-color: var(--dxt-selection);
+    color: var(--dxt-ink);
+}
+
+.terminal-header-tab-count {
+    margin: 0 0 0 6px;
+    color: var(--dxt-ink-muted);
+    font-size: 11px;
+}
+
+.terminal-header-divider {
+    flex-shrink: 0;
+    width: 1px;
+    height: 22px;
+    margin: 0 2px;
+    background-color: var(--dxt-line);
+}
+
+.terminal-header .terminal-search,
+.terminal-header .terminal-severities {
+    padding: 0;
+    background-color: transparent;
 }
 
 .terminal-header .terminal-button,
@@ -67,11 +123,11 @@
 }
 
 .terminal-search-field {
-    flex-basis: 140px;
+    flex-basis: 260px;
     flex-grow: 1;
     flex-shrink: 1;
     min-width: 0;
-    min-height: 24px;
+    min-height: 28px;
     margin: 0 2px;
     padding: 0;
 }
@@ -123,6 +179,7 @@
     min-height: 26px;
 }
 
+.terminal-text-size--medium .terminal-log-row__time,
 .terminal-text-size--medium .terminal-output-label > .unity-base-field__label,
 .terminal-text-size--medium .completion-detail-title,
 .terminal-text-size--medium .completion-signature-description,
@@ -190,6 +247,7 @@
     min-height: 32px;
 }
 
+.terminal-text-size--large .terminal-log-row__time,
 .terminal-text-size--large .terminal-output-label > .unity-base-field__label,
 .terminal-text-size--large .completion-detail-title,
 .terminal-text-size--large .completion-signature-description,
@@ -248,7 +306,7 @@
 .terminal-root--narrow .terminal-search .terminal-button,
 .terminal-root--narrow .terminal-severities .terminal-button,
 .terminal-root--narrow .input-container .terminal-button,
-.terminal-root--narrow .state-button-container .terminal-button {
+.terminal-root--narrow .autocomplete-popup .terminal-button {
     min-width: 44px;
     min-height: 44px;
     margin: 0 2px;
@@ -266,6 +324,18 @@
     width: 100%;
     min-height: 44px;
     margin: 0;
+}
+
+.terminal-root--narrow .terminal-log-row {
+    min-height: 30px;
+}
+
+.terminal-root--narrow .terminal-log-row__time {
+    display: none;
+}
+
+.terminal-root--narrow .terminal-log-row {
+    min-height: 30px;
 }
 
 .terminal-root--narrow .terminal-search-field > #unity-text-input {
@@ -396,11 +466,7 @@
     min-height: 44px;
 }
 
-.terminal-root--narrow .terminal-output-label {
-    min-height: 30px;
-}
-
-.terminal-root--narrow.terminal-text-size--large .terminal-output-label {
+.terminal-root--narrow.terminal-text-size--large .terminal-log-row {
     min-height: 32px;
 }
 
@@ -606,37 +672,109 @@
     font-size: 11px;
 }
 
-.state-button-container {
-    position: absolute;
+/*
+    One log row: capture time, type glyph, selectable text, repeat badge.
+    The trace block below the text line is the expanded error (#241).
+ */
+.terminal-log-row {
     flex-direction: row;
-    left: 2px;
-}
-
-.terminal-output-label {
+    flex-wrap: wrap;
+    align-items: flex-start;
     flex-shrink: 0;
     min-width: 0;
     min-height: 22px;
     font-size: 13px;
-    white-space: normal;
     margin: 0;
     padding: 0;
     border-left-width: 3px;
     border-left-color: transparent;
 }
 
-.terminal-output-label--current-match {
+.terminal-log-row--current-match {
     border-left-color: var(--dxt-accent);
 }
 
-.terminal-output-label > .unity-base-field__label {
-    width: auto;
-    min-width: 90px;
+.terminal-log-row--expanded {
+    background-color: var(--dxt-surface-raised);
+    border-top-width: 1px;
+    border-top-color: var(--dxt-line);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--dxt-line);
+}
+
+.terminal-log-row__time {
+    flex-basis: 96px;
     flex-shrink: 0;
-    align-self: flex-start;
+    color: var(--dxt-ink-muted);
+    font-size: 12px;
     white-space: nowrap;
+}
+
+.terminal-log-row__glyph {
+    flex-basis: 12px;
+    flex-shrink: 0;
+    color: var(--dxt-ink-muted);
+    -unity-text-align: middle-center;
+}
+
+.terminal-log-row--input .terminal-log-row__glyph {
+    color: var(--dxt-accent);
+}
+
+.terminal-log-row--warning .terminal-log-row__glyph {
+    color: var(--dxt-warning);
+}
+
+.terminal-log-row--error .terminal-log-row__glyph {
+    color: var(--dxt-error);
+}
+
+.terminal-log-row__badge {
+    flex-shrink: 0;
+    height: 18px;
+    margin: 0 0 0 8px;
+    padding: 0 7px;
+    border-width: 1px;
+    border-color: var(--dxt-line);
+    border-radius: 9px;
+    background-color: var(--dxt-surface-raised);
+    color: var(--dxt-ink);
     font-size: 11px;
+}
+
+.terminal-log-row__trace {
+    flex-basis: 100%;
+    flex-direction: column;
+    flex-shrink: 0;
+    padding: 2px 16px 10px 124px;
+}
+
+.terminal-log-row__trace-text {
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    color: var(--dxt-ink-body);
+    font-size: 12px;
+}
+
+.terminal-log-row__trace-actions {
+    flex-direction: row;
+    margin-top: 8px;
+}
+
+.terminal-log-row__trace-actions .terminal-button {
+    min-height: 26px;
+    border-radius: 6px;
+    padding: 0 10px;
+}
+
+.terminal-log-row .terminal-output-label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    margin: 0;
     padding: 0;
-    margin: 0 6px 0 0;
 }
 
 .terminal-output-label #unity-text-input {
@@ -886,11 +1024,6 @@
     color: var(--dxt-ink);
 }
 
-.terminal-button-run {
-    background-color: var(--dxt-surface-raised);
-    color: var(--dxt-ink-body);
-}
-
 .terminal-input-caret {
     color: var(--dxt-accent);
     background-color: var(--dxt-input);
@@ -898,16 +1031,6 @@
 
 .terminal-input-field > #unity-text-input,
 .terminal-input-field > #unity-text-input > .unity-text-element {
-    color: var(--dxt-ink);
-}
-
-.state-button-container .terminal-button {
-    background-color: var(--dxt-surface-raised);
-    color: var(--dxt-ink-body);
-}
-
-.state-button-container .terminal-button:hover {
-    background-color: var(--dxt-selection);
     color: var(--dxt-ink);
 }
 
@@ -947,16 +1070,65 @@
 }
 
 
+/*
+    Severity chips (direction 1a): the count and word carry the state in
+    text, the glyph repeats it without color, and a chip switched off is
+    struck through so the read survives grayscale and colorblind viewing.
+ */
 .terminal-severities .terminal-type-chip {
-    background-color: var(--dxt-selection);
+    flex-direction: row;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-width: 1px;
+    border-color: var(--dxt-line);
+    border-radius: 6px;
+    background-color: var(--dxt-surface-raised);
+    color: var(--dxt-ink);
+}
+
+.terminal-severities .terminal-type-chip__glyph {
+    margin: 0 6px 0 0;
+    color: var(--dxt-ink-muted);
+}
+
+.terminal-severities .terminal-type-chip__glyph--error {
+    color: var(--dxt-error);
+}
+
+.terminal-severities .terminal-type-chip__glyph--warning {
+    color: var(--dxt-warning);
+}
+
+.terminal-severities .terminal-type-chip__glyph--message {
+    color: var(--dxt-ink-muted);
+}
+
+.terminal-severities .terminal-type-chip__text {
     color: var(--dxt-ink);
 }
 
 .terminal-severities .terminal-type-chip--excluded {
-    background-color: var(--dxt-surface-raised);
-    color: var(--dxt-ink-body);
-    border-bottom-width: 2px;
-    border-bottom-color: var(--dxt-ink-muted);
+    background-color: transparent;
+}
+
+.terminal-severities .terminal-type-chip--excluded .terminal-type-chip__glyph,
+.terminal-severities .terminal-type-chip--excluded .terminal-type-chip__text {
+    color: var(--dxt-ink-muted);
+}
+
+.terminal-type-chip__strike {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 50%;
+    height: 1px;
+    background-color: var(--dxt-ink-muted);
+    display: none;
+}
+
+.terminal-type-chip--excluded .terminal-type-chip__strike {
+    display: flex;
 }
 
 .terminal-root--narrow .terminal-type-chip {

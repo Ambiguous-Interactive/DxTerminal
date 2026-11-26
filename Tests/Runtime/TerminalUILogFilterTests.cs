@@ -290,8 +290,12 @@
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"));
 #if UNITY_EDITOR
             TextField previousSearch = root.Q<TextField>("LogSearchInput");
+            UIDocument previousDocument = _terminal._uiDocument;
+            GameObject swapObject = new("TerminalRebuildSwapDocument");
+            UIDocument swapDocument = swapObject.AddComponent<UIDocument>();
+            swapDocument.panelSettings = previousDocument.panelSettings;
             SerializedObject inspector = new(_terminal);
-            inspector.FindProperty(nameof(TerminalUI.showGUIButtons)).boolValue = true;
+            inspector.FindProperty(nameof(TerminalUI._uiDocument)).objectReferenceValue = swapDocument;
             inspector.ApplyModifiedPropertiesWithoutUndo();
             int attempts = FrameBudget;
             while (0 < attempts-- && ReferenceEquals(root.Q<TextField>("LogSearchInput"), previousSearch))
@@ -301,6 +305,14 @@
             Assert.That(root.Q<TextField>("LogSearchInput"), Is.Not.SameAs(previousSearch), "The inspector rebuilt the toolbar");
             yield return Settle();
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"), "A new toolbar repopulates unchanged counts");
+            inspector.FindProperty(nameof(TerminalUI._uiDocument)).objectReferenceValue = previousDocument;
+            inspector.ApplyModifiedPropertiesWithoutUndo();
+            attempts = FrameBudget;
+            while (0 < attempts-- && ReferenceEquals(root.Q<TextField>("LogSearchInput"), previousSearch))
+            {
+                yield return null;
+            }
+            Object.Destroy(swapObject);
 #endif
             _terminal.TeardownUI();
             _terminal.EnsureUI();

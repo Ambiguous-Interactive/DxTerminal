@@ -75,27 +75,14 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         public void AssignedSettingsWinOverComponentValuesOnWake()
         {
             TerminalSettings settings = CreateSettings();
-            settings.showGUIButtons = true;
             settings.logUnityMessages = true;
 
-            /*
-                The asset turns the on-screen buttons on, so the enable pass
-                builds the visual tree; this rig has no UIDocument, which logs
-                the documented setup error. Every other field below must still
-                come from the asset.
-             */
-            LogAssert.Expect(LogType.Error, "No UIDocument assigned, cannot setup UI.");
             TerminalUI terminal = SpawnTerminal(settings);
 
             Assert.AreEqual(77, terminal._logBufferSize, "Log buffer follows the asset");
             Assert.AreEqual(88, terminal._historyBufferSize, "History buffer follows the asset");
             Assert.AreEqual("$", terminal._inputCaret, "Input caret follows the asset");
             Assert.AreEqual(123, terminal._cursorBlinkRateMilliseconds, "Caret blink rate follows the asset");
-            Assert.IsTrue(terminal.showGUIButtons, "showGUIButtons follows the asset");
-            Assert.AreEqual("go", terminal.runButtonText, "Run button text follows the asset");
-            Assert.AreEqual("bye", terminal.closeButtonText, "Close button text follows the asset");
-            Assert.AreEqual("shrink", terminal.smallButtonText, "Small button text follows the asset");
-            Assert.AreEqual("grow", terminal.fullButtonText, "Full button text follows the asset");
             Assert.AreEqual(HintDisplayMode.Never, terminal.hintDisplayMode, "Hint display mode follows the asset");
             Assert.IsFalse(terminal.makeHintsClickable, "makeHintsClickable follows the asset");
             Assert.IsFalse(terminal.skipSameCommandsInHistory, "skipSameCommandsInHistory follows the asset");
@@ -119,8 +106,6 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.AreEqual(512, terminal._historyBufferSize, "Default history buffer preserved");
             Assert.AreEqual(">", terminal._inputCaret, "Default input caret preserved");
             Assert.AreEqual(666, terminal._cursorBlinkRateMilliseconds, "Default blink rate preserved");
-            Assert.IsFalse(terminal.showGUIButtons, "Default button visibility preserved");
-            Assert.AreEqual("run", terminal.runButtonText, "Default run button text preserved");
             Assert.AreEqual(HintDisplayMode.AutoCompleteOnly, terminal.hintDisplayMode, "Default hint mode preserved");
             Assert.IsTrue(terminal.skipSameCommandsInHistory, "Default history dedup preserved");
             Assert.IsFalse(terminal.ignoreDefaultCommands, "Default built-in command registration preserved");
@@ -153,10 +138,6 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             settings.historyBufferSize = 88;
             settings.inputCaret = "$";
             settings.cursorBlinkRateMilliseconds = 123;
-            settings.runButtonText = "go";
-            settings.closeButtonText = "bye";
-            settings.smallButtonText = "shrink";
-            settings.fullButtonText = "grow";
             settings.hintDisplayMode = HintDisplayMode.Never;
             settings.makeHintsClickable = false;
             settings.skipSameCommandsInHistory = false;

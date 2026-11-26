@@ -36,6 +36,7 @@
         private GameObject _terminalObject;
         private TerminalUI _terminal;
         private readonly List<GameObject> _spawnedObjects = new();
+        private readonly List<GameObject> _spawnedSwapObjects = new();
 
         private static T LoadAsset<T>(string relativePath)
             where T : ScriptableObject
@@ -112,6 +113,16 @@
             }
 
             _spawnedObjects.Clear();
+
+            for (int i = _spawnedSwapObjects.Count - 1; 0 <= i; --i)
+            {
+                if (_spawnedSwapObjects[i] != null)
+                {
+                    UnityEngine.Object.Destroy(_spawnedSwapObjects[i]);
+                }
+            }
+
+            _spawnedSwapObjects.Clear();
 
             if (_terminalObject != null)
             {
@@ -512,19 +523,21 @@
         }
 
         /*
-            On-screen state buttons are the open controls for a closed
-            terminal; the opt-in showGUIButtons mode builds its tree eagerly
-            on enable so the buttons exist before any open.
+            The tree defers to the first open: a terminal that never opens
+            pays no UI-construction cost, and the first open builds the full
+            chrome (#241).
          */
         [UnityTest]
-        public IEnumerator StateButtonsBuildEagerlyWhileClosed()
+        public IEnumerator TreeDefersToTheFirstOpen()
         {
-            yield return SpawnTerminalWithDocument(showButtons: true);
+            yield return SpawnTerminalWithDocument();
 
-            VisualElement stateButtons = _terminal._uiDocument.rootVisualElement.Q("StateButtonContainer");
-            Assert.AreEqual(1, _terminal._uiDocument.rootVisualElement.childCount, "The showGUIButtons mode builds its tree on enable");
-            Assert.That(stateButtons != null, "The state button container exists while the terminal is closed");
-            Assert.AreEqual(2, stateButtons.childCount, "Both state buttons are built while the terminal is closed");
+            Assert.AreEqual(0, _terminal._uiDocument.rootVisualElement.childCount, "A closed terminal builds nothing");
+
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return WaitForInputVisible("Opening the terminal must build the visual tree");
+
+            Assert.That(_terminal._uiDocument.rootVisualElement.Q("TerminalHeader") != null, "The first open builds the header");
         }
 
         /*
@@ -551,19 +564,23 @@
             Assert.IsTrue(_terminal.IsClosed, "Sanity: the terminal settles closed");
 
             /*
-                Toggle the tracked property on, let the change hook rebuild,
-                then toggle it back off: the final rebuild runs while closed
-                with the idle gate active, so only the initial-refresh latch
-                can clamp the stale tree back to the closed state.
+                Swap the tracked UIDocument through a second document and
+                back: the change hook rebuilds while closed, with the idle
+                gate active, so only the initial-refresh latch can clamp the
+                stale tree back to the closed state.
              */
-            ToggleShowButtonsInInspector(true);
+            GameObject swapObject = new("TerminalRebuildSwapDocument");
+            _spawnedSwapObjects.Add(swapObject);
+            UIDocument swapDocument = swapObject.AddComponent<UIDocument>();
+            swapDocument.panelSettings = _panelSettings;
+            SwapDocumentInInspector(swapDocument);
             frameBudget = 10;
             while (0 < frameBudget--)
             {
                 yield return null;
             }
 
-            ToggleShowButtonsInInspector(false);
+            SwapDocumentInInspector(_terminalObject.GetComponent<UIDocument>());
             frameBudget = 600;
             while (
                 0 < frameBudget--
@@ -1219,10 +1236,10 @@
             Assert.AreEqual(DisplayStyle.Flex, _terminal._commandInput.resolvedStyle.display, message);
         }
 
-        private void ToggleShowButtonsInInspector(bool value)
+        private void SwapDocumentInInspector(UIDocument document)
         {
             SerializedObject serializedObject = new(_terminal);
-            serializedObject.FindProperty(nameof(TerminalUI.showGUIButtons)).boolValue = value;
+            serializedObject.FindProperty(nameof(TerminalUI._uiDocument)).objectReferenceValue = document;
             serializedObject.ApplyModifiedProperties();
         }
 
@@ -1274,7 +1291,7 @@
             serializedObject.ApplyModifiedProperties();
         }
 
-        private IEnumerator SpawnTerminalWithDocument(bool showButtons = false, bool resetState = true)
+        private IEnumerator SpawnTerminalWithDocument(bool resetState = true)
         {
 #if !UNITY_EDITOR
             Assert.Ignore("Terminal UI lifecycle coverage runs in the editor Play Mode suite.");
@@ -1290,7 +1307,6 @@
             _terminal.resetStateOnInit = resetState;
             _terminal.easeOutTime = 0f;
             _terminal.easeInTime = 0f;
-            _terminal.showGUIButtons = showButtons;
             _terminal._themePack = LoadAsset<TerminalThemePack>("Packs/Themes/Medium.asset");
             _terminal._fontPack = LoadAsset<TerminalFontPack>("Packs/Fonts/Medium.asset");
             StartTracker tracker = _terminalObject.AddComponent<StartTracker>();

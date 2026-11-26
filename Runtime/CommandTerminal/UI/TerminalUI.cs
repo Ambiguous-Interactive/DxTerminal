@@ -2,9 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
-    using System.ComponentModel;
     using System.Globalization;
-    using Attributes;
     using Backend;
     using Extensions;
     using Helper;
@@ -178,22 +176,6 @@
         [HideInInspector]
         [Tooltip("Legacy duration for the ease-in animation in seconds; migrated to CurrentMotionPreset.")]
         public float easeInTime = TerminalMotionPresetMetrics.DefaultLegacyDurationSeconds;
-
-        [Header("Buttons")]
-        public bool showGUIButtons;
-
-        [DxShowIf(nameof(showGUIButtons))]
-        public string runButtonText = "run";
-
-        [DxShowIf(nameof(showGUIButtons))]
-        [SerializeField]
-        public string closeButtonText = "close";
-
-        [DxShowIf(nameof(showGUIButtons))]
-        public string smallButtonText = "small";
-
-        [DxShowIf(nameof(showGUIButtons))]
-        public string fullButtonText = "full";
 
         [Header("Hints")]
         public HintDisplayMode hintDisplayMode = HintDisplayMode.AutoCompleteOnly;
@@ -406,20 +388,23 @@
         private readonly Dictionary<EventBase, bool> _queuedNavigationEvents = new();
         private EventBase _explicitNavigationEvent;
         private VisualElement _highlightedLogRow;
+        private long? _expandedSequence;
         private Button _collapseButton;
         private bool _collapseLogs;
         private bool _lastSeenCollapse;
         private readonly Button[] _severityButtons = new Button[3];
+        private readonly Label[] _severityTexts = new Label[3];
         private readonly int?[] _lastSeverityCounts = new int?[3];
         private int? _lastSearchCount;
         private int? _lastSearchTotal;
         private int? _lastSearchPosition;
         private bool _lastSearchActive;
+        private int? _lastTabCount;
+        private Button _logTabButton;
+        private Label _logTabCount;
         private VisualElement _inputContainer;
-        private Button _runButton;
         private Button _jumpLatestButton;
         private Label _logCopyStatus;
-        private VisualElement _stateButtonContainer;
         private Label _inputCaretLabel;
         private IVisualElementScheduledItem _cursorBlinkSchedule;
         private readonly List<string> _lastCompletionBufferTempCache = new();
@@ -539,7 +524,7 @@
 #if UNITY_EDITOR
             _serializedObject = new SerializedObject(this);
 
-            string[] uiPropertiesTracked = { nameof(_uiDocument), nameof(showGUIButtons) };
+            string[] uiPropertiesTracked = { nameof(_uiDocument) };
             TrackProperties(uiPropertiesTracked, _uiProperties);
 
             string[] themePropertiesTracked = { nameof(_themePack) };
@@ -635,18 +620,6 @@
             {
                 Application.logMessageReceivedThreaded += UnityLogCallback;
                 _unityLogAttached = true;
-            }
-
-            /*
-                On-screen state buttons are the open controls for a closed
-                terminal, so this opt-in mode builds its tree eagerly and
-                stays on the always-refresh path (LateUpdate exempts it from
-                the idle gate). Terminals without the buttons defer the whole
-                tree to the first open.
-             */
-            if (showGUIButtons)
-            {
-                EnsureUI();
             }
 
 #if UNITY_EDITOR
@@ -752,7 +725,7 @@
                 gate evaluated after the snap would skip that final write and
                 freeze the surface at the last animated height.
              */
-            bool idleClosed = IsClosed && !_needsFocus && !_needsScrollToEnd && !_pendingCaretIndex.HasValue && !IsPaletteSurfaceOpen() && !showGUIButtons && !_needsInitialRefresh;
+            bool idleClosed = IsClosed && !_needsFocus && !_needsScrollToEnd && !_pendingCaretIndex.HasValue && !IsPaletteSurfaceOpen() && !_needsInitialRefresh;
 
             ResetWindowIdempotent();
             HandleHeightAnimation();
@@ -812,11 +785,6 @@
             _historyBufferSize = _settings.historyBufferSize;
             _inputCaret = _settings.inputCaret;
             _cursorBlinkRateMilliseconds = _settings.cursorBlinkRateMilliseconds;
-            showGUIButtons = _settings.showGUIButtons;
-            runButtonText = _settings.runButtonText;
-            closeButtonText = _settings.closeButtonText;
-            smallButtonText = _settings.smallButtonText;
-            fullButtonText = _settings.fullButtonText;
             hintDisplayMode = _settings.hintDisplayMode;
             makeHintsClickable = _settings.makeHintsClickable;
             resetStateOnInit = _settings.resetStateOnInit;
@@ -1107,6 +1075,28 @@
             return false;
         }
 
+        /*
+            The header chips draw their off state with a strike overlay (a
+            USS strikethrough is not portable across the 2021.3 floor), so
+            the state read never leans on color alone (direction 1a).
+         */
+        private static void AddChipStrike(Button chip)
+        {
+            Label strike = new(string.Empty) { name = "TerminalChipStrike", pickingMode = PickingMode.Ignore };
+            strike.AddToClassList("terminal-type-chip__strike");
+            chip.Add(strike);
+        }
+
+        private static string ChipClassOf(TerminalLogType severity)
+        {
+            return severity switch
+            {
+                TerminalLogType.Error => "error",
+                TerminalLogType.Warning => "warning",
+                _ => "message",
+            };
+        }
+
         private static Button AddToolbarButton(VisualElement parent, string name, string text, Action action)
         {
             Button button = new(action) { name = name, text = text };
@@ -1259,26 +1249,26 @@
                 focused = focused.parent;
             }
 
-            if (focused is not LogTextField field)
+            if (focused is not TerminalLogRow row)
             {
                 return;
             }
 
             for (int index = 0; index < logCount; ++index)
             {
-                if (rendered[index].Sequence != field.Sequence)
+                if (rendered[index].Sequence != row.Sequence)
                 {
                     continue;
                 }
 
-                int previousIndex = content.IndexOf(field);
+                int previousIndex = content.IndexOf(row);
                 if (index < previousIndex)
                 {
-                    field.PlaceBehind(content[index]);
+                    row.PlaceBehind(content[index]);
                 }
                 else if (previousIndex < index)
                 {
-                    field.PlaceInFront(content[index]);
+                    row.PlaceInFront(content[index]);
                 }
 
                 return;
@@ -2193,6 +2183,33 @@
             return ReferenceEquals(_explicitNavigationEvent, evt);
         }
 
+        /*
+            The expanded error's trace actions (#241, #242): "Copy line" puts
+            the message on the system clipboard, "Copy with trace" appends the
+            captured stack. A refused write shows the same status line the
+            selection copy uses, so an unsupported platform answers instead of
+            failing silently.
+         */
+        internal void CopyExpandedLine(TerminalLogRow row)
+        {
+            if (row == null)
+            {
+                return;
+            }
+
+            ShowCopyStatus(TerminalClipboard.TryWrite(row.Field.value));
+        }
+
+        internal void CopyExpandedTrace(TerminalLogRow row)
+        {
+            if (row == null || string.IsNullOrEmpty(row.Trace))
+            {
+                return;
+            }
+
+            ShowCopyStatus(TerminalClipboard.TryWrite($"{row.Field.value}{Environment.NewLine}{row.Trace}"));
+        }
+
         internal void HandleLogCopyResult(TextField field, KeyDownEvent evt, bool verified)
         {
             if (field == null || evt == null)
@@ -2200,14 +2217,42 @@
                 return;
             }
 
-            if (_logCopyStatus != null)
-            {
-                _logCopyStatus.style.display = verified ? DisplayStyle.None : DisplayStyle.Flex;
-            }
+            ShowCopyStatus(verified);
 
             if (verified)
             {
                 KeyEvents.Consume(field, evt);
+            }
+        }
+
+        /*
+            Selecting a row expands the trace of that error and only of that
+            error (#241): one expanded trace at a time, and a selection
+            anywhere else collapses it. Errors without a captured trace have
+            nothing to show, so they stay collapsed.
+         */
+        internal void OnLogRowFocused(TerminalLogRow row)
+        {
+            long? expanded = row != null && row.CanExpandTrace ? row.Sequence : null;
+            if (_expandedSequence == expanded)
+            {
+                return;
+            }
+
+            _expandedSequence = expanded;
+            VisualElement content = _logScrollView?.contentContainer;
+            if (content == null)
+            {
+                return;
+            }
+
+            int rowCount = content.childCount;
+            for (int i = 0; i < rowCount; ++i)
+            {
+                if (content[i] is TerminalLogRow pooled && pooled.IsExpanded != (pooled.Sequence == _expandedSequence))
+                {
+                    pooled.SetExpanded(pooled.Sequence == _expandedSequence);
+                }
             }
         }
 
@@ -2246,9 +2291,14 @@
             _highlightedLogRow = null;
             _collapseButton = null;
             Array.Clear(_severityButtons, 0, _severityButtons.Length);
+            Array.Clear(_severityTexts, 0, _severityTexts.Length);
             Array.Clear(_lastSeverityCounts, 0, _lastSeverityCounts.Length);
             _lastSearchCount = null;
             _lastSearchTotal = null;
+            _lastTabCount = null;
+            _logTabButton = null;
+            _logTabCount = null;
+            _expandedSequence = null;
             _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
             _completionView = null;
@@ -2263,14 +2313,12 @@
             _lastSeenSyntaxPaletteVersion = -1;
             _lastSeenEchoMonoTag = null;
             _inputContainer = null;
-            _runButton = null;
             _jumpLatestButton = null;
             _logCopyStatus = null;
             _inputCaretLabel = null;
             _commandInput = null;
             _commandInputHighlight = null;
             _textInput = null;
-            _stateButtonContainer = null;
             _lastCodeSyncedValue = null;
 
             /*
@@ -2387,7 +2435,7 @@
                 _commandInput.selectIndex == _commandInput.cursorIndex ? _completionView?.Ghost : null,
                 _validationView?.UnclosedQuote
             );
-            RefreshStateButtons();
+            RefreshSizeButton();
         }
 
         internal void ApplyHint(int index)
@@ -2734,6 +2782,14 @@
             lines that are neither are the console's own, and there are only
             ever a handful - one per command the developer ran.
          */
+        private void ShowCopyStatus(bool verified)
+        {
+            if (_logCopyStatus != null)
+            {
+                _logCopyStatus.style.display = verified ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+        }
+
         private void LogFindReply(string message)
         {
             _logFilter.IgnoreOwnReply(message);
@@ -3093,6 +3149,17 @@
                 },
                 this
             );
+            root.RegisterCallback<KeyDownEvent, TerminalUI>(
+                static (evt, terminal) =>
+                {
+                    if (terminal.TryFocusLogSearch(evt))
+                    {
+                        KeyEvents.Consume(evt.currentTarget as VisualElement, evt);
+                    }
+                },
+                this,
+                TrickleDown.TrickleDown
+            );
 
             InitializeTheme(root);
             InitializeFont();
@@ -3147,16 +3214,6 @@
             _inputContainer = new VisualElement { name = "InputContainer" };
             _inputContainer.AddToClassList("input-container");
             _terminalContainer.Add(_inputContainer);
-
-            _runButton = new Button(EnterCommand) { text = runButtonText, name = "RunCommandButton" };
-            _runButton.AddToClassList("terminal-button");
-            _runButton.AddToClassList("terminal-button-run");
-            _runButton.style.display = DisplayStyle.None;
-            _runButton.style.marginLeft = 6;
-            _runButton.style.marginRight = 4;
-            _runButton.style.paddingTop = 2;
-            _runButton.style.paddingBottom = 2;
-            _inputContainer.Add(_runButton);
 
             _inputCaretLabel = new Label(_inputCaret) { name = "InputCaret" };
             _inputCaretLabel.AddToClassList("terminal-input-caret");
@@ -3242,10 +3299,6 @@
                         echoFromCode = true;
                     }
 
-                    context._runButton.style.display =
-                        context.showGUIButtons && !string.IsNullOrWhiteSpace(context._input.CommandText) && !string.IsNullOrWhiteSpace(context.runButtonText)
-                            ? DisplayStyle.Flex
-                            : DisplayStyle.None;
                     if (!echoFromCode)
                     {
                         context.ResetAutoComplete();
@@ -3354,11 +3407,6 @@
             _commandInputHighlight = new CommandInputHighlight(root, _textInput);
             _validationView = new TerminalValidationView(root, _terminalContainer, ApplyValidationFix);
 
-            _stateButtonContainer = new VisualElement { name = "StateButtonContainer" };
-            _stateButtonContainer.AddToClassList("state-button-container");
-            root.Add(_stateButtonContainer);
-            RefreshStateButtons();
-
             /*
                 A freshly built tree carries stale heights until a RefreshUI
                 pass clamps them; the idle gate owes that pass before it may
@@ -3372,29 +3420,99 @@
         {
             _lastSearchCount = null;
             _lastSearchTotal = null;
+            _lastTabCount = null;
             _logToolbar = new VisualElement { name = "LogToolbar" };
             _logToolbar.AddToClassList("terminal-toolbar");
             _terminalContainer.Add(_logToolbar);
             VisualElement header = new() { name = "TerminalHeader" };
             header.AddToClassList("terminal-header");
             _logToolbar.Add(header);
+
+            /*
+                Direction 1a (issue #241): one 38 px row - mark, tabs, search,
+                severity chips, then size and close. The title is the mark;
+                the tabs exist now so the layout does not reflow when the
+                Actions (#243) and Watches (#244) views land, and they stay
+                disabled until those milestones ship their content.
+             */
             Label title = new("DxTerminal");
             title.AddToClassList("terminal-header-title");
             header.Add(title);
+            SetupHeaderTabs(header);
+            VisualElement spacer = new() { name = "TerminalHeaderSpacer" };
+            spacer.AddToClassList("terminal-header-spacer");
+            header.Add(spacer);
+            SetupLogSearch(header);
+            VisualElement types = new() { name = "LogSeverities" };
+            types.AddToClassList("terminal-severities");
+            header.Add(types);
+            AddSeverityButton(types, 0, TerminalLogType.Message, "LogMessages");
+            AddSeverityButton(types, 1, TerminalLogType.Warning, "LogWarnings");
+            AddSeverityButton(types, 2, TerminalLogType.Error, "LogErrors");
+            _collapseButton = AddToolbarButton(types, "LogCollapse", "Collapse", () =>
+            {
+                _collapseLogs = !_collapseLogs;
+                DropFindScroll();
+            });
+            _collapseButton.AddToClassList("terminal-type-chip");
+            _collapseButton.tooltip = "Group consecutive entries with the same message, type, and trace.";
+            AddChipStrike(_collapseButton);
+            VisualElement divider = new() { name = "TerminalHeaderDivider" };
+            divider.AddToClassList("terminal-header-divider");
+            header.Add(divider);
             _sizeButton = AddToolbarButton(header, "TerminalSizeButton", "Full", () =>
             {
                 SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull);
             });
             _sizeButton.AddToClassList("terminal-header-size");
-            AddToolbarButton(header, "TerminalCloseButton", "Close", () =>
+            _sizeButton.tooltip = "Toggle small and full height.";
+            AddToolbarButton(header, "TerminalCloseButton", "×", () =>
                 {
                     SetState(TerminalState.Closed);
                 })
                 .AddToClassList("terminal-header-close");
+        }
+
+        private void SetupHeaderTabs(VisualElement header)
+        {
+            VisualElement tabs = new() { name = "TerminalTabs" };
+            tabs.AddToClassList("terminal-header-tabs");
+            header.Add(tabs);
+
+            /*
+                The Log view is the only one that exists; the pressed tab
+                carries the line count the search field used to print while
+                idle. A no-op click answers with the view that is already on
+                screen rather than a state change.
+             */
+            _logTabButton = new Button { name = "TerminalLogTab", tooltip = "Log output." };
+            _logTabButton.AddToClassList("terminal-header-tab");
+            _logTabButton.AddToClassList("terminal-header-tab--active");
+            _logTabButton.text = "Log";
+            _logTabCount = new Label { name = "TerminalLogTabCount", pickingMode = PickingMode.Ignore };
+            _logTabCount.AddToClassList("terminal-header-tab-count");
+            _logTabButton.Add(_logTabCount);
+            tabs.Add(_logTabButton);
+
+            Button actionsTab = new Button { name = "TerminalActionsTab", tooltip = "Lands with the Actions milestone (#243)." };
+            actionsTab.AddToClassList("terminal-header-tab");
+            actionsTab.text = "Actions";
+            actionsTab.SetEnabled(false);
+            tabs.Add(actionsTab);
+
+            Button watchesTab = new Button { name = "TerminalWatchesTab", tooltip = "Lands with the Watches milestone (#244)." };
+            watchesTab.AddToClassList("terminal-header-tab");
+            watchesTab.text = "Watches";
+            watchesTab.SetEnabled(false);
+            tabs.Add(watchesTab);
+        }
+
+        private void SetupLogSearch(VisualElement header)
+        {
             VisualElement search = new() { name = "LogSearch" };
             search.AddToClassList("terminal-search");
-            _logToolbar.Add(search);
-            _logSearchInput = new TextField("Search") { name = "LogSearchInput", tooltip = "Search log output. Enter selects the next match." };
+            header.Add(search);
+            _logSearchInput = new TextField("Search") { name = "LogSearchInput", tooltip = "Search log output. Enter selects the next match. / focuses the field." };
             _logSearchInput.AddToClassList("terminal-search-field");
             _logSearchInput.SetValueWithoutNotify(_logFilter.Query ?? string.Empty);
             _logSearchInput.RegisterCallback<ChangeEvent<string>, TerminalUI>(
@@ -3444,19 +3562,6 @@
             {
                 ClearLogFilter(false);
             });
-            VisualElement types = new() { name = "LogSeverities" };
-            types.AddToClassList("terminal-severities");
-            _logToolbar.Add(types);
-            AddSeverityButton(types, 0, TerminalLogType.Message, "LogMessages");
-            AddSeverityButton(types, 1, TerminalLogType.Warning, "LogWarnings");
-            AddSeverityButton(types, 2, TerminalLogType.Error, "LogErrors");
-            _collapseButton = AddToolbarButton(types, "LogCollapse", "Collapse", () =>
-            {
-                _collapseLogs = !_collapseLogs;
-                DropFindScroll();
-            });
-            _collapseButton.AddToClassList("terminal-type-chip");
-            _collapseButton.tooltip = "Group consecutive entries with the same message, type, and trace.";
         }
 
         private void AddSeverityButton(VisualElement parent, int index, TerminalLogType severity, string name)
@@ -3473,7 +3578,16 @@
                 TerminalLogType.Warning => "Toggle warnings. Count includes all retained entries.",
                 _ => "Toggle messages, command echoes, and output. Count includes all retained entries.",
             };
+            Label glyph = new(TerminalLogRowFormat.GlyphOf(severity)) { name = "TerminalChipGlyph", pickingMode = PickingMode.Ignore };
+            glyph.AddToClassList("terminal-type-chip__glyph");
+            glyph.AddToClassList($"terminal-type-chip__glyph--{ChipClassOf(severity)}");
+            button.Add(glyph);
+            Label text = new(string.Empty) { name = "TerminalChipText", pickingMode = PickingMode.Ignore };
+            text.AddToClassList("terminal-type-chip__text");
+            button.Add(text);
+            AddChipStrike(button);
             _severityButtons[index] = button;
+            _severityTexts[index] = text;
             _lastSeverityCounts[index] = null;
         }
 
@@ -3497,13 +3611,7 @@
                 };
                 if (_lastSeverityCounts[i] != count)
                 {
-                    string label = severity switch
-                    {
-                        TerminalLogType.Warning => "Warnings",
-                        TerminalLogType.Error => "Errors",
-                        _ => "Messages",
-                    };
-                    button.text = $"{label} {count}";
+                    _severityTexts[i].text = TerminalLogRowFormat.ChipText(severity, count);
                     _lastSeverityCounts[i] = count;
                 }
                 button.EnableInClassList("terminal-type-chip--excluded", !_logFilter.IsSeverityEnabled(severity));
@@ -3527,8 +3635,47 @@
             StepLogFilter(forward, false);
         }
 
+        /*
+            `/` focuses the header search (direction 1a) whenever the open
+            terminal holds focus outside a text field - the command line and
+            the search field itself keep the keystroke, because a `/` there is
+            content to type, not a command.
+         */
+        private bool TryFocusLogSearch(KeyDownEvent evt)
+        {
+            if (!IsOpenState(_state) || _logSearchInput == null || !ConsoleKeyBindings.Matches(evt, KeyBindings.focusSearch))
+            {
+                return false;
+            }
+
+            VisualElement focused = _logSearchInput.panel?.focusController?.focusedElement as VisualElement;
+            while (focused != null)
+            {
+                if (focused == _commandInput || focused == _logSearchInput)
+                {
+                    return false;
+                }
+
+                focused = focused.parent;
+            }
+
+            _logSearchInput.Focus();
+            return true;
+        }
+
         private void RefreshLogSearch(int renderedCount)
         {
+            /*
+                The line count lives on the Log tab while the search is idle
+                (direction 1a); the search field speaks only when it is
+                filtering, so an idle header does not repeat one number twice.
+             */
+            if (_lastTabCount != renderedCount && _logTabCount != null)
+            {
+                _logTabCount.text = renderedCount.ToString(CultureInfo.InvariantCulture);
+                _lastTabCount = renderedCount;
+            }
+
             bool active = _logFilter.IsActive;
             int count = active ? _logFilter.MatchCount : renderedCount;
             int total = active ? _logFilter.TotalCount : renderedCount;
@@ -3539,7 +3686,8 @@
                     ? position.HasValue
                         ? $"{count} of {total} ({position}/{count})"
                         : $"{count} of {total}"
-                    : $"{total} lines";
+                    : string.Empty;
+                _logSearchCount.style.display = active ? DisplayStyle.Flex : DisplayStyle.None;
                 _logSearchPrevious.SetEnabled(_logFilter.HasQuery && 0 < count);
                 _logSearchNext.SetEnabled(_logFilter.HasQuery && 0 < count);
                 _logSearchClear.SetEnabled(active);
@@ -3877,14 +4025,12 @@
                 {
                     while (content.childCount < logCount)
                     {
-                        LogTextField logText = new()
-                        {
-                            isReadOnly = true,
-                            multiline = true,
-                            tabIndex = -1,
-                        };
-                        logText.AddToClassList("terminal-output-label");
-                        logText.RegisterCallback<KeyDownEvent, TerminalUI>(
+                        TerminalLogRow row = new(this);
+                        row.Field.isReadOnly = true;
+                        row.Field.multiline = true;
+                        row.Field.tabIndex = -1;
+                        row.Field.AddToClassList("terminal-output-label");
+                        row.Field.RegisterCallback<KeyDownEvent, TerminalUI>(
                             static (evt, terminal) =>
                             {
                                 if (
@@ -3901,7 +4047,17 @@
                             this,
                             TrickleDown.TrickleDown
                         );
-                        content.Add(logText);
+                        row.RegisterCallback<FocusInEvent, TerminalUI>(
+                            static (evt, terminal) =>
+                            {
+                                if (evt.currentTarget is TerminalLogRow focused)
+                                {
+                                    terminal.OnLogRowFocused(focused);
+                                }
+                            },
+                            this
+                        );
+                        content.Add(row);
                     }
                 }
             }
@@ -3917,14 +4073,14 @@
                 int childCount = content.childCount;
                 for (int i = 0; i < logCount && i < childCount; ++i)
                 {
-                    if (content[i] is not LogTextField logText)
+                    if (content[i] is not TerminalLogRow row)
                     {
                         continue;
                     }
 
                     LogItem logItem = rendered[i];
-                    SetupLogText(logText, logItem);
-                    logText.SetMetadata(logItem.TimestampUtc, logItem.type, _logWindowCache.GetRepeatCount(i));
+                    row.Bind(logItem, _logWindowCache.GetRepeatCount(i), _expandedSequence);
+                    LogTextField logText = row.Field;
                     bool sequenceChanged = logText.Sequence != logItem.Sequence;
                     if (sequenceChanged)
                     {
@@ -3961,8 +4117,8 @@
             VisualElement highlighted = 0 <= activeIndex && activeIndex < logCount ? content[activeIndex] : null;
             if (!ReferenceEquals(_highlightedLogRow, highlighted))
             {
-                _highlightedLogRow?.RemoveFromClassList("terminal-output-label--current-match");
-                highlighted?.AddToClassList("terminal-output-label--current-match");
+                _highlightedLogRow?.RemoveFromClassList("terminal-log-row--current-match");
+                highlighted?.AddToClassList("terminal-log-row--current-match");
                 _highlightedLogRow = highlighted;
             }
 
@@ -3970,15 +4126,6 @@
             ApplyPendingFindScroll(content, logCount);
             _jumpLatestButton.style.display = _logTail.Detached ? DisplayStyle.Flex : DisplayStyle.None;
             return;
-
-            static void SetupLogText(VisualElement logText, LogItem log)
-            {
-                logText.EnableInClassList("terminal-output-label--shell", log.type == TerminalLogType.ShellMessage);
-                logText.EnableInClassList("terminal-output-label--error", log.type is TerminalLogType.Exception or TerminalLogType.Error or TerminalLogType.Assert);
-                logText.EnableInClassList("terminal-output-label--warning", log.type == TerminalLogType.Warning);
-                logText.EnableInClassList("terminal-output-label--message", log.type == TerminalLogType.Message);
-                logText.EnableInClassList("terminal-output-label--input", log.type == TerminalLogType.Input);
-            }
         }
 
         /*
@@ -4375,143 +4522,11 @@
             return true;
         }
 
-        private void RefreshStateButtons()
+        private void RefreshSizeButton()
         {
-            if (_stateButtonContainer == null)
-            {
-                return;
-            }
-
-            bool bottom = _terminalContainer?.parent?.ClassListContains("terminal-root--bottom") == true;
-            _stateButtonContainer.style.top = bottom ? new StyleLength(StyleKeyword.Auto) : new StyleLength(_currentWindowHeight);
-            _stateButtonContainer.style.bottom = bottom ? new StyleLength(_currentWindowHeight) : new StyleLength(StyleKeyword.Auto);
             if (_sizeButton != null)
             {
                 _sizeButton.text = _state == TerminalState.OpenFull ? "Small" : "Full";
-            }
-            DisplayStyle displayStyle = showGUIButtons && !IsOpenState(_state) ? DisplayStyle.Flex : DisplayStyle.None;
-
-            int stateButtonCount = _stateButtonContainer.childCount;
-            for (int i = 0; i < stateButtonCount; ++i)
-            {
-                VisualElement child = _stateButtonContainer[i];
-                child.style.display = displayStyle;
-            }
-
-            if (!showGUIButtons)
-            {
-                return;
-            }
-
-            Button firstButton;
-            Button secondButton;
-            if (_stateButtonContainer.childCount == 0)
-            {
-                firstButton = new Button(FirstClicked) { name = "StateButton1" };
-                firstButton.AddToClassList("terminal-button");
-                firstButton.style.display = displayStyle;
-                _stateButtonContainer.Add(firstButton);
-
-                secondButton = new Button(SecondClicked) { name = "StateButton2" };
-                secondButton.AddToClassList("terminal-button");
-                secondButton.style.display = displayStyle;
-                _stateButtonContainer.Add(secondButton);
-            }
-            else
-            {
-                firstButton = _stateButtonContainer[0] as Button;
-                if (firstButton == null)
-                {
-                    return;
-                }
-                secondButton = _stateButtonContainer[1] as Button;
-                if (secondButton == null)
-                {
-                    return;
-                }
-            }
-
-            _inputCaretLabel.text = _inputCaret;
-
-            switch (_state)
-            {
-                case TerminalState.Closed:
-                    if (!string.IsNullOrWhiteSpace(smallButtonText))
-                    {
-                        firstButton.text = smallButtonText;
-                    }
-                    if (!string.IsNullOrWhiteSpace(fullButtonText))
-                    {
-                        secondButton.text = fullButtonText;
-                    }
-                    break;
-                case TerminalState.OpenSmall:
-                    if (!string.IsNullOrWhiteSpace(closeButtonText))
-                    {
-                        firstButton.text = closeButtonText;
-                    }
-                    if (!string.IsNullOrWhiteSpace(fullButtonText))
-                    {
-                        secondButton.text = fullButtonText;
-                    }
-                    break;
-                case TerminalState.OpenFull:
-                    if (!string.IsNullOrWhiteSpace(closeButtonText))
-                    {
-                        firstButton.text = closeButtonText;
-                    }
-                    if (!string.IsNullOrWhiteSpace(smallButtonText))
-                    {
-                        secondButton.text = smallButtonText;
-                    }
-                    break;
-                default:
-                    throw new InvalidEnumArgumentException(nameof(_state), (int)_state, typeof(TerminalState));
-            }
-            return;
-
-            void FirstClicked()
-            {
-                switch (_state)
-                {
-                    case TerminalState.Closed:
-                        if (!string.IsNullOrWhiteSpace(smallButtonText))
-                        {
-                            SetState(TerminalState.OpenSmall);
-                        }
-                        break;
-                    case TerminalState.OpenSmall:
-                    case TerminalState.OpenFull:
-                        if (!string.IsNullOrWhiteSpace(closeButtonText))
-                        {
-                            SetState(TerminalState.Closed);
-                        }
-                        break;
-                    default:
-                        throw new InvalidEnumArgumentException(nameof(_state), (int)_state, typeof(TerminalState));
-                }
-            }
-
-            void SecondClicked()
-            {
-                switch (_state)
-                {
-                    case TerminalState.Closed:
-                    case TerminalState.OpenSmall:
-                        if (!string.IsNullOrWhiteSpace(fullButtonText))
-                        {
-                            SetState(TerminalState.OpenFull);
-                        }
-                        break;
-                    case TerminalState.OpenFull:
-                        if (!string.IsNullOrWhiteSpace(smallButtonText))
-                        {
-                            SetState(TerminalState.OpenSmall);
-                        }
-                        break;
-                    default:
-                        throw new InvalidEnumArgumentException(nameof(_state), (int)_state, typeof(TerminalState));
-                }
             }
         }
 
@@ -4581,13 +4596,166 @@
             logText.ClearRichContent();
         }
 
+        /*
+            One log row (direction 1a, issue #241): the capture time, a glyph
+            that names the entry's type without color, the selectable text,
+            and a repeat badge. An error row carries its trace with copy
+            actions in a second line the terminal expands on selection.
+
+            The row owns the metadata caching the field used to own, keyed the
+            same way - a row redraws its prefix only when the entry it shows
+            changed time, type, repeat count, or trace - so an idle console
+            keeps paying no allocation per frame. The layout is horizontal on
+            purpose: the window is the manual pool this file lays out every
+            pass, not Unity's ListView, so wrapped heights resolve for real
+            instead of being estimated.
+         */
+        private sealed class TerminalLogRow : VisualElement
+        {
+            public long Sequence
+            {
+                get { return Field.Sequence; }
+            }
+
+            public string Trace
+            {
+                get { return _trace; }
+            }
+
+            public bool CanExpandTrace
+            {
+                get { return _isErrorFamily && !string.IsNullOrEmpty(_trace); }
+            }
+
+            public bool IsExpanded { get; private set; }
+
+            public readonly LogTextField Field;
+
+            private readonly Label _time;
+            private readonly Label _glyph;
+            private readonly Label _badge;
+            private readonly VisualElement _traceRoot;
+            private readonly Label _traceText;
+            private readonly Button _copyLineButton;
+            private readonly Button _copyTraceButton;
+            private long? _timestampTick;
+            private TerminalLogType? _type;
+            private int _repeatCount;
+            private string _trace = string.Empty;
+            private bool _isErrorFamily;
+
+            public TerminalLogRow(TerminalUI owner)
+            {
+                _time = new Label
+                {
+                    name = "TerminalLogTime",
+                    tooltip = "Capture time, UTC.",
+                    pickingMode = PickingMode.Ignore,
+                };
+                _time.AddToClassList("terminal-log-row__time");
+                Add(_time);
+                _glyph = new Label { name = "TerminalLogGlyph", pickingMode = PickingMode.Ignore };
+                _glyph.AddToClassList("terminal-log-row__glyph");
+                Add(_glyph);
+                Field = new LogTextField();
+                Add(Field);
+                _badge = new Label { name = "TerminalLogBadge", pickingMode = PickingMode.Ignore };
+                _badge.AddToClassList("terminal-log-row__badge");
+                _badge.style.display = DisplayStyle.None;
+                Add(_badge);
+                _traceRoot = new VisualElement { name = "TerminalLogTrace" };
+                _traceRoot.AddToClassList("terminal-log-row__trace");
+                _traceRoot.style.display = DisplayStyle.None;
+                _traceText = new Label { name = "TerminalLogTraceText", pickingMode = PickingMode.Position };
+                _traceText.AddToClassList("terminal-log-row__trace-text");
+                _traceText.enableRichText = false;
+                _traceRoot.Add(_traceText);
+                VisualElement actions = new() { name = "TerminalLogTraceActions" };
+                actions.AddToClassList("terminal-log-row__trace-actions");
+                _copyLineButton = new Button(() => owner.CopyExpandedLine(this)) { name = "TerminalLogCopyLine" };
+                _copyLineButton.text = "Copy line";
+                _copyLineButton.AddToClassList("terminal-button");
+                actions.Add(_copyLineButton);
+                _copyTraceButton = new Button(() => owner.CopyExpandedTrace(this)) { name = "TerminalLogCopyTrace" };
+                _copyTraceButton.text = "Copy with trace";
+                _copyTraceButton.AddToClassList("terminal-button");
+                actions.Add(_copyTraceButton);
+                _traceRoot.Add(actions);
+                Add(_traceRoot);
+            }
+
+            public void Bind(LogItem item, int repeatCount, long? expandedSequence)
+            {
+                ApplyType(item.type);
+                long tick = item.TimestampUtc.Ticks / TimeSpan.TicksPerMillisecond;
+                if (_timestampTick != tick)
+                {
+                    _time.text = TerminalLogRowFormat.FormatTimestamp(item.TimestampUtc);
+                    _timestampTick = tick;
+                }
+
+                if (_type != item.type)
+                {
+                    _glyph.text = TerminalLogRowFormat.GlyphOf(item.type);
+                    _type = item.type;
+                }
+
+                if (_repeatCount != repeatCount)
+                {
+                    bool repeated = 1 < repeatCount;
+                    _badge.text = $"×{repeatCount.ToString(CultureInfo.InvariantCulture)}";
+                    _badge.style.display = repeated ? DisplayStyle.Flex : DisplayStyle.None;
+                    _repeatCount = repeatCount;
+                }
+
+                string trace = item.stackTrace ?? string.Empty;
+                if (!string.Equals(_trace, trace, StringComparison.Ordinal))
+                {
+                    _trace = trace;
+                    _traceText.text = trace;
+                }
+
+                SetExpanded(item.Sequence == expandedSequence && CanExpandTrace);
+            }
+
+            public void SetExpanded(bool expanded)
+            {
+                if (IsExpanded == expanded)
+                {
+                    return;
+                }
+
+                IsExpanded = expanded;
+                EnableInClassList("terminal-log-row--expanded", expanded);
+                _traceRoot.style.display = expanded ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            private void ApplyType(TerminalLogType type)
+            {
+                bool isErrorFamily = type is TerminalLogType.Exception or TerminalLogType.Error or TerminalLogType.Assert;
+                if (_isErrorFamily == isErrorFamily && _type == type)
+                {
+                    return;
+                }
+
+                _isErrorFamily = isErrorFamily;
+                EnableInClassList("terminal-log-row--error", isErrorFamily);
+                EnableInClassList("terminal-log-row--warning", type == TerminalLogType.Warning);
+                EnableInClassList("terminal-log-row--input", type == TerminalLogType.Input);
+                EnableInClassList("terminal-log-row--message", type == TerminalLogType.Message);
+                EnableInClassList("terminal-log-row--shell", type == TerminalLogType.ShellMessage);
+                Field.EnableInClassList("terminal-output-label--shell", type == TerminalLogType.ShellMessage);
+                Field.EnableInClassList("terminal-output-label--error", isErrorFamily);
+                Field.EnableInClassList("terminal-output-label--warning", type == TerminalLogType.Warning);
+                Field.EnableInClassList("terminal-output-label--message", type == TerminalLogType.Message);
+                Field.EnableInClassList("terminal-output-label--input", type == TerminalLogType.Input);
+            }
+        }
+
         private sealed class LogTextField : TextField
         {
             public long Sequence { get; set; }
 
-            private long? _timestampSecond;
-            private TerminalLogType? _type;
-            private int _repeatCount;
             private VisualElement _textInputContainer;
             private VisualElement _nativeText;
             private Label _echoHighlight;
@@ -4603,6 +4771,13 @@
             public LogTextField()
             {
                 labelElement.pickingMode = PickingMode.Ignore;
+
+                /*
+                    The time and glyph live beside the field as row elements
+                    now, so the field's own label slot stays empty and out of
+                    the layout.
+                 */
+                labelElement.style.display = DisplayStyle.None;
             }
 
             private static Label CreateCardLabel(string name, string className, bool richText)
@@ -4625,34 +4800,6 @@
 #endif
                 label.AddToClassList(className);
                 return label;
-            }
-
-            public void SetMetadata(DateTime timestampUtc, TerminalLogType type, int repeatCount)
-            {
-                long second = timestampUtc.Ticks / TimeSpan.TicksPerSecond;
-                if (_timestampSecond == second && _type == type && _repeatCount == repeatCount)
-                {
-                    return;
-                }
-                string marker = type switch
-                {
-                    TerminalLogType.Error => "E",
-                    TerminalLogType.Assert => "A",
-                    TerminalLogType.Warning => "W",
-                    TerminalLogType.Message => "I",
-                    TerminalLogType.Exception => "X",
-                    TerminalLogType.Input => ">",
-                    TerminalLogType.ShellMessage => "<",
-                    _ => "?",
-                };
-                label = $"{timestampUtc.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}Z [{marker}]";
-                if (1 < repeatCount)
-                {
-                    label = $"{label} x{repeatCount.ToString(CultureInfo.InvariantCulture)}";
-                }
-                _repeatCount = repeatCount;
-                _timestampSecond = second;
-                _type = type;
             }
 
             public void SetEchoHighlight(string richText, Color defaultColor)
