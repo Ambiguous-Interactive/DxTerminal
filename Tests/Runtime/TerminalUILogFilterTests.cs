@@ -796,7 +796,7 @@
 
             Terminal.Log(message);
             attempts = FrameBudget;
-            while (0 < attempts-- && LogContent()[0] != row)
+            while (0 < attempts-- && LogContent()[0].Q<TextField>() != row)
             {
                 yield return null;
             }

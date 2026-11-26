@@ -4687,11 +4687,23 @@
                 _traceRoot.Add(_traceText);
                 VisualElement actions = new() { name = "TerminalLogTraceActions" };
                 actions.AddToClassList("terminal-log-row__trace-actions");
-                _copyLineButton = new Button(() => owner.CopyExpandedLine(Field.value)) { name = "TerminalLogCopyLine" };
+                _copyLineButton = new Button(() =>
+                {
+                    owner.CopyExpandedLine(Field.value);
+                })
+                {
+                    name = "TerminalLogCopyLine",
+                };
                 _copyLineButton.text = "Copy line";
                 _copyLineButton.AddToClassList("terminal-button");
                 actions.Add(_copyLineButton);
-                _copyTraceButton = new Button(() => owner.CopyExpandedTrace(Field.value, _trace)) { name = "TerminalLogCopyTrace" };
+                _copyTraceButton = new Button(() =>
+                {
+                    owner.CopyExpandedTrace(Field.value, _trace);
+                })
+                {
+                    name = "TerminalLogCopyTrace",
+                };
                 _copyTraceButton.text = "Copy with trace";
                 _copyTraceButton.AddToClassList("terminal-button");
                 actions.Add(_copyTraceButton);
