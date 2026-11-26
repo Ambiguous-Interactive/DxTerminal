@@ -1127,6 +1127,10 @@
             Assert.That(palette._paletteRoot.ClassListContains(TerminalTextSizeMetrics.MediumClass), Is.True);
             Assert.That(palette._rows[0].style.height.value.value, Is.EqualTo(36f).Within(0.01f));
 
+            palette.SetTextSize(TerminalTextSize.Small, persist: true);
+            palette._runtimeTextSize = null;
+            Assert.That(palette.CurrentTextSize, Is.EqualTo(TerminalTextSize.Small), "Persisted Small overrides inherited Large after restart");
+
             _terminal.SetTextSize((TerminalTextSize)99);
             Assert.That(_terminal.CurrentTextSize, Is.EqualTo(TerminalTextSize.Small));
             palette.Close();

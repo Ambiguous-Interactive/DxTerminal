@@ -80,9 +80,9 @@
                     return TerminalTextSizeMetrics.Normalize(runtimeSize);
                 }
 
-                if (_textSize is TerminalTextSize.Medium or TerminalTextSize.Large)
+                if (_overrideTextSize || _textSize is TerminalTextSize.Medium or TerminalTextSize.Large)
                 {
-                    return _textSize;
+                    return TerminalTextSizeMetrics.Normalize(_textSize);
                 }
 
                 TerminalUI terminal = TerminalUI.Instance;
@@ -164,6 +164,11 @@
         [SerializeField]
         internal TerminalTextSize _textSize = TerminalTextSize.Small;
 
+        [SerializeField]
+        internal bool _overrideTextSize;
+
+        internal TerminalTextSize? _runtimeTextSize;
+
         internal VisualElement _paletteRoot;
         internal TextField _input;
         internal ScrollView _results;
@@ -197,7 +202,6 @@
 
         [SerializeField]
         private Font _font;
-        private TerminalTextSize? _runtimeTextSize;
         private VisualElement _panel;
         private readonly List<Label> _rowNameLabels = new();
         private readonly List<Label> _rowHelpLabels = new();
@@ -368,7 +372,12 @@
             for (int index = 0; index < livePaletteCount; ++index)
             {
                 CommandPaletteUI palette = _livePalettes[index];
-                if (palette != null && !palette._runtimeTextSize.HasValue && palette._textSize is not (TerminalTextSize.Medium or TerminalTextSize.Large))
+                if (
+                    palette != null
+                    && !palette._runtimeTextSize.HasValue
+                    && !palette._overrideTextSize
+                    && palette._textSize is not (TerminalTextSize.Medium or TerminalTextSize.Large)
+                )
                 {
                     palette.ApplyTextSize();
                 }
@@ -465,10 +474,15 @@
             {
                 _runtimeTextSize = normalized;
             }
+            else
+            {
+                _runtimeTextSize = null;
+            }
 
             if (persist)
             {
                 _textSize = normalized;
+                _overrideTextSize = true;
             }
 
             ApplyTextSize();

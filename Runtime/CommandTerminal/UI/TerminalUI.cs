@@ -1643,6 +1643,10 @@
             {
                 _runtimeTextSize = normalized;
             }
+            else
+            {
+                _runtimeTextSize = null;
+            }
 
             if (persist)
             {
