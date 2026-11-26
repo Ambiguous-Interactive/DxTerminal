@@ -142,7 +142,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         internal float EffectivePaletteRowHeight(float baseRowHeight)
         {
-            float clampedBase = float.IsFinite(baseRowHeight) ? Math.Max(16f, baseRowHeight) : 30f;
+            float clampedBase = float.IsFinite(baseRowHeight) ? Math.Max(16f, baseRowHeight) : 40f;
             return clampedBase + PaletteRowHeightDelta;
         }
 

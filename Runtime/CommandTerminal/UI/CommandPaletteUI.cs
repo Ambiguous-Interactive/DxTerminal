@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Text;
     using Backend;
     using Extensions;
     using Helper;
@@ -26,9 +27,13 @@
     {
         private const string PaletteRootName = "PaletteRoot";
         private const string PalettePanelName = "PalettePanel";
+        private const string PaletteInputContainerName = "PaletteInputContainer";
+        private const string PalettePromptName = "PalettePrompt";
         private const string PaletteResultsName = "PaletteResults";
         private const string PaletteInputName = "PaletteInput";
+        private const string PaletteSignatureName = "CommandSignature";
         private const string PaletteDividerName = "PaletteDivider";
+        private const string PaletteRecentHeaderName = "PaletteRecentHeader";
         private const string PaletteOutputName = "PaletteOutput";
         private const string PaletteFeedbackName = "PaletteFeedback";
 
@@ -46,12 +51,16 @@
             buffer does not reallocate on every capacity change around it.
          */
         private const int MinimumOutputWindow = 16;
+        private const float NarrowViewportWidth = 480f;
+        private const float NarrowMinRowHeight = 44f;
         private const string PaletteFooterName = "PaletteFooter";
         private const string RowName = "PaletteRow";
         private const string RowNameLabel = "PaletteRowName";
         private const string RowHelpName = "PaletteRowHelp";
+        private const string RowHintName = "PaletteRowHint";
         private const string SelectedRowClass = "palette-row-selected";
-        private const string FooterText = "Type a query to find a command.";
+        private const string NarrowRootClass = "palette-root--narrow";
+        private const string ErrorFeedbackClass = "palette-feedback--error";
         private const int CaretStickPasses = 2;
 
         public event Action<CommandPaletteUI> Opened;
@@ -67,6 +76,7 @@
          */
         internal static bool _logCaretPasses;
 
+        private static readonly CustomStyleProperty<Color> AccentSoftProperty = new("--dxt-accent-soft");
         private static readonly List<CommandPaletteUI> _livePalettes = new();
 
         public bool IsOpen => _isOpen;
@@ -107,7 +117,7 @@
 
         [Tooltip("Height of one result row in pixels")]
         [Min(16f)]
-        public float rowHeight = 30f;
+        public float rowHeight = 40f;
 
         [Tooltip("Close the palette when a command runs successfully")]
         public bool closeOnSuccessfulExecution = true;
@@ -145,7 +155,21 @@
 
         internal float EffectiveRowHeight
         {
-            get { return TerminalTextSizeMetrics.For(CurrentTextSize).EffectivePaletteRowHeight(rowHeight); }
+            get
+            {
+                float height = TerminalTextSizeMetrics.For(CurrentTextSize).EffectivePaletteRowHeight(rowHeight);
+                return _isNarrow ? Mathf.Max(height, NarrowMinRowHeight) : height;
+            }
+        }
+
+        internal string ValidationMessage
+        {
+            get { return _validationView?.PlainMessage; }
+        }
+
+        internal string GhostText
+        {
+            get { return _ghost; }
         }
 
         [Tooltip("Hotkey that opens/closes the palette (supports ctrl+ and shift+ modifiers)")]
@@ -171,10 +195,14 @@
 
         internal VisualElement _paletteRoot;
         internal TextField _input;
+        internal CommandInputHighlight _inputHighlight;
+        internal TerminalValidationView _validationView;
+        internal VisualElement _signature;
         internal ScrollView _results;
         internal VisualElement _divider;
         internal Label _output;
         internal Label _feedback;
+        internal Label _footer;
         internal readonly List<string> _matchNames = new();
         internal readonly List<CommandCompletion> _completions = new();
         internal readonly List<VisualElement> _rows = new();
@@ -191,6 +219,7 @@
          */
         internal CommandCompletionContext _completionContext;
         internal bool _completionMode;
+        internal bool _recentMode;
 
         /*
             The search field's own history. A TextField has none, so this is
@@ -203,15 +232,29 @@
         [SerializeField]
         private Font _font;
         private VisualElement _panel;
+        private VisualElement _inputContainer;
+        private Label _prompt;
+        private Label _recentHeader;
         private readonly List<Label> _rowNameLabels = new();
         private readonly List<Label> _rowHelpLabels = new();
+        private readonly List<Label> _rowHintLabels = new();
         private readonly List<string> _sourceNames = new();
+        private readonly List<string> _recentScratch = new();
         private readonly List<CommandCompletion> _completionsBuffer = new();
         private readonly List<CommandToken> _tokenBuffer = new();
+        private CommandBuilder.SubcommandRoute _signatureRoute;
+        private int _signatureStage = -1;
+        private string _activeQuery = string.Empty;
+        private string _ghost;
+        private string _matchTag = "<u>";
+        private string _matchEnd = "</u>";
+        private Color? _matchColor;
 
         private int? _selectionIndex;
         private bool _isOpen;
         private bool _built;
+        private bool _isNarrow;
+        private bool _failedRun;
         private bool _lastRunProducedOutput;
         private VisualElement _previousFocus;
         private readonly List<string> _outputLines = new();
@@ -384,6 +427,19 @@
             }
         }
 
+        private static void SetRowHint(Label label, string hint)
+        {
+            if (string.IsNullOrWhiteSpace(hint))
+            {
+                label.text = string.Empty;
+                label.style.display = DisplayStyle.None;
+                return;
+            }
+
+            label.text = LogTextSanitizer.Sanitize(hint);
+            label.style.display = DisplayStyle.Flex;
+        }
+
         public void Open()
         {
             if (_isOpen)
@@ -530,6 +586,12 @@
                 DisplaySelected();
             }
 
+            string currentText = _input.value ?? string.Empty;
+            int currentCaret = _pendingCaretIndex ?? currentText.Length;
+            RefreshSignature(currentText, currentCaret);
+            RefreshGhost(currentText, currentCaret);
+            RefreshHighlight(currentText);
+            UpdateFooter();
             return true;
         }
 
@@ -537,13 +599,19 @@
         ///     Applies the selected row to the input (Tab behavior). Command
         ///     rows load the command name; argument completion rows insert the
         ///     candidate at the active token's replacement range and re-run
-        ///     the search on the updated text.
+        ///     the search on the updated text. When no row is selected and
+        ///     inline validation offers a typo fix, Tab applies that fix.
         /// </summary>
         public bool ApplySelected()
         {
-            if (!IsOpen || !TryGetSelected(out string selected))
+            if (!IsOpen)
             {
                 return false;
+            }
+
+            if (!TryGetSelected(out string selected))
+            {
+                return TryAcceptValidationFix();
             }
 
             if (_completionMode)
@@ -818,6 +886,12 @@
                 return;
             }
 
+            if (evt.keyCode == KeyCode.RightArrow && evt.modifiers == EventModifiers.None && TryAcceptGhostWord())
+            {
+                KeyEvents.Consume(_paletteRoot, evt);
+                return;
+            }
+
             if (ConsoleKeyBindings.Matches(evt, KeyBindings.paletteNext))
             {
                 KeyEvents.Consume(_paletteRoot, evt);
@@ -852,13 +926,17 @@
                 return;
             }
 
+            ClearFeedback();
             string effectiveQuery = query ?? string.Empty;
+            int normalizedCaret = NormalizeCaret(caretIndex, effectiveQuery);
+            _activeQuery = effectiveQuery;
             if (string.IsNullOrWhiteSpace(effectiveQuery))
             {
-                CollapseResults();
+                RefreshRecent();
             }
-            else if (!TryRefreshCompletions(effectiveQuery, caretIndex))
+            else if (!TryRefreshCompletions(effectiveQuery, normalizedCaret))
             {
+                _recentMode = false;
                 RefreshSource();
                 CommandPaletteSearch.Filter(effectiveQuery, _sourceNames, _matchNames);
                 _selectionIndex = _matchNames.Count == 0 ? (int?)null : 0;
@@ -867,7 +945,11 @@
                 UpdateResultsVisibility();
             }
 
-            ClearFeedback();
+            RefreshSignature(effectiveQuery, normalizedCaret);
+            RefreshGhost(effectiveQuery, normalizedCaret);
+            RefreshValidation(effectiveQuery);
+            RefreshHighlight(effectiveQuery);
+            UpdateFooter();
         }
 
         private void Awake()
@@ -940,16 +1022,32 @@
 
             _pendingCaretIndex = null;
             _caretStickPasses = 0;
+            _validationView?.Dispose();
+            _validationView = null;
+            _inputHighlight = null;
             _paletteRoot = null;
             _panel = null;
+            _inputContainer = null;
+            _prompt = null;
+            _signature = null;
+            _recentHeader = null;
             _results = null;
             _divider = null;
             _output = null;
             _input = null;
             _feedback = null;
+            _footer = null;
             _rows.Clear();
             _rowNameLabels.Clear();
             _rowHelpLabels.Clear();
+            _rowHintLabels.Clear();
+            _signatureRoute = null;
+            _signatureStage = -1;
+            _ghost = null;
+            _activeQuery = string.Empty;
+            _recentMode = false;
+            _failedRun = false;
+            _isNarrow = false;
             ClearCompletionState();
             _built = false;
             _previousFocus = null;
@@ -991,6 +1089,12 @@
                 once the text element's own reset has already run.
              */
             ApplyPendingCaret();
+            if (_isOpen && _input != null)
+            {
+                string line = _input.value ?? string.Empty;
+                RefreshValidation(line);
+                RefreshHighlight(line);
+            }
         }
 
         private void EnsureBuilt()
@@ -1049,15 +1153,34 @@
             _panel.style.maxWidth = Length.Percent(100f);
             _paletteRoot.Add(_panel);
 
+            _inputContainer = new VisualElement { name = PaletteInputContainerName };
+            _inputContainer.AddToClassList("palette-input-container");
+            _prompt = new Label("›") { name = PalettePromptName, pickingMode = PickingMode.Ignore };
+            _prompt.AddToClassList("palette-prompt");
+            _inputContainer.Add(_prompt);
+
             _input = new TextField { name = PaletteInputName };
             _input.AddToClassList("palette-input");
-            _panel.Add(_input);
+            _inputContainer.Add(_input);
+            _panel.Add(_inputContainer);
             _input.RegisterCallback<ChangeEvent<string>>(OnInputChanged);
+            _inputHighlight = new CommandInputHighlight(_paletteRoot, _input);
+
+            _signature = new VisualElement { name = PaletteSignatureName };
+            _signature.AddToClassList("completion-signature");
+            _signature.style.height = TerminalTextSizeMetrics.For(CurrentTextSize).SignatureHeight;
+            _signature.style.display = DisplayStyle.None;
+            _panel.Add(_signature);
 
             _divider = new VisualElement { name = PaletteDividerName };
             _divider.AddToClassList("palette-divider");
             _divider.style.display = DisplayStyle.None;
             _panel.Add(_divider);
+
+            _recentHeader = new Label("Recent") { name = PaletteRecentHeaderName, pickingMode = PickingMode.Ignore };
+            _recentHeader.AddToClassList("palette-recent-header");
+            _recentHeader.style.display = DisplayStyle.None;
+            _panel.Add(_recentHeader);
 
             _results = new ScrollView(ScrollViewMode.Vertical) { name = PaletteResultsName };
             _results.AddToClassList("palette-results");
@@ -1081,6 +1204,8 @@
 
             _panel.Add(_results);
 
+            _validationView = new TerminalValidationView(_paletteRoot, _panel, OnAcceptValidationSuggestion);
+
             _output = new Label { name = PaletteOutputName };
             _output.AddToClassList("palette-output");
             _output.style.display = DisplayStyle.None;
@@ -1091,11 +1216,13 @@
             _feedback.style.display = DisplayStyle.None;
             _panel.Add(_feedback);
 
-            Label footer = new(FooterText) { name = PaletteFooterName };
-            footer.AddToClassList("palette-footer");
-            _panel.Add(footer);
+            _footer = new Label(CommandPaletteSearch.EmptyFooterText) { name = PaletteFooterName };
+            _footer.AddToClassList("palette-footer");
+            _panel.Add(_footer);
 
             _paletteRoot.RegisterCallback<KeyDownEvent>(HandleKeyDown, TrickleDown.TrickleDown);
+            _paletteRoot.RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
+            _paletteRoot.RegisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);
             ApplyTextSize();
             _built = true;
         }
@@ -1176,6 +1303,21 @@
             _paletteRoot.EnableInClassList(TerminalTextSizeMetrics.SmallClass, activeSize == TerminalTextSize.Small);
             _paletteRoot.EnableInClassList(TerminalTextSizeMetrics.MediumClass, activeSize == TerminalTextSize.Medium);
             _paletteRoot.EnableInClassList(TerminalTextSizeMetrics.LargeClass, activeSize == TerminalTextSize.Large);
+            if (_signature != null)
+            {
+                _signature.style.height = TerminalTextSizeMetrics.For(activeSize).SignatureHeight;
+            }
+
+            ApplyLayoutMetrics();
+        }
+
+        private void ApplyLayoutMetrics()
+        {
+            if (_panel != null)
+            {
+                _panel.style.width = _isNarrow ? Length.Percent(100f) : new Length(width, LengthUnit.Pixel);
+            }
+
             float effectiveHeight = EffectiveRowHeight;
             if (_results != null)
             {
@@ -1230,6 +1372,7 @@
             int matchCount = _matchNames.Count;
             EnsureRowCapacity(matchCount);
             CommandShell shell = Terminal.Shell;
+            string matchQuery = _completionMode ? _completionContext.Token : (_recentMode ? string.Empty : _activeQuery);
             for (int index = 0; index < matchCount; ++index)
             {
                 VisualElement row = _rows[index];
@@ -1237,19 +1380,31 @@
                 if (_completionMode)
                 {
                     CommandCompletion completion = _completions[index];
-                    _rowNameLabels[index].text = LogTextSanitizer.Sanitize(completion.EffectiveDisplayLabel);
+                    _rowNameLabels[index].text = FormatRowName(completion.EffectiveDisplayLabel, matchQuery);
                     _rowHelpLabels[index].text = LogTextSanitizer.Sanitize(completion.Description ?? string.Empty);
+                    SetRowHint(_rowHintLabels[index], completion.Hint);
                     continue;
                 }
 
-                _rowNameLabels[index].text = LogTextSanitizer.Sanitize(_matchNames[index]);
+                if (_recentMode)
+                {
+                    _rowNameLabels[index].text = FormatRowName(_matchNames[index], string.Empty);
+                    _rowHelpLabels[index].text = string.Empty;
+                    SetRowHint(_rowHintLabels[index], "Recent");
+                    continue;
+                }
+
+                _rowNameLabels[index].text = FormatRowName(_matchNames[index], matchQuery);
                 string help = null;
+                string group = null;
                 if (shell != null && shell.Commands.TryGetValue(_matchNames[index], out CommandInfo info))
                 {
                     help = info.help;
+                    group = info.Group;
                 }
 
                 _rowHelpLabels[index].text = string.IsNullOrWhiteSpace(help) ? string.Empty : LogTextSanitizer.Sanitize(help);
+                SetRowHint(_rowHintLabels[index], group);
             }
 
             int excessRowStart = matchCount;
@@ -1288,6 +1443,7 @@
             _completions.Clear();
             _completions.AddRange(_completionsBuffer);
             _completionMode = true;
+            _recentMode = false;
             _matchNames.Clear();
             foreach (CommandCompletion completion in _completions)
             {
@@ -1396,19 +1552,34 @@
                 row.AddToClassList("palette-row");
                 row.style.height = EffectiveRowHeight;
 
-                Label nameLabel = new() { name = RowNameLabel };
+                Label nameLabel = new() { name = RowNameLabel, enableRichText = true };
+#if UNITY_2022_2_OR_NEWER
+                nameLabel.parseEscapeSequences = false;
+#endif
                 nameLabel.AddToClassList("palette-row-name");
                 row.Add(nameLabel);
 
-                Label helpLabel = new() { name = RowHelpName };
+                Label helpLabel = new() { name = RowHelpName, enableRichText = false };
+#if UNITY_2022_2_OR_NEWER
+                helpLabel.parseEscapeSequences = false;
+#endif
                 helpLabel.AddToClassList("palette-row-help");
                 row.Add(helpLabel);
+
+                Label hintLabel = new() { name = RowHintName, enableRichText = false };
+#if UNITY_2022_2_OR_NEWER
+                hintLabel.parseEscapeSequences = false;
+#endif
+                hintLabel.AddToClassList("palette-row-hint");
+                hintLabel.style.display = DisplayStyle.None;
+                row.Add(hintLabel);
 
                 row.RegisterCallback<ClickEvent>(OnRowClicked);
                 _results.Add(row);
                 _rows.Add(row);
                 _rowNameLabels.Add(nameLabel);
                 _rowHelpLabels.Add(helpLabel);
+                _rowHintLabels.Add(hintLabel);
             }
         }
 
@@ -1476,6 +1647,10 @@
             bool visible = 0 < _matchNames.Count;
             _results.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
             _divider.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_recentHeader != null)
+            {
+                _recentHeader.style.display = visible && _recentMode ? DisplayStyle.Flex : DisplayStyle.None;
+            }
         }
 
         private void DisplaySelected()
@@ -1692,6 +1867,7 @@
         private void CollapseResults()
         {
             ClearCompletionState();
+            _recentMode = false;
             _matchNames.Clear();
             _selectionIndex = null;
             RefreshRows();
@@ -1707,7 +1883,13 @@
         private void ClearInput()
         {
             SetInputValue(string.Empty);
+            _activeQuery = string.Empty;
             CollapseResults();
+            RefreshSignature(string.Empty, 0);
+            RefreshGhost(string.Empty, 0);
+            RefreshValidation(string.Empty);
+            RefreshHighlight(string.Empty);
+            UpdateFooter();
         }
 
         private void ShowFeedback(string message)
@@ -1720,17 +1902,249 @@
                 has no scroller of its own. A pasted token lands in the message
                 whole, so an unbounded error bar would push the bar off screen.
              */
+            _failedRun = true;
+            _validationView?.Refresh(null, string.Empty, open: false);
             _output.style.display = DisplayStyle.None;
+            _feedback.AddToClassList(ErrorFeedbackClass);
             _feedback.text = ClampOutputLength(LogTextSanitizer.Sanitize(message), MaxOutputCharacters);
             _feedback.style.display = DisplayStyle.Flex;
+            UpdateFooter();
         }
 
         private void ClearFeedback()
         {
+            _failedRun = false;
+            _feedback.RemoveFromClassList(ErrorFeedbackClass);
             _feedback.text = string.Empty;
             _feedback.style.display = DisplayStyle.None;
             _output.text = string.Empty;
             _output.style.display = DisplayStyle.None;
+        }
+
+        private void RefreshRecent()
+        {
+            ClearCompletionState();
+            CommandPaletteSearch.CollectRecent(Terminal.History, _recentScratch, _matchNames);
+            if (_matchNames.Count == 0)
+            {
+                CollapseResults();
+                return;
+            }
+
+            _recentMode = true;
+            _selectionIndex = 0;
+            RefreshRows();
+            UpdateSelectionVisual();
+            UpdateResultsVisibility();
+        }
+
+        private void RefreshSignature(string line, int caret)
+        {
+            if (_signature == null)
+            {
+                return;
+            }
+
+            CommandShell shell = Terminal.Shell;
+            if (shell == null || string.IsNullOrWhiteSpace(line))
+            {
+                _signatureRoute = null;
+                _signatureStage = -1;
+                _signature.Clear();
+                _signature.style.display = DisplayStyle.None;
+                return;
+            }
+
+            _tokenBuffer.Clear();
+            CommandTokenizer.Tokenize(line, _tokenBuffer);
+            CommandTokenizer.TryFindActiveToken(line, caret, _tokenBuffer, out int active, out _, out _, out _);
+            TerminalCompletionView.PopulateSignature(_signature, shell, _tokenBuffer, active, caret, ref _signatureRoute, ref _signatureStage, out _, out _, out _);
+            _signature.style.display = 0 < _signature.childCount ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void RefreshGhost(string line, int caret)
+        {
+            _ghost = null;
+            if (string.IsNullOrEmpty(line) || caret != line.Length || _recentMode || !TryGetSelected(out string selected))
+            {
+                return;
+            }
+
+            if (_completionMode)
+            {
+                int index = _selectionIndex ?? -1;
+                if (index < 0 || _completions.Count <= index)
+                {
+                    return;
+                }
+
+                CommandCompletion completion = _completions[index];
+                int rawStart = completion.Replacement?.Start ?? _completionContext.ReplacementStart;
+                int rawLength = completion.Replacement?.Length ?? _completionContext.ReplacementLength;
+                if (
+                    CommandTokenizer.TryPrepareInsertion(
+                        line,
+                        completion.InsertionText,
+                        rawStart,
+                        rawLength,
+                        _completionContext.IsQuoted,
+                        out string insertion,
+                        out int start,
+                        out int length,
+                        wholeToken: rawStart == _completionContext.ReplacementStart && rawLength == _completionContext.ReplacementLength
+                    )
+                    && start <= caret
+                    && start + length == caret
+                    && caret - start < insertion.Length
+                    && line.AsSpan(start, caret - start).Equals(insertion.AsSpan(0, caret - start), StringComparison.Ordinal)
+                )
+                {
+                    _ghost = insertion.Substring(caret - start);
+                }
+
+                return;
+            }
+
+            if (line.Length < selected.Length && selected.StartsWith(line, StringComparison.Ordinal))
+            {
+                _ghost = selected.Substring(line.Length);
+            }
+        }
+
+        private void RefreshValidation(string line)
+        {
+            if (_validationView == null)
+            {
+                return;
+            }
+
+            if (_failedRun)
+            {
+                _validationView.Refresh(null, string.Empty, open: false);
+                return;
+            }
+
+            _validationView.Refresh(Terminal.Shell, line, _isOpen);
+        }
+
+        private void RefreshHighlight(string line)
+        {
+            if (_inputHighlight == null || _input == null)
+            {
+                return;
+            }
+
+            string ghost = _input.selectIndex == _input.cursorIndex ? _ghost : null;
+            _inputHighlight.Refresh(line, Terminal.Shell, InputOwnsFocus, ghost, _validationView?.UnclosedQuote);
+        }
+
+        private void UpdateFooter()
+        {
+            if (_footer == null)
+            {
+                return;
+            }
+
+            _footer.text = CommandPaletteSearch.FormatFooterHint(_matchNames.Count, !string.IsNullOrEmpty(_ghost), _failedRun);
+        }
+
+        private bool TryAcceptGhostWord()
+        {
+            if (_input == null || string.IsNullOrEmpty(_ghost) || _input.selectIndex != _input.cursorIndex)
+            {
+                return false;
+            }
+
+            string line = _input.value ?? string.Empty;
+            int caret = _pendingCaretIndex ?? _input.cursorIndex;
+            if (caret != line.Length)
+            {
+                return false;
+            }
+
+            int end = 0;
+            while (end < _ghost.Length && char.IsWhiteSpace(_ghost[end]))
+            {
+                ++end;
+            }
+
+            while (end < _ghost.Length && !char.IsWhiteSpace(_ghost[end]))
+            {
+                ++end;
+            }
+
+            if (end <= 0)
+            {
+                return false;
+            }
+
+            string nextLine = line + _ghost.Substring(0, end);
+            int nextCaret = nextLine.Length;
+            _input.SetValueWithoutNotify(nextLine);
+            QueueCaret(nextCaret);
+            _inputUndo.Observe(nextLine, nextCaret);
+            RefreshQuery(nextLine, nextCaret);
+            FocusInput();
+            return true;
+        }
+
+        private bool TryAcceptValidationFix()
+        {
+            if (_validationView == null || _input == null || !_validationView.TryBuildFix(_input.value ?? string.Empty, out string fixedLine, out int caret))
+            {
+                return false;
+            }
+
+            _input.SetValueWithoutNotify(fixedLine);
+            QueueCaret(caret);
+            _inputUndo.Observe(fixedLine, caret);
+            RefreshQuery(fixedLine, caret);
+            FocusInput();
+            return true;
+        }
+
+        private void OnAcceptValidationSuggestion()
+        {
+            TryAcceptValidationFix();
+        }
+
+        private void OnCustomStyleResolved(CustomStyleResolvedEvent evt)
+        {
+            Color? color = evt.customStyle.TryGetValue(AccentSoftProperty, out Color resolved) ? resolved : (Color?)null;
+            if (_matchColor == color)
+            {
+                return;
+            }
+
+            _matchColor = color;
+            _matchTag = color.HasValue ? "<color=#" + ColorUtility.ToHtmlStringRGBA(color.Value) + "><u>" : "<u>";
+            _matchEnd = color.HasValue ? "</u></color>" : "</u>";
+            if (0 < _matchNames.Count)
+            {
+                RefreshRows();
+            }
+        }
+
+        private void OnRootGeometryChanged(GeometryChangedEvent evt)
+        {
+            float rootWidth = evt.newRect.width;
+            bool narrow = 0f < rootWidth && rootWidth < NarrowViewportWidth;
+            if (_isNarrow == narrow)
+            {
+                return;
+            }
+
+            _isNarrow = narrow;
+            _paletteRoot.EnableInClassList(NarrowRootClass, _isNarrow);
+            ApplyLayoutMetrics();
+        }
+
+        private string FormatRowName(string rawName, string query)
+        {
+            string safe = LogTextSanitizer.Sanitize(rawName ?? string.Empty);
+            using CachedStringBuilder.Scope scope = CachedStringBuilder.Rent(safe.Length + 32);
+            TerminalCompletionView.AppendHighlightedMatch(scope.Builder, safe, query, _matchTag, _matchEnd);
+            return scope.Builder.ToString();
         }
     }
 }
