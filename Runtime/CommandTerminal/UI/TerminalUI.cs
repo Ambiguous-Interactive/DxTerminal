@@ -534,6 +534,7 @@
 
             Instance = this;
             LiveTerminals.Add(this);
+            CommandPaletteUI.SyncMotionPresetFromTerminal();
 
 #if UNITY_EDITOR
             _serializedObject = new SerializedObject(this);
@@ -626,6 +627,7 @@
             Instance = this;
             LiveTerminals.Remove(this);
             LiveTerminals.Add(this);
+            CommandPaletteUI.SyncMotionPresetFromTerminal();
 
             ConsumeAndLogErrors();
 
@@ -705,6 +707,7 @@
             if (Instance == this && TryHandOffToLivePeer(out TerminalUI instancePeer))
             {
                 Instance = instancePeer;
+                CommandPaletteUI.SyncMotionPresetFromTerminal();
             }
         }
 
@@ -722,6 +725,7 @@
                 Instance to a live enabled peer or clear it.
              */
             Instance = TryHandOffToLivePeer(out TerminalUI peer) ? peer : null;
+            CommandPaletteUI.SyncMotionPresetFromTerminal();
         }
 
         private void Start()
@@ -1720,6 +1724,7 @@
             {
                 _currentWindowHeight = _targetWindowHeight;
                 _isAnimating = false;
+                _needsInitialRefresh = true;
             }
 
             if (Application.isPlaying && _uiDocument != null)
@@ -3130,6 +3135,7 @@
             /* A fresh view starts at zero, so no earlier pin describes it. */
             _logTail.Attach();
 
+            EnsureMotionPresetMigrated();
             _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint, CurrentTextSize);
             ApplyTextSize(root, CurrentTextSize, updateWindow: false);
             ApplyMotionPreset(root, CurrentMotionPreset);

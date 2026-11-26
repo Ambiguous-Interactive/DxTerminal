@@ -33,6 +33,16 @@ ROUNDING_MILLISECONDS = 2
 ONE_STEP_LIMIT = 1.5
 DEFAULT_REPOSITORY_SLUG = "Ambiguous-Interactive/DxTerminal"
 GITHUB_REMOTE_PATTERN = re.compile(r"github\.com[:/](?P<slug>[^/]+/[^/]+?)(?:\.git)?/?$")
+EVIDENCE_BRANCH_PATTERN = re.compile(r"^evidence/[A-Za-z0-9._/-]+$")
+GIT_LOCATION_ENV_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_COMMON_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_PREFIX",
+)
 GIF_SIGNATURES = (b"GIF87a", b"GIF89a")
 GIF_EXTENSION = 0x21
 GIF_GRAPHIC_CONTROL = 0xF9
@@ -43,8 +53,10 @@ GIF_COLOR_TABLE_SIZE_BITS = 0x07
 GIF_LOGICAL_SCREEN_BYTES = 7
 GIF_IMAGE_DESCRIPTOR_BYTES = 9
 WEBP_ANIMATION_FRAME = b"ANMF"
+WEBP_IMAGE_CHUNKS = (b"VP8 ", b"VP8L", WEBP_ANIMATION_FRAME)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_CHUNK_FRAME_BYTES = 12
+PNG_IHDR_BYTES = 13
 WEBP_DURATION_OFFSET = 12
 
 
@@ -131,15 +143,20 @@ def webp_frame_milliseconds(data: bytes) -> list[int]:
         raise MediaError("WebP length does not match header")
     offset = 12
     frames: list[int] = []
+    has_image_chunk = False
     while offset < len(data):
         kind = data[offset : offset + 4]
         size = struct.unpack_from("<I", data, offset + 4)[0]
         if offset + 8 + size > len(data):
             raise MediaError(f"WebP {kind!r} chunk runs past end")
+        if kind in WEBP_IMAGE_CHUNKS:
+            has_image_chunk = True
         if kind == WEBP_ANIMATION_FRAME:
             start = offset + 8 + WEBP_DURATION_OFFSET
             frames.append(int.from_bytes(data[start : start + 3], "little"))
         offset += 8 + size + (size & 1)
+    if not has_image_chunk:
+        raise MediaError("WebP has no image data chunk")
     return frames
 
 
@@ -148,6 +165,8 @@ def check_png(data: bytes) -> None:
         raise MediaError("not a PNG")
     offset = len(PNG_SIGNATURE)
     kinds: list[bytes] = []
+    ihdr_payload: bytes | None = None
+    idat_bytes = 0
     while offset + PNG_CHUNK_FRAME_BYTES <= len(data) and kinds[-1:] != [b"IEND"]:
         length = struct.unpack_from(">I", data, offset)[0]
         end = offset + PNG_CHUNK_FRAME_BYTES + length
@@ -155,15 +174,27 @@ def check_png(data: bytes) -> None:
             raise MediaError("PNG chunk runs past end")
         if zlib.crc32(data[offset + 4 : end - 4]) != struct.unpack_from(">I", data, end - 4)[0]:
             raise MediaError("PNG chunk checksum mismatch")
-        kinds.append(data[offset + 4 : offset + 8])
+        kind = data[offset + 4 : offset + 8]
+        payload = data[offset + 8 : end - 4]
+        if kind == b"IHDR":
+            ihdr_payload = payload
+        elif kind == b"IDAT":
+            idat_bytes += len(payload)
+        kinds.append(kind)
         offset = end
     if kinds[:1] != [b"IHDR"] or kinds[-1:] != [b"IEND"] or b"IDAT" not in kinds:
         raise MediaError("PNG lacks IHDR, IDAT, or IEND")
+    if ihdr_payload is None or len(ihdr_payload) != PNG_IHDR_BYTES:
+        raise MediaError("PNG IHDR payload must be 13 bytes")
+    width, height = struct.unpack_from(">II", ihdr_payload, 0)
+    if width == 0 or height == 0:
+        raise MediaError("PNG dimensions must be positive")
+    if idat_bytes == 0:
+        raise MediaError("PNG IDAT payload is empty")
 
 
-def timing_of(path: pathlib.Path) -> Timing | None:
-    data = path.read_bytes()
-    suffix = path.suffix.lower()
+def timing_of_bytes(name: str, data: bytes) -> Timing | None:
+    suffix = pathlib.Path(name).suffix.lower()
     if suffix == ".png":
         check_png(data)
         return None
@@ -172,7 +203,7 @@ def timing_of(path: pathlib.Path) -> Timing | None:
     elif suffix == ".webp":
         stored = webp_frame_milliseconds(data)
     else:
-        raise MediaError(f"{path.name} is not a PNG, GIF, or WebP")
+        raise MediaError(f"{name} is not a PNG, GIF, or WebP")
     if len(stored) < 2:
         return None
     played = [played_milliseconds(value) for value in stored]
@@ -183,36 +214,75 @@ def timing_of(path: pathlib.Path) -> Timing | None:
     return Timing(len(played), step, len(singles), whole)
 
 
-def check_files(paths: Sequence[pathlib.Path]) -> bool:
+def load_and_check_files(paths: Sequence[pathlib.Path]) -> tuple[bool, list[tuple[pathlib.Path, bytes]]]:
     passed = True
+    loaded: list[tuple[pathlib.Path, bytes]] = []
     for path in paths:
         try:
-            timing = timing_of(path)
+            data = path.read_bytes()
+            timing = timing_of_bytes(path.name, data)
         except (MediaError, OSError, IndexError, struct.error) as error:
             print(f"{path}: unreadable: {error}")
             passed = False
             continue
         if timing is None:
             print(f"{path}: valid still")
+            loaded.append((path, data))
             continue
         print(
             f"{path}: {timing.frames} frames, {timing.step_milliseconds:.1f} ms step "
             f"({timing.fps():.1f} fps), {timing.single_steps} single-step frames, {timing.verdict()}"
         )
-        passed &= timing.passes()
+        if timing.passes():
+            loaded.append((path, data))
+        else:
+            passed = False
+    return passed, loaded
+
+
+def check_files(paths: Sequence[pathlib.Path]) -> bool:
+    passed, _ = load_and_check_files(paths)
     return passed
 
 
-def run_git(repository: pathlib.Path, *arguments: str, environment: dict[str, str] | None = None) -> str:
+def clean_git_env(extra: dict[str, str] | None = None) -> dict[str, str]:
+    env = {key: value for key, value in os.environ.items() if key not in GIT_LOCATION_ENV_VARS}
+    if extra is not None:
+        env.update(extra)
+    return env
+
+
+def run_git(
+    repository: pathlib.Path,
+    *arguments: str,
+    environment: dict[str, str] | None = None,
+    stdin_bytes: bytes | None = None,
+) -> str:
+    env = clean_git_env(environment)
+    if stdin_bytes is not None:
+        completed_bytes = subprocess.run(
+            ["git", *arguments],
+            cwd=repository,
+            input=stdin_bytes,
+            capture_output=True,
+            check=True,
+            env=env,
+        )
+        return completed_bytes.stdout.decode("utf-8").strip()
     completed = subprocess.run(
         ["git", *arguments],
         cwd=repository,
         capture_output=True,
         text=True,
         check=True,
-        env=environment,
+        env=env,
     )
     return completed.stdout.strip()
+
+
+def validate_evidence_branch(branch: str) -> None:
+    if not EVIDENCE_BRANCH_PATTERN.match(branch) or ".." in branch or branch.endswith("/") or branch.endswith(".lock"):
+        raise MediaError(f"evidence branch must match evidence/<slug> without '..' or trailing '/': {branch!r}")
 
 
 def try_remote_parent(repository: pathlib.Path, branch: str) -> str | None:
@@ -221,6 +291,7 @@ def try_remote_parent(repository: pathlib.Path, branch: str) -> str | None:
         cwd=repository,
         capture_output=True,
         text=True,
+        env=clean_git_env(),
     )
     if result.returncode != 0:
         return None
@@ -233,6 +304,7 @@ def resolve_repository_slug(repository: pathlib.Path) -> str:
         cwd=repository,
         capture_output=True,
         text=True,
+        env=clean_git_env(),
     )
     if result.returncode == 0:
         match = GITHUB_REMOTE_PATTERN.search(result.stdout.strip())
@@ -248,32 +320,34 @@ def embed_markdown(repository_slug: str, commit: str, repo_path: str, label: str
 
 
 def post_files(repository: pathlib.Path, branch: str, prefix: str, paths: Sequence[pathlib.Path]) -> list[str]:
-    if not check_files(paths):
+    validate_evidence_branch(branch)
+    passed, loaded = load_and_check_files(paths)
+    if not passed:
         raise MediaError("one or more media files failed validation")
     normalized_prefix = prefix.strip("/")
     repo_paths = [
         f"{normalized_prefix}/{path.name}" if normalized_prefix else path.name
-        for path in paths
+        for path, _ in loaded
     ]
     if len(set(repo_paths)) != len(repo_paths):
         raise MediaError("duplicate output filename in post list")
 
     parent = try_remote_parent(repository, branch)
     with tempfile.TemporaryDirectory() as scratch:
-        environment = {**os.environ, "GIT_INDEX_FILE": str(pathlib.Path(scratch) / "index")}
+        extra_env = {"GIT_INDEX_FILE": str(pathlib.Path(scratch) / "index")}
         if parent is not None:
-            run_git(repository, "read-tree", parent, environment=environment)
-        for path, repo_path in zip(paths, repo_paths, strict=True):
-            blob = run_git(repository, "hash-object", "-w", "--", str(path.resolve()))
+            run_git(repository, "read-tree", parent, environment=extra_env)
+        for (_, data), repo_path in zip(loaded, repo_paths, strict=True):
+            blob = run_git(repository, "hash-object", "-w", "--stdin", stdin_bytes=data)
             run_git(
                 repository,
                 "update-index",
                 "--add",
                 "--cacheinfo",
                 f"100644,{blob},{repo_path}",
-                environment=environment,
+                environment=extra_env,
             )
-        tree = run_git(repository, "write-tree", environment=environment)
+        tree = run_git(repository, "write-tree", environment=extra_env)
 
     commit_args = ["commit-tree", tree]
     if parent is not None:
@@ -282,7 +356,7 @@ def post_files(repository: pathlib.Path, branch: str, prefix: str, paths: Sequen
     commit = run_git(repository, *commit_args)
     run_git(repository, "push", "--quiet", "origin", f"{commit}:refs/heads/{branch}")
     repository_slug = resolve_repository_slug(repository)
-    return [embed_markdown(repository_slug, commit, repo_path, path.stem) for path, repo_path in zip(paths, repo_paths, strict=True)]
+    return [embed_markdown(repository_slug, commit, repo_path, path.stem) for (path, _), repo_path in zip(loaded, repo_paths, strict=True)]
 
 
 def _gif_bytes(delays_hundredths: Sequence[int]) -> bytes:
@@ -299,12 +373,13 @@ def _gif_bytes(delays_hundredths: Sequence[int]) -> bytes:
     return b"GIF89a" + screen + frames + bytes((GIF_TRAILER,))
 
 
-def _png_bytes() -> bytes:
+def _png_bytes(width: int = 1, height: int = 1, idat_payload: bytes | None = None) -> bytes:
     def chunk(kind: bytes, payload: bytes) -> bytes:
         return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
 
-    header = struct.pack(">IIBBBBB", 1, 1, 8, 0, 0, 0, 0)
-    return PNG_SIGNATURE + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(b"\x00\x00")) + chunk(b"IEND", b"")
+    header = struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)
+    idat = zlib.compress(b"\x00\x00") if idat_payload is None else idat_payload
+    return PNG_SIGNATURE + chunk(b"IHDR", header) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
 
 
 def _webp_bytes(durations_milliseconds: Sequence[int]) -> bytes:
@@ -325,6 +400,9 @@ def _webp_bytes(durations_milliseconds: Sequence[int]) -> bytes:
 def run_self_test() -> int:
     cases: list[tuple[str, bytes, bool]] = [
         ("still.png", _png_bytes(), True),
+        ("empty-idat.png", _png_bytes(idat_payload=b""), False),
+        ("zero-dim.png", _png_bytes(width=0, height=0), False),
+        ("empty.webp", b"RIFF\x04\x00\x00\x00WEBP", False),
         ("fifty.gif", _gif_bytes([2] * 30), True),
         ("clamped.gif", _gif_bytes([1] * 30), False),
         ("thirty.gif", _gif_bytes([3] * 30), False),
@@ -341,7 +419,14 @@ def run_self_test() -> int:
             if actual != expected:
                 print(f"SELF-TEST FAILED for {name}: expected {expected}, got {actual}", file=sys.stderr)
                 return 1
-    print(f"pr_media.py self-test passed ({len(cases)} cases)")
+    try:
+        validate_evidence_branch("feat/not-evidence")
+        print("SELF-TEST FAILED: non-evidence branch accepted", file=sys.stderr)
+        return 1
+    except MediaError:
+        pass
+    validate_evidence_branch("evidence/pr-379-motion")
+    print(f"pr_media.py self-test passed ({len(cases)} media cases + branch guard)")
     return 0
 
 

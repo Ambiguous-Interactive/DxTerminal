@@ -9,8 +9,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
         internal const string SnappyClass = "terminal-motion--snappy";
         internal const float DefaultLegacyDurationSeconds = 0.5f;
 
-        private const float LegacyNoneThresholdSeconds = 0.025f;
-        private const float LegacySnappyThresholdSeconds = 0.0875f;
+        private const float LegacyNoneThresholdSeconds = 0.0275f;
+        private const float LegacySnappyThresholdSeconds = 0.0825f;
 
         private static readonly TerminalMotionPresetMetrics NoneMetrics = new(
             TerminalMotionPreset.Off,

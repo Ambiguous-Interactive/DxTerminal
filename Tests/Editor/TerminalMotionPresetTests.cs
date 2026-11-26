@@ -4,23 +4,36 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Editor
     using System.IO;
     using NUnit.Framework;
     using UI;
+#if UNITY_EDITOR
+    using PackageInfo = UnityEditor.PackageManager.PackageInfo;
+#endif
 
     public sealed class TerminalMotionPresetTests
     {
-        private static string FindPackageRoot()
+        private const string PackageRoot = "Packages/com.wallstop-studios.dxcommandterminal/";
+        private const string BaseStylesPath = "Styles/BaseStyles.uss";
+
+        private static string LoadBaseStyles()
         {
-            string current = TestContext.CurrentContext.TestDirectory;
-            while (!string.IsNullOrEmpty(current))
+#if UNITY_EDITOR
+            PackageInfo package = PackageInfo.FindForAssetPath(PackageRoot + BaseStylesPath);
+            return File.ReadAllText(Path.Combine(package.resolvedPath, BaseStylesPath));
+#else
+            DirectoryInfo directory = new(TestContext.CurrentContext.TestDirectory);
+            while (directory != null)
             {
-                if (File.Exists(Path.Combine(current, "package.json")) && Directory.Exists(Path.Combine(current, "Styles")))
+                string candidate = Path.Combine(directory.FullName, BaseStylesPath);
+                if (File.Exists(candidate))
                 {
-                    return current;
+                    return File.ReadAllText(candidate);
                 }
 
-                current = Path.GetDirectoryName(current);
+                directory = directory.Parent;
             }
 
-            throw new DirectoryNotFoundException("Could not locate package root containing Styles/BaseStyles.uss.");
+            Assert.Fail($"Could not locate {BaseStylesPath} from {TestContext.CurrentContext.TestDirectory}");
+            return string.Empty;
+#endif
         }
 
         [TestCase(TerminalMotionPreset.Off, 0f, 0f, 0f, "terminal-motion--none")]
@@ -68,8 +81,10 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Editor
         [TestCase(-1f, 0f, TerminalMotionPreset.Off)]
         [TestCase(float.NaN, 0f, TerminalMotionPreset.Off)]
         [TestCase(0.02f, 0.02f, TerminalMotionPreset.Off)]
+        [TestCase(0.026f, 0.026f, TerminalMotionPreset.Off)]
         [TestCase(0.05f, 0.05f, TerminalMotionPreset.Snappy)]
         [TestCase(0.08f, 0.08f, TerminalMotionPreset.Snappy)]
+        [TestCase(0.085f, 0.085f, TerminalMotionPreset.Subtle)]
         [TestCase(0.10f, 0.10f, TerminalMotionPreset.Subtle)]
         [TestCase(0.5f, 0.5f, TerminalMotionPreset.Subtle)]
         [TestCase(1.5f, 1.0f, TerminalMotionPreset.Subtle)]
@@ -100,8 +115,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Editor
         [Test]
         public void BaseStylesZeroesEveryTransitionUnderMotionNone()
         {
-            string ussPath = Path.Combine(FindPackageRoot(), "Styles", "BaseStyles.uss");
-            string uss = File.ReadAllText(ussPath);
+            string uss = LoadBaseStyles();
 
             Assert.That(uss.Contains(".terminal-motion--none .log-scroll-view .unity-scroller .unity-base-slider__tracker", StringComparison.Ordinal), Is.True);
             Assert.That(uss.Contains(".terminal-motion--none .log-scroll-view .unity-scroller .unity-base-slider__dragger", StringComparison.Ordinal), Is.True);
