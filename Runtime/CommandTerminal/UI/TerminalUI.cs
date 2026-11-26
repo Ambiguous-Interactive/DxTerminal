@@ -4532,6 +4532,7 @@
             {
                 _currentWindowHeight = _targetWindowHeight;
                 _isAnimating = false;
+                _needsInitialRefresh = true;
                 return;
             }
 

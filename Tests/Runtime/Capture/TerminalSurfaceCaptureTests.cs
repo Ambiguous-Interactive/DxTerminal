@@ -629,9 +629,6 @@
                 AssertAcceptable(_lastOutcome);
             }
 
-            string framesDir = Path.Combine(_runDirectory, "motion-frames");
-            Directory.CreateDirectory(framesDir);
-
             RenderTexture target = AttachRenderTarget(nameof(CapturesMotionPresetFrames) + "-sequence", WideCaptureWidth, WideCaptureHeight);
             try
             {
@@ -648,7 +645,7 @@
                     _terminal._uiDocument.rootVisualElement.style.height = targetHeight * t;
                     ClearCaptureTarget(target);
                     TerminalSurfaceCapture.ForcePanelRender(_terminal._uiDocument.rootVisualElement, FirstRenderPasses);
-                    string path = Path.Combine(framesDir, $"before-legacy-{frame:D3}.png");
+                    string path = Path.Combine(_runDirectory, $"motion-before-legacy-{frame:D3}.png");
                     TerminalSurfaceCapture.CaptureToPng(target, null, path);
                 }
 
@@ -671,7 +668,7 @@
                         _terminal.RefreshUI();
                         ClearCaptureTarget(target);
                         TerminalSurfaceCapture.ForcePanelRender(_terminal._uiDocument.rootVisualElement, FirstRenderPasses);
-                        string path = Path.Combine(framesDir, $"after-{suffix}-{frame:D3}.png");
+                        string path = Path.Combine(_runDirectory, $"motion-after-{suffix}-{frame:D3}.png");
                         TerminalSurfaceCapture.CaptureToPng(target, null, path);
                     }
                 }
