@@ -1993,6 +1993,12 @@
             Assert.That(_palette.GhostText, Is.EqualTo("n"));
             Assert.That(_palette._footer.text, Does.Contain("→ accept word"));
 
+            _palette._input.value = "spawn g";
+            yield return null;
+            Assert.That(_palette.GhostText, Is.EqualTo("oblin"));
+            Assert.That(_palette.MoveSelection(1), Is.True);
+            Assert.That(_palette.GhostText, Is.EqualTo("houl"), "Moving selection updates ghost text to the newly selected completion");
+
             _palette._input.value = "spawn gob";
             yield return null;
             Assert.That(_palette._signature.style.display.value, Is.EqualTo(DisplayStyle.Flex));

@@ -587,7 +587,7 @@
             }
 
             string currentText = _input.value ?? string.Empty;
-            int currentCaret = _pendingCaretIndex ?? currentText.Length;
+            int currentCaret = NormalizeCaret(_pendingCaretIndex ?? _input.cursorIndex, currentText);
             RefreshSignature(currentText, currentCaret);
             RefreshGhost(currentText, currentCaret);
             RefreshHighlight(currentText);
@@ -720,6 +720,12 @@
             }
 
             DisplaySelected();
+            string currentText = _input.value ?? string.Empty;
+            int currentCaret = NormalizeCaret(_pendingCaretIndex ?? currentText.Length, currentText);
+            RefreshSignature(currentText, currentCaret);
+            RefreshGhost(currentText, currentCaret);
+            RefreshHighlight(currentText);
+            UpdateFooter();
             Submit();
         }
 
@@ -1324,10 +1330,9 @@
                 _results.style.maxHeight = maxVisibleRows * effectiveHeight;
             }
 
-            int rowCount = _rows.Count;
-            for (int index = 0; index < rowCount; ++index)
+            foreach (VisualElement row in _rows)
             {
-                _rows[index].style.height = effectiveHeight;
+                row.style.height = effectiveHeight;
             }
         }
 
@@ -1903,11 +1908,13 @@
                 whole, so an unbounded error bar would push the bar off screen.
              */
             _failedRun = true;
+            _ghost = null;
             _validationView?.Refresh(null, string.Empty, open: false);
             _output.style.display = DisplayStyle.None;
             _feedback.AddToClassList(ErrorFeedbackClass);
             _feedback.text = ClampOutputLength(LogTextSanitizer.Sanitize(message), MaxOutputCharacters);
             _feedback.style.display = DisplayStyle.Flex;
+            RefreshHighlight(_input?.value ?? string.Empty);
             UpdateFooter();
         }
 

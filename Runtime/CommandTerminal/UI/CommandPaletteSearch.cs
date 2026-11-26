@@ -41,10 +41,9 @@
                 }
 
                 bool duplicate = false;
-                int existingCount = results.Count;
-                for (int seen = 0; seen < existingCount; ++seen)
+                foreach (string existing in results)
                 {
-                    if (string.Equals(results[seen], entry, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase))
                     {
                         duplicate = true;
                         break;
