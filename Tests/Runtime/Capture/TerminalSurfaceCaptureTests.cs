@@ -583,6 +583,98 @@
                 previousVisibleRows = visibleRows;
             }
         }
+
+        [UnityTest]
+        public IEnumerator CapturesMotionPresetFrames()
+        {
+            const int frameCount = 36;
+            const float stepSeconds = 1f / 60f;
+            const float legacyOpenSeconds = 0.5f;
+
+            yield return SpawnTerminal(useEditorDefaults: true);
+            _terminal.SetMotionPreset(TerminalMotionPreset.Off);
+            _terminal.SetState(TerminalState.OpenSmall);
+            yield return WaitForTerminalInputVisible();
+
+            Terminal.Buffer.Clear();
+            Terminal.Log(TerminalLogType.Message, "DxTerminal motion preset verification (C5 #338)");
+            Terminal.Log(TerminalLogType.Message, "Presets: None (0 ms) | Subtle (120 ms ease-out) | Snappy (60 ms ease-out)");
+            _terminal._commandInput.value = "help";
+            _terminal.SetCursorBlinkPaused(true);
+
+            (TerminalMotionPreset Preset, string Suffix)[] presets =
+            {
+                (TerminalMotionPreset.Off, "none"),
+                (TerminalMotionPreset.Subtle, "subtle"),
+                (TerminalMotionPreset.Snappy, "snappy"),
+            };
+
+            foreach ((TerminalMotionPreset preset, string suffix) in presets)
+            {
+                _terminal.SetMotionPreset(TerminalMotionPreset.Off);
+                _terminal.SetState(TerminalState.Closed);
+                yield return null;
+
+                _terminal.SetMotionPreset(preset);
+                _terminal.SetState(TerminalState.OpenSmall);
+                TerminalMotionPresetMetrics metrics = TerminalMotionPresetMetrics.For(preset);
+                if (0f < metrics.OpenDurationSeconds)
+                {
+                    _terminal.StepHeightAnimation(metrics.OpenDurationSeconds + 0.01f);
+                }
+
+                _terminal.RefreshUI();
+                yield return null;
+                yield return CaptureSurface(nameof(CapturesMotionPresetFrames) + "-" + suffix + "-open", CaptureBounds.Default(), WideCaptureWidth, WideCaptureHeight);
+                AssertAcceptable(_lastOutcome);
+            }
+
+            RenderTexture target = AttachRenderTarget(nameof(CapturesMotionPresetFrames) + "-sequence", WideCaptureWidth, WideCaptureHeight);
+            try
+            {
+                yield return SettleRenders();
+                float targetHeight = _terminal._uiDocument.rootVisualElement.resolvedStyle.height;
+
+                /* Capture deterministic 60 fps Before (legacy 500 ms linear) frames. */
+                _terminal.SetMotionPreset(TerminalMotionPreset.Off);
+                _terminal.SetState(TerminalState.OpenSmall);
+                _terminal.RefreshUI();
+                for (int frame = 0; frame < frameCount; ++frame)
+                {
+                    float t = Math.Min(1f, (frame * stepSeconds) / legacyOpenSeconds);
+                    _terminal._uiDocument.rootVisualElement.style.height = targetHeight * t;
+                    ClearCaptureTarget(target);
+                    TerminalSurfaceCapture.ForcePanelRender(_terminal._uiDocument.rootVisualElement, FirstRenderPasses);
+                    string path = Path.Combine(_runDirectory, $"motion-before-legacy-{frame:D3}.png");
+                    TerminalSurfaceCapture.CaptureToPng(target, null, path);
+                }
+
+                /* Capture deterministic 60 fps After frames for Subtle, Snappy, and None. */
+                foreach ((TerminalMotionPreset preset, string suffix) in presets)
+                {
+                    _terminal.SetMotionPreset(TerminalMotionPreset.Off);
+                    _terminal.SetState(TerminalState.Closed);
+                    _terminal.StepHeightAnimation(0f);
+                    _terminal.RefreshUI();
+
+                    _terminal.SetMotionPreset(preset);
+                    _terminal.SetState(TerminalState.OpenSmall);
+                    for (int frame = 0; frame < frameCount; ++frame)
+                    {
+                        _terminal.StepHeightAnimation(0 < frame ? stepSeconds : 0f);
+                        _terminal.RefreshUI();
+                        ClearCaptureTarget(target);
+                        TerminalSurfaceCapture.ForcePanelRender(_terminal._uiDocument.rootVisualElement, FirstRenderPasses);
+                        string path = Path.Combine(_runDirectory, $"motion-after-{suffix}-{frame:D3}.png");
+                        TerminalSurfaceCapture.CaptureToPng(target, null, path);
+                    }
+                }
+            }
+            finally
+            {
+                DetachRenderTarget(target);
+            }
+        }
 #endif
 
         /*

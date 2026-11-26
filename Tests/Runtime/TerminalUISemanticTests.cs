@@ -50,6 +50,15 @@
             Assert.Fail($"{message}: no {type} entry containing '{fragment}' in " + $"{count} buffer entries");
         }
 
+        private static void AssertMaxTransitionSeconds(VisualElement element, float maxSeconds, string label)
+        {
+            foreach (TimeValue duration in element.resolvedStyle.transitionDuration)
+            {
+                float seconds = duration.unit == TimeUnit.Millisecond ? duration.value * 0.001f : duration.value;
+                Assert.That(seconds <= maxSeconds + 0.0001f, Is.True, $"{label}: resolved transition-duration {seconds:0.###}s exceeds {maxSeconds:0.###}s.");
+            }
+        }
+
 #if UNITY_EDITOR
         private static T LoadAsset<T>(string relativePath)
             where T : UnityEngine.Object
@@ -1133,6 +1142,132 @@
 
             _terminal.SetTextSize((TerminalTextSize)99);
             Assert.That(_terminal.CurrentTextSize, Is.EqualTo(TerminalTextSize.Small));
+            palette.Close();
+        }
+
+        [UnityTest]
+        public IEnumerator MotionPresetsResolveTransitionDurationsMigrateLegacyAndShareOpenEndState()
+        {
+            yield return SpawnOpenTerminal(themePackPath: "Packs/Themes/Dx.asset", persistedTheme: "dx-dark-theme", loadBaseTheme: true);
+
+            /*
+                Verify legacy timing migration: an unmigrated component with
+                Unknown preset and 0.05s legacy timings migrates to Snappy
+                and logs exactly once.
+             */
+            GameObject migrationHost = new("MotionMigrationHost");
+            migrationHost.SetActive(false);
+            try
+            {
+                TerminalUI legacyTerminal = migrationHost.AddComponent<TerminalUI>();
+#pragma warning disable CS0618
+                legacyTerminal._persistedMotionPreset = TerminalMotionPreset.Unknown;
+                legacyTerminal._motionPresetMigrated = false;
+                legacyTerminal.easeOutTime = 0.05f;
+                legacyTerminal.easeInTime = 0.05f;
+#pragma warning restore CS0618
+
+                int migrationLogCount = 0;
+                void CountMigrationLog(string condition, string stackTrace, LogType type)
+                {
+                    if (type == LogType.Log && condition.Contains("Migrated legacy motion timing", StringComparison.Ordinal))
+                    {
+                        ++migrationLogCount;
+                    }
+                }
+
+                Application.logMessageReceived += CountMigrationLog;
+                try
+                {
+                    legacyTerminal.EnsureMotionPresetMigrated();
+                    legacyTerminal.EnsureMotionPresetMigrated();
+                }
+                finally
+                {
+                    Application.logMessageReceived -= CountMigrationLog;
+                }
+
+                Assert.That(legacyTerminal.CurrentMotionPreset, Is.EqualTo(TerminalMotionPreset.Snappy));
+                Assert.That(migrationLogCount, Is.EqualTo(1), "Legacy motion migration must log exactly one line.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(migrationHost);
+            }
+
+            /*
+                Verify resolved USS transition durations for None (0 ms),
+                Subtle (<= 120 ms), and Snappy (<= 60 ms) across both
+                TerminalUI and CommandPaletteUI.
+             */
+            VisualElement terminalRoot = _terminal._uiDocument.rootVisualElement.Q<VisualElement>("TerminalRoot");
+            VisualElement logDragger = terminalRoot.Q<VisualElement>(className: "unity-base-slider__dragger");
+            Assert.That(logDragger != null, Is.True);
+
+            _terminal.SetMotionPreset(TerminalMotionPreset.Subtle);
+            yield return null;
+            Assert.That(terminalRoot.ClassListContains(TerminalMotionPresetMetrics.SubtleClass), Is.True);
+            AssertMaxTransitionSeconds(logDragger, 0.12f, "Subtle terminal scroller transition");
+
+            _terminal.SetMotionPreset(TerminalMotionPreset.Snappy);
+            yield return null;
+            Assert.That(terminalRoot.ClassListContains(TerminalMotionPresetMetrics.SnappyClass), Is.True);
+            AssertMaxTransitionSeconds(logDragger, 0.06f, "Snappy terminal scroller transition");
+
+            _terminal.SetMotionPreset(TerminalMotionPreset.Off);
+            yield return null;
+            Assert.That(terminalRoot.ClassListContains(TerminalMotionPresetMetrics.NoneClass), Is.True);
+            AssertMaxTransitionSeconds(logDragger, 0f, "None terminal scroller transition");
+
+            /*
+                Verify open end state is identical across all three presets.
+             */
+            float[] openHeights = new float[3];
+            TerminalMotionPreset[] presets = { TerminalMotionPreset.Off, TerminalMotionPreset.Subtle, TerminalMotionPreset.Snappy };
+            for (int index = 0; index < presets.Length; ++index)
+            {
+                TerminalMotionPreset preset = presets[index];
+                _terminal.SetMotionPreset(TerminalMotionPreset.Off);
+                _terminal.SetState(TerminalState.Closed);
+                yield return null;
+
+                _terminal.SetMotionPreset(preset);
+                _terminal.SetState(TerminalState.OpenSmall);
+                TerminalMotionPresetMetrics metrics = TerminalMotionPresetMetrics.For(preset);
+                for (int pass = 0; pass < 3; ++pass)
+                {
+                    _terminal.StepHeightAnimation(metrics.OpenDurationSeconds + 0.01f);
+                    _terminal.RefreshUI();
+                    yield return null;
+                }
+
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall));
+                Assert.That(_terminal._commandInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
+                openHeights[index] = _terminal._uiDocument.rootVisualElement.resolvedStyle.height;
+            }
+
+            Assert.That(openHeights[1], Is.EqualTo(openHeights[0]).Within(0.5f), "Subtle open end height must match None.");
+            Assert.That(openHeights[2], Is.EqualTo(openHeights[0]).Within(0.5f), "Snappy open end height must match None.");
+
+            /*
+                Verify CommandPaletteUI inherits None and resolves palette-row
+                transition-duration to 0s.
+             */
+            CommandPaletteUI palette = _terminalObject.AddComponent<CommandPaletteUI>();
+            palette._uiDocument = _terminal._uiDocument;
+            palette._themePack = _terminal._themePack;
+            _terminal.SetMotionPreset(TerminalMotionPreset.Off);
+            palette.Open();
+            palette.SetQuery("help");
+            yield return null;
+
+            Assert.That(palette.CurrentMotionPreset, Is.EqualTo(TerminalMotionPreset.Off));
+            Assert.That(palette._paletteRoot.ClassListContains(TerminalMotionPresetMetrics.NoneClass), Is.True);
+            if (0 < palette._rows.Count)
+            {
+                AssertMaxTransitionSeconds(palette._rows[0], 0f, "None palette row transition");
+            }
+
             palette.Close();
         }
 #endif

@@ -84,6 +84,11 @@
             get { return TerminalTextSizeMetrics.Normalize(_runtimeTextSize ?? _persistedTextSize); }
         }
 
+        public TerminalMotionPreset CurrentMotionPreset
+        {
+            get { return TerminalMotionPresetMetrics.Normalize(_runtimeMotionPreset ?? _persistedMotionPreset); }
+        }
+
         /*
             Internal for test coverage: a transition assertion needs the state
             a frame left behind, and IsClosed cannot answer that while the
@@ -158,17 +163,21 @@
 
         public bool respectSafeArea = true;
 
-        [Tooltip("Curve the console follows to go from closed -> open")]
+        [HideInInspector]
+        [Tooltip("Legacy curve the console followed from closed -> open; migrated to CurrentMotionPreset.")]
         public AnimationCurve easeOutCurve = new() { keys = new[] { new Keyframe(0, 0), new Keyframe(1, 1) } };
 
-        [Tooltip("Duration for the ease-out animation in seconds")]
-        public float easeOutTime = 0.5f;
+        [HideInInspector]
+        [Tooltip("Legacy duration for the ease-out animation in seconds; migrated to CurrentMotionPreset.")]
+        public float easeOutTime = TerminalMotionPresetMetrics.DefaultLegacyDurationSeconds;
 
-        [Tooltip("Curve the console follows to go from open -> closed")]
+        [HideInInspector]
+        [Tooltip("Legacy curve the console followed from open -> closed; migrated to CurrentMotionPreset.")]
         public AnimationCurve easeInCurve = new() { keys = new[] { new Keyframe(0, 0), new Keyframe(1, 1) } };
 
-        [Tooltip("Duration for the ease-in animation in seconds")]
-        public float easeInTime = 0.5f;
+        [HideInInspector]
+        [Tooltip("Legacy duration for the ease-in animation in seconds; migrated to CurrentMotionPreset.")]
+        public float easeInTime = TerminalMotionPresetMetrics.DefaultLegacyDurationSeconds;
 
         [Header("Buttons")]
         public bool showGUIButtons;
@@ -209,6 +218,13 @@
 
         [SerializeField]
         internal TerminalTextSize _persistedTextSize = TerminalTextSize.Small;
+
+        [SerializeField]
+        internal TerminalMotionPreset _persistedMotionPreset = TerminalMotionPreset.Subtle;
+
+        [SerializeField]
+        [HideInInspector]
+        internal bool _motionPresetMigrated;
 
         [Header("System")]
         [SerializeField]
@@ -278,6 +294,7 @@
         private readonly List<SerializedProperty> _fontProperties = new();
         private readonly List<SerializedProperty> _fontPackProperties = new();
         private readonly List<SerializedProperty> _textSizeProperties = new();
+        private readonly List<SerializedProperty> _motionPresetProperties = new();
         private readonly List<SerializedProperty> _staticStateProperties = new();
         private readonly List<SerializedProperty> _windowProperties = new();
         private readonly List<SerializedProperty> _logUnityMessageProperties = new();
@@ -319,6 +336,8 @@
 
         private TerminalState _state = TerminalState.Closed;
         private TerminalTextSize? _runtimeTextSize;
+        private TerminalMotionPreset? _runtimeMotionPreset;
+        private bool _hasLoggedMotionMigration;
         private bool _isClosingForDisable;
         private float _currentWindowHeight;
         private float _targetWindowHeight;
@@ -515,6 +534,7 @@
 
             Instance = this;
             LiveTerminals.Add(this);
+            CommandPaletteUI.SyncMotionPresetFromTerminal();
 
 #if UNITY_EDITOR
             _serializedObject = new SerializedObject(this);
@@ -536,6 +556,9 @@
 
             string[] textSizePropertiesTracked = { nameof(_persistedTextSize) };
             TrackProperties(textSizePropertiesTracked, _textSizeProperties);
+
+            string[] motionPresetPropertiesTracked = { nameof(_persistedMotionPreset) };
+            TrackProperties(motionPresetPropertiesTracked, _motionPresetProperties);
 
             string[] staticStaticPropertiesTracked =
             {
@@ -591,6 +614,7 @@
 
         private void OnEnable()
         {
+            EnsureMotionPresetMigrated();
             RefreshStaticState(force: resetStateOnInit);
             _configOwner = this;
 
@@ -603,6 +627,7 @@
             Instance = this;
             LiveTerminals.Remove(this);
             LiveTerminals.Add(this);
+            CommandPaletteUI.SyncMotionPresetFromTerminal();
 
             ConsumeAndLogErrors();
 
@@ -682,6 +707,7 @@
             if (Instance == this && TryHandOffToLivePeer(out TerminalUI instancePeer))
             {
                 Instance = instancePeer;
+                CommandPaletteUI.SyncMotionPresetFromTerminal();
             }
         }
 
@@ -699,6 +725,7 @@
                 Instance to a live enabled peer or clear it.
              */
             Instance = TryHandOffToLivePeer(out TerminalUI peer) ? peer : null;
+            CommandPaletteUI.SyncMotionPresetFromTerminal();
         }
 
         private void Start()
@@ -881,6 +908,11 @@
             if (CheckForRefresh(_textSizeProperties))
             {
                 SetTextSize(_persistedTextSize);
+            }
+
+            if (CheckForRefresh(_motionPresetProperties))
+            {
+                SetMotionPreset(_persistedMotionPreset);
             }
 
             if (CheckForRefresh(_staticStateProperties))
@@ -1668,6 +1700,48 @@
             }
         }
 
+        public void SetMotionPreset(TerminalMotionPreset preset, bool persist = false)
+        {
+            TerminalMotionPreset normalized = TerminalMotionPresetMetrics.Normalize(preset);
+            bool changed = CurrentMotionPreset != normalized;
+            if (Application.isPlaying || !persist)
+            {
+                _runtimeMotionPreset = normalized;
+            }
+            else
+            {
+                _runtimeMotionPreset = null;
+            }
+
+            if (persist)
+            {
+                _persistedMotionPreset = normalized;
+            }
+
+            _motionPresetMigrated = true;
+
+            if (normalized == TerminalMotionPreset.Off && _isAnimating)
+            {
+                _currentWindowHeight = _targetWindowHeight;
+                _isAnimating = false;
+                _needsInitialRefresh = true;
+            }
+
+            if (Application.isPlaying && _uiDocument != null)
+            {
+                VisualElement terminalRoot = _uiDocument.rootVisualElement?.Q<VisualElement>(TerminalRootName);
+                if (terminalRoot != null)
+                {
+                    ApplyMotionPreset(terminalRoot, normalized);
+                }
+            }
+
+            if (changed || persist)
+            {
+                CommandPaletteUI.SyncMotionPresetFromTerminal();
+            }
+        }
+
         /*
             Freezes or resumes the caret blink schedule. Capture and test rigs
             pin the caret visible so rendered pixels never depend on elapsed
@@ -1934,6 +2008,82 @@
             finally
             {
                 _needsFocus = true;
+            }
+        }
+
+        internal void EnsureMotionPresetMigrated()
+        {
+            if (_motionPresetMigrated)
+            {
+                return;
+            }
+
+#pragma warning disable CS0618
+            bool hasUnmigratedDefault = _persistedMotionPreset == TerminalMotionPreset.Unknown;
+            float legacyOut = easeOutTime;
+            float legacyIn = easeInTime;
+#pragma warning restore CS0618
+            bool hasCustomLegacyTiming =
+                !Mathf.Approximately(legacyOut, TerminalMotionPresetMetrics.DefaultLegacyDurationSeconds)
+                || !Mathf.Approximately(legacyIn, TerminalMotionPresetMetrics.DefaultLegacyDurationSeconds);
+
+            if (hasUnmigratedDefault || hasCustomLegacyTiming)
+            {
+                TerminalMotionPreset migrated = TerminalMotionPresetMetrics.MigrateLegacyTiming(legacyOut, legacyIn);
+                _persistedMotionPreset = migrated;
+                _motionPresetMigrated = true;
+                if (!_hasLoggedMotionMigration)
+                {
+                    _hasLoggedMotionMigration = true;
+                    Debug.Log(
+                        LogTextSanitizer.Sanitize($"[DxTerminal] Migrated legacy motion timing ({legacyOut:0.###}s/{legacyIn:0.###}s) to TerminalMotionPreset.{migrated}."),
+                        this
+                    );
+                }
+
+                return;
+            }
+
+            _motionPresetMigrated = true;
+        }
+
+        internal void StepHeightAnimation(float deltaSeconds)
+        {
+            if (!_isAnimating)
+            {
+                return;
+            }
+
+            _animationTimer += Math.Max(0f, deltaSeconds);
+
+            TerminalMotionPresetMetrics metrics = TerminalMotionPresetMetrics.For(CurrentMotionPreset);
+            bool isExpanding = _initialWindowHeight < _targetWindowHeight;
+            float animationDuration = isExpanding ? metrics.OpenDurationSeconds : metrics.CloseDurationSeconds;
+
+            if (animationDuration <= 0f)
+            {
+                _currentWindowHeight = _targetWindowHeight;
+                _isAnimating = false;
+                return;
+            }
+
+            float normalizedTime = Mathf.Clamp01(_animationTimer / animationDuration);
+            float curveValue = metrics.EvaluateEaseOut(normalizedTime);
+            _currentWindowHeight = Mathf.LerpUnclamped(_initialWindowHeight, _targetWindowHeight, curveValue);
+
+            if (isExpanding)
+            {
+                _currentWindowHeight = Mathf.Clamp(_currentWindowHeight, _initialWindowHeight, _targetWindowHeight);
+            }
+            else
+            {
+                _currentWindowHeight = Mathf.Clamp(_currentWindowHeight, _targetWindowHeight, _initialWindowHeight);
+            }
+
+            if (Mathf.Approximately(_currentWindowHeight, _targetWindowHeight) || animationDuration <= _animationTimer)
+            {
+                _currentWindowHeight = _targetWindowHeight;
+                _isAnimating = false;
             }
         }
 
@@ -2985,8 +3135,10 @@
             /* A fresh view starts at zero, so no earlier pin describes it. */
             _logTail.Attach();
 
+            EnsureMotionPresetMigrated();
             _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint, CurrentTextSize);
             ApplyTextSize(root, CurrentTextSize, updateWindow: false);
+            ApplyMotionPreset(root, CurrentMotionPreset);
 
             _logCopyStatus = new Label("Clipboard copy could not be verified.") { name = "LogCopyStatus", pickingMode = PickingMode.Ignore };
             _logCopyStatus.AddToClassList("terminal-copy-status");
@@ -4366,6 +4518,7 @@
 
         private void StartHeightAnimation()
         {
+            EnsureMotionPresetMigrated();
             if (Mathf.Approximately(_currentWindowHeight, _targetWindowHeight))
             {
                 _isAnimating = false;
@@ -4379,55 +4532,7 @@
 
         private void HandleHeightAnimation()
         {
-            if (!_isAnimating)
-            {
-                return;
-            }
-
-            _animationTimer += Time.unscaledDeltaTime;
-
-            AnimationCurve selectedCurve;
-            float animationDuration;
-            bool isExpanding = _initialWindowHeight < _targetWindowHeight;
-
-            if (isExpanding)
-            {
-                selectedCurve = easeOutCurve;
-                animationDuration = easeOutTime;
-            }
-            else
-            {
-                selectedCurve = easeInCurve;
-                animationDuration = easeInTime;
-            }
-
-            if (animationDuration <= 0f)
-            {
-                _currentWindowHeight = _targetWindowHeight;
-                _isAnimating = false;
-                return;
-            }
-
-            float normalizedTime = Mathf.Clamp01(_animationTimer / animationDuration);
-
-            float curveValue = selectedCurve.Evaluate(normalizedTime);
-
-            _currentWindowHeight = Mathf.LerpUnclamped(_initialWindowHeight, _targetWindowHeight, curveValue);
-
-            if (isExpanding)
-            {
-                _currentWindowHeight = Mathf.Clamp(_currentWindowHeight, _initialWindowHeight, _targetWindowHeight);
-            }
-            else
-            {
-                _currentWindowHeight = Mathf.Clamp(_currentWindowHeight, _targetWindowHeight, _initialWindowHeight);
-            }
-
-            if (Mathf.Approximately(_currentWindowHeight, _targetWindowHeight) || animationDuration <= _animationTimer)
-            {
-                _currentWindowHeight = _targetWindowHeight;
-                _isAnimating = false;
-            }
+            StepHeightAnimation(Time.unscaledDeltaTime);
         }
 
         private void OnSyntaxStyleResolved(CustomStyleResolvedEvent evt)
@@ -4447,6 +4552,14 @@
             {
                 ResetWindowIdempotent();
             }
+        }
+
+        private void ApplyMotionPreset(VisualElement root, TerminalMotionPreset preset)
+        {
+            TerminalMotionPreset normalized = TerminalMotionPresetMetrics.Normalize(preset);
+            root.EnableInClassList(TerminalMotionPresetMetrics.NoneClass, normalized == TerminalMotionPreset.Off);
+            root.EnableInClassList(TerminalMotionPresetMetrics.SubtleClass, normalized == TerminalMotionPreset.Subtle);
+            root.EnableInClassList(TerminalMotionPresetMetrics.SnappyClass, normalized == TerminalMotionPreset.Snappy);
         }
 
         private void ApplyLogRichContent(LogTextField logText, LogItem logItem, string echoMonoTag)

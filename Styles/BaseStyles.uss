@@ -1214,3 +1214,21 @@
     background-color: var(--dxt-selection);
     color: var(--dxt-ink);
 }
+
+.terminal-motion--snappy .log-scroll-view .unity-scroller .unity-base-slider__tracker,
+.terminal-motion--snappy .log-scroll-view .unity-scroller .unity-base-slider__dragger,
+.terminal-motion--snappy .autocomplete-item,
+.terminal-motion--snappy .palette-results .unity-scroller .unity-base-slider__tracker,
+.terminal-motion--snappy .palette-results .unity-scroller .unity-base-slider__dragger,
+.terminal-motion--snappy .palette-row {
+    transition-duration: 0.05s;
+}
+
+.terminal-motion--none .log-scroll-view .unity-scroller .unity-base-slider__tracker,
+.terminal-motion--none .log-scroll-view .unity-scroller .unity-base-slider__dragger,
+.terminal-motion--none .autocomplete-item,
+.terminal-motion--none .palette-results .unity-scroller .unity-base-slider__tracker,
+.terminal-motion--none .palette-results .unity-scroller .unity-base-slider__dragger,
+.terminal-motion--none .palette-row {
+    transition-duration: 0s;
+}
