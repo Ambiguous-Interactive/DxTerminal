@@ -41,6 +41,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private string _hint;
         private string _example;
         private CommandExecutionContexts _contexts = CommandExecutionContextSets.Gameplay;
+        private CommandTier _tier = CommandTier.Developer;
+        private bool _hideFromActions;
         private bool _addToHistory = true;
         private TypedCommandHandler _handler;
 
@@ -531,11 +533,29 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             return this;
         }
 
-        /// <summary>Sets whether invocations are recorded in the command history.</summary>
         /// <summary>Sets the group shown beside the command in completion lists.</summary>
         public CommandBuilder Group(string group)
         {
             _group = group;
+            return this;
+        }
+
+        /// <summary>Sets the audience tier used by build profiles and UI surfaces.</summary>
+        public CommandBuilder Tier(CommandTier tier)
+        {
+            if (tier is not (CommandTier.Player or CommandTier.Tester or CommandTier.Developer))
+            {
+                throw new ArgumentOutOfRangeException(nameof(tier), tier, "Tier must be Player, Tester, or Developer.");
+            }
+
+            _tier = tier;
+            return this;
+        }
+
+        /// <summary>Hides the command from the Actions surface when true.</summary>
+        public CommandBuilder HideFromActions(bool hideFromActions = true)
+        {
+            _hideFromActions = hideFromActions;
             return this;
         }
 
@@ -688,6 +708,26 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 );
             }
 
+            if (subcommand._tier != CommandTier.Developer)
+            {
+                throw new CommandConfigurationException(
+                    CommandConfigurationFailure.InvalidSubcommandConfiguration,
+                    $"Command '{Name} {normalized}': subcommands inherit the parent's tier; do not set Tier on a subcommand.",
+                    Name,
+                    subcommandName: normalized
+                );
+            }
+
+            if (subcommand._hideFromActions)
+            {
+                throw new CommandConfigurationException(
+                    CommandConfigurationFailure.InvalidSubcommandConfiguration,
+                    $"Command '{Name} {normalized}': subcommands inherit the parent's Actions visibility; do not set HideFromActions on a subcommand.",
+                    Name,
+                    subcommandName: normalized
+                );
+            }
+
             _subcommands.Add(subcommand);
             return this;
         }
@@ -741,6 +781,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 Name = name,
                 Help = _help,
                 Group = _group,
+                Tier = _tier,
+                HideFromActions = _hideFromActions,
                 Hint = route.Usage,
                 MinArgCount = route.RequiredCount,
                 /*
@@ -776,6 +818,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 Name = name,
                 Help = _help,
                 Group = _group,
+                Tier = _tier,
+                HideFromActions = _hideFromActions,
                 Hint = _hint ?? $"{name} <subcommand>",
                 MinArgCount = 0,
                 /*

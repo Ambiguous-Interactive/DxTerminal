@@ -1473,7 +1473,9 @@
                 definition.Hint,
                 definition.AddToHistory,
                 definition.SyntaxRoute,
-                definition.Group
+                definition.Group,
+                definition.Tier,
+                definition.HideFromActions
             );
             return AddCommand(name, info);
         }
@@ -1944,7 +1946,21 @@
                     continue;
                 }
 
-                CommandInfo info = new(proc, null, null, command.Contexts, command.MinArgCount, command.MaxArgCount, command.Help, command.Hint, command.AddToHistory);
+                CommandInfo info = new(
+                    proc,
+                    null,
+                    null,
+                    command.Contexts,
+                    command.MinArgCount,
+                    command.MaxArgCount,
+                    command.Help,
+                    command.Hint,
+                    command.AddToHistory,
+                    syntaxRoute: null,
+                    group: command.Group,
+                    tier: command.Tier,
+                    hideFromActions: command.HideFromActions
+                );
 
                 if (_commands.TryAdd(commandName, info))
                 {
@@ -2239,6 +2255,9 @@
             public readonly bool DevelopmentOnly;
             public readonly bool IsDefault;
             public readonly CommandExecutionContexts Contexts;
+            public readonly CommandTier Tier;
+            public readonly string Group;
+            public readonly bool HideFromActions;
 
             /*
                Non-null for valid (CommandArg[]) signatures. Null marks a
@@ -2281,7 +2300,10 @@
                 Func<Action<CommandArg[]>> binder,
                 Func<MethodInfo> methodAccessor,
                 Action<CommandArg[]> deferredProc,
-                CommandCatalogEntry catalogEntry = null
+                CommandCatalogEntry catalogEntry = null,
+                CommandTier tier = CommandTier.Developer,
+                string group = null,
+                bool hideFromActions = false
             )
             {
                 Name = name;
@@ -2295,6 +2317,9 @@
                 DevelopmentOnly = developmentOnly;
                 IsDefault = isDefault;
                 Contexts = contexts;
+                Tier = tier;
+                Group = group;
+                HideFromActions = hideFromActions;
                 Binder = binder;
                 MethodAccessor = methodAccessor;
                 DeferredProc = deferredProc;
@@ -2318,7 +2343,10 @@
                     entry.Binder,
                     entry.MethodAccessor,
                     null,
-                    entry
+                    entry,
+                    entry.Tier,
+                    entry.Group,
+                    entry.HideFromActions
                 );
             }
 
@@ -2340,7 +2368,11 @@
                     attribute.Contexts,
                     binder,
                     () => method,
-                    valid ? new DeferredCommandHandler(attribute.Name, method.Name, binder).Invoke : null
+                    valid ? new DeferredCommandHandler(attribute.Name, method.Name, binder).Invoke : null,
+                    null,
+                    attribute.Tier,
+                    attribute.Group,
+                    attribute.HideFromActions
                 );
             }
 

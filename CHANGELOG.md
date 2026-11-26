@@ -13,6 +13,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add `CommandTier` (`Player`, `Tester`, `Developer`), `Group`, and `HideFromActions` metadata across `[RegisterCommand]`, `CommandBuilder`, `CommandDefinition`, `CommandInfo`, and
+  built-in commands ([#237](https://github.com/Ambiguous-Interactive/DxTerminal/issues/237)).
 - Add `Terminal.Reset`, `TerminalCommandBehaviour`, early Play Mode session bootstrap at `SubsystemRegistration` with deferred command discovery, and typed `Terminal.Log` overloads
   that skip formatting when a log type is ignored ([#237](https://github.com/Ambiguous-Interactive/DxTerminal/issues/237)).
 - Add a text size setting (`Small` 13 px, `Medium` 15 px, `Large` 18 px) for the terminal and Quick launch and a 7:1 Dx High Contrast theme

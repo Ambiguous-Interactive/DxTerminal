@@ -78,6 +78,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// </summary>
         public CommandExecutionContexts Contexts { get; }
 
+        /// <summary>Audience tier. Mirrors <see cref="Attributes.RegisterCommandAttribute.Tier"/>.</summary>
+        public CommandTier Tier { get; }
+
+        /// <summary>Optional group label. Mirrors <see cref="Attributes.RegisterCommandAttribute.Group"/>.</summary>
+        public string Group { get; }
+
+        /// <summary>When true, omits the command from Actions. Mirrors <see cref="Attributes.RegisterCommandAttribute.HideFromActions"/>.</summary>
+        public bool HideFromActions { get; }
+
         /// <summary>
         ///     Binds the handler to a runnable delegate. Non-null only for commands
         ///     with a valid <c>(CommandArg[])</c> signature; accessible handlers are
@@ -126,6 +135,45 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             CommandExecutionContexts contexts = CommandExecutionContextSets.All,
             string declaringTypeName = null
         )
+            : this(
+                name,
+                methodName,
+                minArgCount,
+                maxArgCount,
+                help,
+                hint,
+                addToHistory,
+                editorOnly,
+                developmentOnly,
+                isDefault,
+                binder,
+                methodAccessor,
+                contexts,
+                declaringTypeName,
+                CommandTier.Developer,
+                group: null,
+                hideFromActions: false
+            ) { }
+
+        public CommandCatalogEntry(
+            string name,
+            string methodName,
+            int minArgCount,
+            int maxArgCount,
+            string help,
+            string hint,
+            bool addToHistory,
+            bool editorOnly,
+            bool developmentOnly,
+            bool isDefault,
+            Func<Action<CommandArg[]>> binder,
+            Func<MethodInfo> methodAccessor,
+            CommandExecutionContexts contexts,
+            string declaringTypeName,
+            CommandTier tier,
+            string group = null,
+            bool hideFromActions = false
+        )
         {
             /*
                 A blank name is legal here: the legacy discovery path produces
@@ -163,6 +211,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             MethodAccessor = methodAccessor;
             Contexts = contexts;
             DeclaringTypeName = declaringTypeName;
+            Tier = tier;
+            Group = group;
+            HideFromActions = hideFromActions;
         }
 
         /// <summary>

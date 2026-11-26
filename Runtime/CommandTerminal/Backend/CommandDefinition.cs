@@ -71,6 +71,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// <summary>Optional group shown beside the command in completion lists.</summary>
         public string Group { get; set; }
 
+        /// <summary>Audience tier for filtering in build profiles and UI surfaces.</summary>
+        public CommandTier Tier { get; set; } = CommandTier.Developer;
+
+        /// <summary>When true, omits the command from the Actions surface.</summary>
+        public bool HideFromActions { get; set; }
+
         internal CommandBuilder.SubcommandRoute SyntaxRoute { get; set; }
     }
 }

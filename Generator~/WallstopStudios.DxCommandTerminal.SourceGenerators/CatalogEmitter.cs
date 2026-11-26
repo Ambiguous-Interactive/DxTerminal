@@ -25,6 +25,8 @@
 
         private const string ContextsType = "global::WallstopStudios.DxCommandTerminal.Backend.CommandExecutionContexts";
 
+        private const string TierType = "global::WallstopStudios.DxCommandTerminal.Backend.CommandTier";
+
         private const string EntryListType = "global::System.Collections.Generic.List<" + EntryType + ">";
 
         private const string BindingFlagsType = "global::System.Reflection.BindingFlags";
@@ -514,7 +516,12 @@
             {
                 builder.Append(Indent4).Append("    (").Append(ContextsType).Append(")(");
                 builder.Append(command.Contexts.ToString(CultureInfo.InvariantCulture)).AppendLine("),");
-                builder.Append(Indent4).Append("    ").AppendLine(0 <= holderIndex ? $"HolderNames[{holderIndex}]" : "null");
+                builder.Append(Indent4).Append("    ").Append(0 <= holderIndex ? $"HolderNames[{holderIndex}]" : "null").AppendLine(",");
+                builder.Append(Indent4).Append("    (").Append(TierType).Append(")(");
+                builder.Append(command.Tier.ToString(CultureInfo.InvariantCulture)).AppendLine("),");
+                AppendLiteral(builder, command.Group);
+                builder.AppendLine(",");
+                builder.Append(Indent4).Append("    ").AppendLine(command.HideFromActions ? "true" : "false");
             }
             builder.Append(Indent4).AppendLine("));");
         }
@@ -531,8 +538,7 @@
                 indexedChunks = chunks;
                 return sharedMetadata;
             }
-            Dictionary<(int Min, int Max, (bool History, bool Editor, bool Development, bool Default) Flags, int Contexts, int Holder), List<int>> groups =
-                new Dictionary<(int, int, (bool, bool, bool, bool), int, int), List<int>>();
+            Dictionary<SharedMetadataKey, List<int>> groups = new Dictionary<SharedMetadataKey, List<int>>();
             List<List<int>> orderedGroups = new List<List<int>>();
             for (int index = 0; index < count; index++)
             {
@@ -541,13 +547,13 @@
                 {
                     continue;
                 }
-                (int, int, (bool, bool, bool, bool), int, int) key = (
-                    command.MinArgCount,
-                    command.MaxArgCount,
-                    (command.AddToHistory, command.EditorOnly, command.DevelopmentOnly, command.IsDefault),
-                    command.Contexts,
-                    holderIndices[index]
-                );
+                int flags =
+                    (command.AddToHistory ? 1 : 0)
+                    | (command.EditorOnly ? 2 : 0)
+                    | (command.DevelopmentOnly ? 4 : 0)
+                    | (command.IsDefault ? 8 : 0)
+                    | (command.HideFromActions ? 16 : 0);
+                SharedMetadataKey key = new SharedMetadataKey(command.MinArgCount, command.MaxArgCount, flags, command.Contexts, command.Tier, command.Group, holderIndices[index]);
                 if (!groups.TryGetValue(key, out List<int> indices))
                 {
                     indices = new List<int>();
@@ -612,7 +618,10 @@
                 .Append(BinderType)
                 .AppendLine(">(new IndexedBinder(slot).Bind), null,");
             builder.Append(Indent5).Append('(').Append(ContextsType).Append(")(").Append(command.Contexts.ToString(CultureInfo.InvariantCulture)).Append("), ");
-            builder.AppendLine(0 <= holderIndex ? $"HolderNames[{holderIndex}]);" : "null);");
+            builder.Append(0 <= holderIndex ? $"HolderNames[{holderIndex}], " : "null, ");
+            builder.Append('(').Append(TierType).Append(")(").Append(command.Tier.ToString(CultureInfo.InvariantCulture)).Append("), ");
+            builder.Append(command.Group == null ? "null, " : SymbolDisplay.FormatLiteral(command.Group, quote: true) + ", ");
+            builder.AppendLine(command.HideFromActions ? "true);" : "false);");
             builder.Append(Indent3).AppendLine("}");
         }
 
@@ -950,6 +959,62 @@
             public string Name;
             public List<CompanionChain> Chains = new List<CompanionChain>();
             public Dictionary<string, CompanionChain> ChainIndex = new Dictionary<string, CompanionChain>(StringComparer.Ordinal);
+        }
+
+        private readonly struct SharedMetadataKey : IEquatable<SharedMetadataKey>
+        {
+            private readonly int _min;
+            private readonly int _max;
+            private readonly int _flags;
+            private readonly int _contexts;
+            private readonly int _tier;
+            private readonly string _group;
+            private readonly int _holder;
+
+            public SharedMetadataKey(int min, int max, int flags, int contexts, int tier, string group, int holder)
+            {
+                _min = min;
+                _max = max;
+                _flags = flags;
+                _contexts = contexts;
+                _tier = tier;
+                _group = group;
+                _holder = holder;
+            }
+
+            public bool Equals(SharedMetadataKey other)
+            {
+                return _min == other._min
+                    && _max == other._max
+                    && _flags == other._flags
+                    && _contexts == other._contexts
+                    && _tier == other._tier
+                    && _holder == other._holder
+                    && string.Equals(_group, other._group, StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is SharedMetadataKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = _min;
+                    hash = (hash * 397) ^ _max;
+                    hash = (hash * 397) ^ _flags;
+                    hash = (hash * 397) ^ _contexts;
+                    hash = (hash * 397) ^ _tier;
+                    hash = (hash * 397) ^ _holder;
+                    if (_group != null)
+                    {
+                        hash = (hash * 397) ^ StringComparer.Ordinal.GetHashCode(_group);
+                    }
+                    return hash;
+                }
+            }
         }
     }
 }

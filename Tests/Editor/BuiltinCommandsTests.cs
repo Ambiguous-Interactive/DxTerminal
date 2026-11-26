@@ -691,6 +691,107 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(routerCard.ExampleLine, Is.EqualTo("jobs list"));
         }
 
+        [Test]
+        public void BuilderAndDefinitionPropagateTierGroupAndHideFromActions()
+        {
+            Assert.That(
+                _shell.AddCommand(CommandBuilder.Create("heal").Help("Heals a target").Group("Cheats").Tier(CommandTier.Tester).HideFromActions().Handler((_, _) => { }), out _),
+                Is.True
+            );
+            CommandInfo builderInfo = _shell.Commands["heal"];
+            Assert.That(builderInfo.tier, Is.EqualTo(CommandTier.Tester));
+            Assert.That(builderInfo.group, Is.EqualTo("Cheats"));
+            Assert.That(builderInfo.hideFromActions, Is.True);
+
+            Assert.That(
+                _shell.AddCommand(
+                    new CommandDefinition
+                    {
+                        Name = "spawn",
+                        Group = "World",
+                        Tier = CommandTier.Player,
+                        HideFromActions = true,
+                        Handler = (_, _) => { },
+                    }
+                ),
+                Is.True
+            );
+            CommandInfo definitionInfo = _shell.Commands["spawn"];
+            Assert.That(definitionInfo.tier, Is.EqualTo(CommandTier.Player));
+            Assert.That(definitionInfo.group, Is.EqualTo("World"));
+            Assert.That(definitionInfo.hideFromActions, Is.True);
+
+            Assert.That(_shell.AddCommand(CommandBuilder.Create("defaults").Handler((_, _) => { }), out _), Is.True);
+            CommandInfo defaultInfo = _shell.Commands["defaults"];
+            Assert.That(defaultInfo.tier, Is.EqualTo(CommandTier.Developer));
+            Assert.That(defaultInfo.group, Is.Null);
+            Assert.That(defaultInfo.hideFromActions, Is.False);
+        }
+
+        [Test]
+        public void BuilderRejectsInvalidTierAndSubcommandMetadata()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+            {
+                CommandBuilder.Create("bad-tier").Tier((CommandTier)99);
+            });
+
+            CommandConfigurationException tierException = Assert.Throws<CommandConfigurationException>(() =>
+            {
+                CommandBuilder
+                    .Create("parent")
+                    .Subcommand("child", sub =>
+                    {
+                        sub.Tier(CommandTier.Player).Handler((_, _) => { });
+                    });
+            });
+            Assert.That(tierException.Failure, Is.EqualTo(CommandConfigurationFailure.InvalidSubcommandConfiguration));
+
+            CommandConfigurationException hideException = Assert.Throws<CommandConfigurationException>(() =>
+            {
+                CommandBuilder
+                    .Create("parent")
+                    .Subcommand("child", sub =>
+                    {
+                        sub.HideFromActions().Handler((_, _) => { });
+                    });
+            });
+            Assert.That(hideException.Failure, Is.EqualTo(CommandConfigurationFailure.InvalidSubcommandConfiguration));
+        }
+
+        [TestCase("help", CommandTier.Player)]
+        [TestCase("find", CommandTier.Player)]
+        [TestCase("clear-filter", CommandTier.Player)]
+        [TestCase("clear-console", CommandTier.Player)]
+        [TestCase("copy-last", CommandTier.Player)]
+        [TestCase("copy-log", CommandTier.Player)]
+        [TestCase("list-themes", CommandTier.Player)]
+        [TestCase("set-theme", CommandTier.Player)]
+        [TestCase("get-theme", CommandTier.Player)]
+        [TestCase("list-fonts", CommandTier.Player)]
+        [TestCase("set-font", CommandTier.Player)]
+        [TestCase("get-font", CommandTier.Player)]
+        [TestCase("quit", CommandTier.Player)]
+        [TestCase("set-random-theme", CommandTier.Developer)]
+        [TestCase("set-random-font", CommandTier.Developer)]
+        [TestCase("clear-history", CommandTier.Developer)]
+        [TestCase("time", CommandTier.Developer)]
+        [TestCase("time-scale", CommandTier.Developer)]
+        [TestCase("log-terminal", CommandTier.Developer)]
+        [TestCase("log", CommandTier.Developer)]
+        [TestCase("trace", CommandTier.Developer)]
+        [TestCase("clear-variable", CommandTier.Developer)]
+        [TestCase("clear-all-variables", CommandTier.Developer)]
+        [TestCase("set-variable", CommandTier.Developer)]
+        [TestCase("get-variable", CommandTier.Developer)]
+        [TestCase("list-variables", CommandTier.Developer)]
+        [TestCase("no-op", CommandTier.Developer)]
+        public void BuiltInCommandHasExpectedTier(string commandName, CommandTier expectedTier)
+        {
+            Assert.That(_shell.Commands.TryGetValue(commandName, out CommandInfo info), Is.True, $"Built-in '{commandName}' must be registered");
+            Assert.That(info.tier, Is.EqualTo(expectedTier));
+        }
+
         /*
             Runs a copy command through `Run` and gates the clipboard read on
             the product's own verdict. `TryWrite`'s true answer is a read-back

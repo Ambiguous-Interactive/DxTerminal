@@ -33,6 +33,7 @@
                 "Runtime/CommandTerminal/Backend/CommandExecutionContexts.cs",
                 "Runtime/CommandTerminal/Backend/CommandExecutionContextSets.cs",
                 "Runtime/CommandTerminal/Backend/CommandExecutionContextsExtensions.cs",
+                "Runtime/CommandTerminal/Backend/CommandTier.cs",
                 "Runtime/CommandTerminal/Backend/CommandArgParser.cs",
             }
         );

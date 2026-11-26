@@ -20,11 +20,15 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators
         */
         internal const int AllExecutionContexts = 7;
 
+        internal const int DefaultCommandTier = 3;
+
         private const string AttributeMetadataName = "WallstopStudios.DxCommandTerminal.Attributes.RegisterCommandAttribute";
 
         private const string EntryMetadataName = "WallstopStudios.DxCommandTerminal.Backend.CommandCatalogEntry";
 
         private const string ContextsMetadataName = "WallstopStudios.DxCommandTerminal.Backend.CommandExecutionContexts";
+
+        private const string TierMetadataName = "WallstopStudios.DxCommandTerminal.Backend.CommandTier";
 
         private const string PreserveAttributeMetadataName = "UnityEngine.Scripting.PreserveAttribute";
 
@@ -129,6 +133,15 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators
                 case "Contexts":
                     attribute.Contexts = argument.Value is int contexts ? contexts : AllExecutionContexts;
                     break;
+                case "Tier":
+                    attribute.Tier = argument.Value is int tier ? tier : DefaultCommandTier;
+                    break;
+                case "Group":
+                    attribute.Group = argument.Value as string;
+                    break;
+                case "HideFromActions":
+                    attribute.HideFromActions = argument.Value is bool hideFromActions && hideFromActions;
+                    break;
             }
         }
 
@@ -156,7 +169,8 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators
             ITypeSymbol entryType = compilation.GetTypeByMetadataName(EntryMetadataName);
             ITypeSymbol commandArgumentType = compilation.GetTypeByMetadataName(ArgumentMetadataName);
             ITypeSymbol contextsType = compilation.GetTypeByMetadataName(ContextsMetadataName);
-            if (entryType == null || commandArgumentType == null || contextsType == null)
+            ITypeSymbol tierType = compilation.GetTypeByMetadataName(TierMetadataName);
+            if (entryType == null || commandArgumentType == null || contextsType == null || tierType == null)
             {
                 return;
             }
@@ -263,6 +277,9 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators
         public bool EditorOnly;
         public bool DevelopmentOnly;
         public int Contexts = CommandCatalogGenerator.AllExecutionContexts;
+        public int Tier = CommandCatalogGenerator.DefaultCommandTier;
+        public string Group;
+        public bool HideFromActions;
     }
 
     internal sealed class CommandModel
@@ -278,6 +295,9 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators
         public bool DevelopmentOnly;
         public bool IsDefault;
         public int Contexts;
+        public int Tier;
+        public string Group;
+        public bool HideFromActions;
 
         // Non-null for valid (CommandArg[]) signatures.
         public bool HasValidSignature;
@@ -412,6 +432,9 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators
                 DevelopmentOnly = attribute.DevelopmentOnly,
                 IsDefault = attribute.IsDefault,
                 Contexts = attribute.Contexts,
+                Tier = attribute.Tier,
+                Group = attribute.Group,
+                HideFromActions = attribute.HideFromActions,
                 MethodNameIdentifierDisplay = EscapeIdentifier(method.Name),
                 IsMethodGeneric = method.IsGenericMethod,
                 DeclaringTypeName = typeMetadata.DeclaringTypeName,
