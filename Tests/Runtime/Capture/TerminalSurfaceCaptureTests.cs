@@ -517,6 +517,71 @@
             yield return null;
             yield return CaptureSurface(nameof(CapturesEchoAndHelpCardSurface) + "-paper", CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
             AssertAcceptable(_lastOutcome);
+
+            _terminal.SetTheme("dx-high-contrast-theme");
+            root.panel?.Pick(Vector2.zero);
+            yield return null;
+            _terminal.RefreshUI();
+            yield return null;
+            Assert.That(_terminal.CurrentTheme, Is.EqualTo("dx-high-contrast-theme"));
+            yield return CaptureSurface(nameof(CapturesEchoAndHelpCardSurface) + "-high-contrast", CaptureBounds.Default(), ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+        }
+
+        [UnityTest]
+        public IEnumerator CapturesTextSizesAt720p()
+        {
+            const int width720p = 1280;
+            const int height720p = 720;
+            yield return SpawnTerminal(useEditorDefaults: true);
+            _terminal.SetState(TerminalState.OpenFull);
+            yield return WaitForTerminalInputVisible();
+
+            CommandBuilder spawn = CommandBuilder
+                .Create("spawn", "Spawns enemies at a point")
+                .Group("Combat")
+                .Arg<string>("prefab", spec =>
+                {
+                    return spec.Required().Choices("goblin", "ghoul", "golem").Describe("Enemy prefab");
+                })
+                .Arg<int>("count", spec =>
+                {
+                    return spec.Range(1, 50).Default(1);
+                })
+                .Handler((_, _) => { });
+            Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
+            Terminal.Buffer.Clear();
+            for (int line = 1; line <= 30; ++line)
+            {
+                Terminal.Log(TerminalLogType.Message, "720p log row " + line.ToString(CultureInfo.InvariantCulture));
+            }
+
+            _terminal._commandInput.value = "spawn ";
+            _terminal.SetCursorBlinkPaused(true);
+
+            (TerminalTextSize Size, string Suffix)[] cases = { (TerminalTextSize.Small, "small"), (TerminalTextSize.Medium, "medium"), (TerminalTextSize.Large, "large") };
+            int previousVisibleRows = int.MaxValue;
+            foreach ((TerminalTextSize size, string suffix) in cases)
+            {
+                _terminal.SetTextSize(size);
+                _terminal.RefreshUI();
+                yield return null;
+                yield return CaptureSurface(nameof(CapturesTextSizesAt720p) + "-" + suffix, CaptureBounds.Default(), width720p, height720p);
+                AssertAcceptable(_lastOutcome);
+
+                ScrollView logView = _terminal._uiDocument.rootVisualElement.Q<ScrollView>("LogScrollView");
+                float viewportHeight = logView.contentViewport.layout.height;
+                float firstRowHeight = 0 < logView.contentContainer.childCount ? logView.contentContainer[0].layout.height : 0f;
+                int visibleRows = 0f < firstRowHeight ? (int)Math.Floor(viewportHeight / firstRowHeight) : 0;
+                TestContext.WriteLine(
+                    FormattableString.Invariant(
+                        $"720p {size}: viewport={viewportHeight:0.#}px rowHeight={firstRowHeight:0.#}px visibleRows={visibleRows} completionRowHeight={_terminal.CompletionList.fixedItemHeight:0.#}px"
+                    )
+                );
+                Assert.That(0 < visibleRows, Is.True, $"{size} must display log rows at 720p");
+                Assert.That(visibleRows < previousVisibleRows, Is.True, $"{size} should fit fewer rows at 720p than the smaller preset");
+                previousVisibleRows = visibleRows;
+            }
         }
 #endif
 

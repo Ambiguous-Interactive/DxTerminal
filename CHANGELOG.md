@@ -13,6 +13,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add a text size setting (`Small` 13 px, `Medium` 15 px, `Large` 18 px) for the terminal and Quick launch and a 7:1 Dx High Contrast theme
+  ([#332](https://github.com/Ambiguous-Interactive/DxTerminal/issues/332)).
 - Add syntax-colored command echoes in the log and a syntax-colored `help <command>` card with signature, group, availability, argument table, and example
   ([#336](https://github.com/Ambiguous-Interactive/DxTerminal/issues/336)).
 - Add inline command validation under the terminal input with did-you-mean Tab fixes and unclosed-quote notes

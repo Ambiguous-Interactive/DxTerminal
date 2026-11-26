@@ -71,6 +71,25 @@
 
         public bool IsOpen => _isOpen;
 
+        public TerminalTextSize CurrentTextSize
+        {
+            get
+            {
+                if (_runtimeTextSize is TerminalTextSize runtimeSize)
+                {
+                    return TerminalTextSizeMetrics.Normalize(runtimeSize);
+                }
+
+                if (_overrideTextSize || _textSize is TerminalTextSize.Medium or TerminalTextSize.Large)
+                {
+                    return TerminalTextSizeMetrics.Normalize(_textSize);
+                }
+
+                TerminalUI terminal = TerminalUI.Instance;
+                return terminal != null ? terminal.CurrentTextSize : TerminalTextSize.Small;
+            }
+        }
+
         private ConsoleKeyBindings KeyBindings => keyBindings ??= new ConsoleKeyBindings();
 
         [Header("Window")]
@@ -124,6 +143,11 @@
             }
         }
 
+        internal float EffectiveRowHeight
+        {
+            get { return TerminalTextSizeMetrics.For(CurrentTextSize).EffectivePaletteRowHeight(rowHeight); }
+        }
+
         [Tooltip("Hotkey that opens/closes the palette (supports ctrl+ and shift+ modifiers)")]
         [SerializeField]
         public string toggleHotkey = "ctrl+space";
@@ -136,6 +160,14 @@
 
         [SerializeField]
         internal TerminalThemePack _themePack;
+
+        [SerializeField]
+        internal TerminalTextSize _textSize = TerminalTextSize.Small;
+
+        [SerializeField]
+        internal bool _overrideTextSize;
+
+        internal TerminalTextSize? _runtimeTextSize;
 
         internal VisualElement _paletteRoot;
         internal TextField _input;
@@ -334,6 +366,24 @@
             _logCaretPasses = false;
         }
 
+        internal static void SyncTextSizeFromTerminal()
+        {
+            int livePaletteCount = _livePalettes.Count;
+            for (int index = 0; index < livePaletteCount; ++index)
+            {
+                CommandPaletteUI palette = _livePalettes[index];
+                if (
+                    palette != null
+                    && !palette._runtimeTextSize.HasValue
+                    && !palette._overrideTextSize
+                    && palette._textSize is not (TerminalTextSize.Medium or TerminalTextSize.Large)
+                )
+                {
+                    palette.ApplyTextSize();
+                }
+            }
+        }
+
         public void Open()
         {
             if (_isOpen)
@@ -353,6 +403,7 @@
                 per open picks the resolved font up without a rebuild.
              */
             ApplyFont();
+            ApplyTextSize();
             Attach();
             CloseTerminalSurface();
             CapturePreviousFocus();
@@ -414,6 +465,27 @@
             {
                 Open();
             }
+        }
+
+        public void SetTextSize(TerminalTextSize size, bool persist = false)
+        {
+            TerminalTextSize normalized = TerminalTextSizeMetrics.Normalize(size);
+            if (Application.isPlaying || !persist)
+            {
+                _runtimeTextSize = normalized;
+            }
+            else
+            {
+                _runtimeTextSize = null;
+            }
+
+            if (persist)
+            {
+                _textSize = normalized;
+                _overrideTextSize = true;
+            }
+
+            ApplyTextSize();
         }
 
         /// <summary>
@@ -989,7 +1061,7 @@
 
             _results = new ScrollView(ScrollViewMode.Vertical) { name = PaletteResultsName };
             _results.AddToClassList("palette-results");
-            _results.style.maxHeight = maxVisibleRows * rowHeight;
+            _results.style.maxHeight = maxVisibleRows * EffectiveRowHeight;
             _results.style.display = DisplayStyle.None;
             Scroller verticalScroller = _results.verticalScroller;
             if (verticalScroller != null)
@@ -1024,6 +1096,7 @@
             _panel.Add(footer);
 
             _paletteRoot.RegisterCallback<KeyDownEvent>(HandleKeyDown, TrickleDown.TrickleDown);
+            ApplyTextSize();
             _built = true;
         }
 
@@ -1090,6 +1163,30 @@
             }
 
             _paletteRoot.style.unityFontDefinition = new StyleFontDefinition(font);
+        }
+
+        private void ApplyTextSize()
+        {
+            if (_paletteRoot == null)
+            {
+                return;
+            }
+
+            TerminalTextSize activeSize = CurrentTextSize;
+            _paletteRoot.EnableInClassList(TerminalTextSizeMetrics.SmallClass, activeSize == TerminalTextSize.Small);
+            _paletteRoot.EnableInClassList(TerminalTextSizeMetrics.MediumClass, activeSize == TerminalTextSize.Medium);
+            _paletteRoot.EnableInClassList(TerminalTextSizeMetrics.LargeClass, activeSize == TerminalTextSize.Large);
+            float effectiveHeight = EffectiveRowHeight;
+            if (_results != null)
+            {
+                _results.style.maxHeight = maxVisibleRows * effectiveHeight;
+            }
+
+            int rowCount = _rows.Count;
+            for (int index = 0; index < rowCount; ++index)
+            {
+                _rows[index].style.height = effectiveHeight;
+            }
         }
 
         private void RefreshSource()
@@ -1297,7 +1394,7 @@
             {
                 VisualElement row = new() { name = RowName };
                 row.AddToClassList("palette-row");
-                row.style.height = rowHeight;
+                row.style.height = EffectiveRowHeight;
 
                 Label nameLabel = new() { name = RowNameLabel };
                 nameLabel.AddToClassList("palette-row-name");
