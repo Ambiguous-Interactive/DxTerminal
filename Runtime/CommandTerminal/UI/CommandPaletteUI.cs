@@ -100,6 +100,25 @@
             }
         }
 
+        public TerminalMotionPreset CurrentMotionPreset
+        {
+            get
+            {
+                if (_runtimeMotionPreset is TerminalMotionPreset runtimePreset)
+                {
+                    return TerminalMotionPresetMetrics.Normalize(runtimePreset);
+                }
+
+                if (_overrideMotionPreset || _motionPreset is TerminalMotionPreset.Off or TerminalMotionPreset.Snappy)
+                {
+                    return TerminalMotionPresetMetrics.Normalize(_motionPreset);
+                }
+
+                TerminalUI terminal = TerminalUI.Instance;
+                return terminal != null ? terminal.CurrentMotionPreset : TerminalMotionPreset.Subtle;
+            }
+        }
+
         private ConsoleKeyBindings KeyBindings => keyBindings ??= new ConsoleKeyBindings();
 
         [Header("Window")]
@@ -192,6 +211,14 @@
         internal bool _overrideTextSize;
 
         internal TerminalTextSize? _runtimeTextSize;
+
+        [SerializeField]
+        internal TerminalMotionPreset _motionPreset = TerminalMotionPreset.Subtle;
+
+        [SerializeField]
+        internal bool _overrideMotionPreset;
+
+        internal TerminalMotionPreset? _runtimeMotionPreset;
 
         internal VisualElement _paletteRoot;
         internal TextField _input;
@@ -429,6 +456,24 @@
             }
         }
 
+        internal static void SyncMotionPresetFromTerminal()
+        {
+            int livePaletteCount = _livePalettes.Count;
+            for (int index = 0; index < livePaletteCount; ++index)
+            {
+                CommandPaletteUI palette = _livePalettes[index];
+                if (
+                    palette != null
+                    && !palette._runtimeMotionPreset.HasValue
+                    && !palette._overrideMotionPreset
+                    && palette._motionPreset is not (TerminalMotionPreset.Off or TerminalMotionPreset.Snappy)
+                )
+                {
+                    palette.ApplyMotionPreset();
+                }
+            }
+        }
+
         private static void SetRowHint(Label label, string hint)
         {
             if (string.IsNullOrWhiteSpace(hint))
@@ -462,6 +507,7 @@
              */
             ApplyFont();
             ApplyTextSize();
+            ApplyMotionPreset();
             Attach();
             CloseTerminalSurface();
             CapturePreviousFocus();
@@ -544,6 +590,27 @@
             }
 
             ApplyTextSize();
+        }
+
+        public void SetMotionPreset(TerminalMotionPreset preset, bool persist = false)
+        {
+            TerminalMotionPreset normalized = TerminalMotionPresetMetrics.Normalize(preset);
+            if (Application.isPlaying || !persist)
+            {
+                _runtimeMotionPreset = normalized;
+            }
+            else
+            {
+                _runtimeMotionPreset = null;
+            }
+
+            if (persist)
+            {
+                _motionPreset = normalized;
+                _overrideMotionPreset = true;
+            }
+
+            ApplyMotionPreset();
         }
 
         /// <summary>
@@ -1249,6 +1316,7 @@
             _paletteRoot.RegisterCallback<CustomStyleResolvedEvent>(OnCustomStyleResolved);
             _paletteRoot.RegisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);
             ApplyTextSize();
+            ApplyMotionPreset();
             _built = true;
         }
 
@@ -1334,6 +1402,19 @@
             }
 
             ApplyLayoutMetrics();
+        }
+
+        private void ApplyMotionPreset()
+        {
+            if (_paletteRoot == null)
+            {
+                return;
+            }
+
+            TerminalMotionPreset activePreset = CurrentMotionPreset;
+            _paletteRoot.EnableInClassList(TerminalMotionPresetMetrics.NoneClass, activePreset == TerminalMotionPreset.Off);
+            _paletteRoot.EnableInClassList(TerminalMotionPresetMetrics.SubtleClass, activePreset == TerminalMotionPreset.Subtle);
+            _paletteRoot.EnableInClassList(TerminalMotionPresetMetrics.SnappyClass, activePreset == TerminalMotionPreset.Snappy);
         }
 
         private void ApplyLayoutMetrics()

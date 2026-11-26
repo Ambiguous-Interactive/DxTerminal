@@ -29,6 +29,7 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
 
         private static readonly TimeSpan CycleInterval = TimeSpan.FromSeconds(0.75);
         private static readonly string[] TextSizeLabels = { "S 13", "M 15", "L 18" };
+        private static readonly string[] MotionPresetLabels = { "None", "Subtle", "Snappy" };
         private static readonly Dictionary<TerminalThemePack, (List<string> Names, string[] Labels)> ThemeDisplayNames = new();
         private static List<TerminalThemePack> _themePackNamesSource;
         private static string[] _themePackNames;
@@ -666,6 +667,8 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
                 nameof(TerminalUI._fontPack),
                 nameof(TerminalUI._persistedTheme),
                 nameof(TerminalUI._persistedTextSize),
+                nameof(TerminalUI._persistedMotionPreset),
+                nameof(TerminalUI._motionPresetMigrated),
                 nameof(TerminalUI._uiDocument)
             );
 
@@ -1214,7 +1217,32 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
             CollectFonts(terminal, _fontsByPrefix);
             bool fontsUpdated = RenderSelectableFonts(terminal);
             bool textSizeUpdated = RenderTextSizeControl(terminal);
-            return anyChanged || fontsUpdated || textSizeUpdated;
+            bool motionUpdated = RenderMotionPresetControl(terminal);
+            return anyChanged || fontsUpdated || textSizeUpdated || motionUpdated;
+        }
+
+        private bool RenderMotionPresetControl(TerminalUI terminal)
+        {
+            terminal.EnsureMotionPresetMigrated();
+            int currentIndex = TerminalMotionPresetMetrics.ToOptionIndex(terminal.CurrentMotionPreset);
+            EditorGUILayout.BeginHorizontal();
+            try
+            {
+                EditorGUILayout.PrefixLabel("Motion");
+                int selectedIndex = GUILayout.Toolbar(currentIndex, MotionPresetLabels);
+                if (selectedIndex == currentIndex)
+                {
+                    return false;
+                }
+
+                Undo.RecordObject(terminal, "Change Terminal Motion Preset");
+                terminal.SetMotionPreset(TerminalMotionPresetMetrics.FromOptionIndex(selectedIndex), persist: true);
+                return true;
+            }
+            finally
+            {
+                EditorGUILayout.EndHorizontal();
+            }
         }
 
         private bool RenderTextSizeControl(TerminalUI terminal)
