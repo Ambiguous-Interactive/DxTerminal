@@ -2500,23 +2500,27 @@
             }
             float fullHeight = height * maxHeight;
             float smallHeight = fullHeight * smallTerminalRatio;
+            float logRowFloor = TerminalTextSizeMetrics.For(CurrentTextSize).LogRowHeight;
+            float controlsHeight =
+                (_logToolbar?.layout.height ?? 0f)
+                + (_inputContainer?.layout.height ?? 0f)
+                + (_completionView?.Panel.layout.height ?? 0f)
+                + (_validationView?.Root.layout.height ?? 0f)
+                + (_logCopyStatus?.layout.height ?? 0f);
             if (narrow)
             {
                 float minimumHeight = Math.Max(0, narrowWindowMinimumHeight);
-                if (0 < minimumHeight)
+                if (0 < minimumHeight && float.IsFinite(controlsHeight))
                 {
-                    float controlsHeight =
-                        (_logToolbar?.layout.height ?? 0f)
-                        + (_inputContainer?.layout.height ?? 0f)
-                        + (_completionView?.Panel.layout.height ?? 0f)
-                        + (_validationView?.Root.layout.height ?? 0f)
-                        + (_logCopyStatus?.layout.height ?? 0f);
-                    if (float.IsFinite(controlsHeight))
-                    {
-                        minimumHeight = Math.Max(minimumHeight, controlsHeight + MinimumVisibleLogHeight);
-                    }
+                    minimumHeight = Math.Max(minimumHeight, controlsHeight + Math.Max(MinimumVisibleLogHeight, logRowFloor));
                 }
                 smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, minimumHeight));
+            }
+            else if (0f < smallHeight && float.IsFinite(controlsHeight) && 0f < controlsHeight)
+            {
+                // Two fixed rows ensure any scroll offset still displays one unclipped log line.
+                float minimumLogHeight = Math.Max(MinimumVisibleLogHeight, logRowFloor * 2f);
+                smallHeight = Math.Min(fullHeight, Math.Max(smallHeight, controlsHeight + minimumLogHeight));
             }
             float popupHeight = _completionView?.MinimumHeight ?? 0f;
             if (0f < popupHeight && _logScrollView != null && _inputContainer != null)
