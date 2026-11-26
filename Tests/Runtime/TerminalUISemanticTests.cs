@@ -1236,11 +1236,7 @@
                 TerminalMotionPresetMetrics metrics = TerminalMotionPresetMetrics.For(preset);
                 for (int pass = 0; pass < 3; ++pass)
                 {
-                    if (0f < metrics.OpenDurationSeconds)
-                    {
-                        _terminal.StepHeightAnimation(metrics.OpenDurationSeconds + 0.01f);
-                    }
-
+                    _terminal.StepHeightAnimation(metrics.OpenDurationSeconds + 0.01f);
                     _terminal.RefreshUI();
                     yield return null;
                 }

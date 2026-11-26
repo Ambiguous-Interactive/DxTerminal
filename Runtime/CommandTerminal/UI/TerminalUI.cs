@@ -4525,17 +4525,6 @@
                 return;
             }
 
-            TerminalMotionPresetMetrics metrics = TerminalMotionPresetMetrics.For(CurrentMotionPreset);
-            bool isExpanding = _currentWindowHeight < _targetWindowHeight;
-            float duration = isExpanding ? metrics.OpenDurationSeconds : metrics.CloseDurationSeconds;
-            if (duration <= 0f)
-            {
-                _currentWindowHeight = _targetWindowHeight;
-                _isAnimating = false;
-                _needsInitialRefresh = true;
-                return;
-            }
-
             _initialWindowHeight = _currentWindowHeight;
             _animationTimer = 0f;
             _isAnimating = true;
