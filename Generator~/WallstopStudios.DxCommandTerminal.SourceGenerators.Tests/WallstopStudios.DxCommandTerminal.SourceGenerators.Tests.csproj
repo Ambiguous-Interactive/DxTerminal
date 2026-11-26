@@ -47,6 +47,7 @@
         <Compile Include="$(RepoRoot)/Runtime/CommandTerminal/Backend/CommandExecutionContexts.cs" />
         <Compile Include="$(RepoRoot)/Runtime/CommandTerminal/Backend/CommandExecutionContextSets.cs" />
         <Compile Include="$(RepoRoot)/Runtime/CommandTerminal/Backend/CommandExecutionContextsExtensions.cs" />
+        <Compile Include="$(RepoRoot)/Runtime/CommandTerminal/Backend/CommandTier.cs" />
         <Compile Include="$(RepoRoot)/Runtime/CommandTerminal/Backend/CommandArgParser.cs" />
         <Compile Include="*.cs" />
     </ItemGroup>

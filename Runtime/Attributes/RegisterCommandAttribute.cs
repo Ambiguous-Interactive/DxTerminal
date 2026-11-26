@@ -18,6 +18,9 @@ namespace WallstopStudios.DxCommandTerminal.Attributes
         public int MaxArgCount { get; set; } = -1;
         public string Help { get; set; }
         public string Hint { get; set; }
+        public string Group { get; set; }
+        public CommandTier Tier { get; set; } = CommandTier.Developer;
+        public bool HideFromActions { get; set; }
 
         public bool EditorOnly { get; set; }
 

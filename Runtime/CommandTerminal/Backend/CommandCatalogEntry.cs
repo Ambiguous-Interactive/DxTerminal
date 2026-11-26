@@ -78,6 +78,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// </summary>
         public CommandExecutionContexts Contexts { get; }
 
+        /// <summary>Audience tier. Mirrors <see cref="Attributes.RegisterCommandAttribute.Tier"/>.</summary>
+        public CommandTier Tier { get; }
+
+        /// <summary>Optional group label. Mirrors <see cref="Attributes.RegisterCommandAttribute.Group"/>.</summary>
+        public string Group { get; }
+
+        /// <summary>When true, omits the command from Actions. Mirrors <see cref="Attributes.RegisterCommandAttribute.HideFromActions"/>.</summary>
+        public bool HideFromActions { get; }
+
         /// <summary>
         ///     Binds the handler to a runnable delegate. Non-null only for commands
         ///     with a valid <c>(CommandArg[])</c> signature; accessible handlers are
@@ -124,7 +133,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Func<Action<CommandArg[]>> binder,
             Func<MethodInfo> methodAccessor,
             CommandExecutionContexts contexts = CommandExecutionContextSets.All,
-            string declaringTypeName = null
+            string declaringTypeName = null,
+            CommandTier tier = CommandTier.Developer,
+            string group = null,
+            bool hideFromActions = false
         )
         {
             /*
@@ -163,6 +175,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             MethodAccessor = methodAccessor;
             Contexts = contexts;
             DeclaringTypeName = declaringTypeName;
+            Tier = tier;
+            Group = group;
+            HideFromActions = hideFromActions;
         }
 
         /// <summary>

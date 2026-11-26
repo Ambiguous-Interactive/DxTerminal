@@ -4,7 +4,10 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
     public readonly struct CommandInfo
     {
-        internal string Group { get; }
+        internal string Group
+        {
+            get { return group; }
+        }
 
         internal CommandBuilder.SubcommandRoute SyntaxRoute { get; }
 
@@ -43,6 +46,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// </summary>
         public readonly CommandExecutionContexts executionContexts;
 
+        /// <summary>Audience tier for filtering in build profiles and UI surfaces.</summary>
+        public readonly CommandTier tier;
+
+        /// <summary>Optional group label shown in completion lists and Actions.</summary>
+        public readonly string group;
+
+        /// <summary>When true, omits the command from the Actions surface.</summary>
+        public readonly bool hideFromActions;
+
         public CommandInfo(Action<CommandArg[]> proc, int minArgCount, int? maxArgCount, string help, string hint, bool addToHistory = true)
             : this(proc, handler: null, completionProvider: null, CommandExecutionContextSets.All, minArgCount, maxArgCount, help, hint, addToHistory) { }
 
@@ -57,7 +69,21 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             string hint,
             bool addToHistory = true
         )
-            : this(proc, handler, completionProvider, executionContexts, minArgCount, maxArgCount, help, hint, addToHistory, syntaxRoute: null) { }
+            : this(
+                proc,
+                handler,
+                completionProvider,
+                executionContexts,
+                minArgCount,
+                maxArgCount,
+                help,
+                hint,
+                addToHistory,
+                syntaxRoute: null,
+                group: null,
+                tier: CommandTier.Developer,
+                hideFromActions: false
+            ) { }
 
         internal CommandInfo(
             Action<CommandArg[]> proc,
@@ -70,11 +96,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             string hint,
             bool addToHistory,
             CommandBuilder.SubcommandRoute syntaxRoute,
-            string group = null
+            string group = null,
+            CommandTier tier = CommandTier.Developer,
+            bool hideFromActions = false
         )
         {
             SyntaxRoute = syntaxRoute;
-            Group = group;
+            this.group = group;
+            this.tier = NormalizeTier(tier);
+            this.hideFromActions = hideFromActions;
             this.proc = proc;
             this.handler = handler;
             this.completionProvider = completionProvider;
@@ -84,6 +114,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             this.help = help;
             this.hint = hint;
             this.addToHistory = addToHistory;
+        }
+
+        private static CommandTier NormalizeTier(CommandTier tier)
+        {
+            return tier is CommandTier.Player or CommandTier.Tester or CommandTier.Developer ? tier : CommandTier.Developer;
         }
 
         /// <summary>

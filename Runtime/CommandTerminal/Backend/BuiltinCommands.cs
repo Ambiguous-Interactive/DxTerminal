@@ -49,7 +49,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         [ThreadStatic]
         private static LogItem[] LogWindow;
 
-        [RegisterCommand(isDefault: true, Name = "list-themes", Help = "Lists all currently available themes", MaxArgCount = 0)]
+        [RegisterCommand(isDefault: true, Name = "list-themes", Help = "Lists all currently available themes", MaxArgCount = 0, Tier = CommandTier.Player)]
         public static void CommandListThemes(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -82,7 +82,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Terminal.Log(TerminalLogType.Message, themes.Builder.ToString());
         }
 
-        [RegisterCommand(isDefault: true, Name = "list-fonts", Help = "Lists all currently available fonts", MaxArgCount = 0)]
+        [RegisterCommand(isDefault: true, Name = "list-fonts", Help = "Lists all currently available fonts", MaxArgCount = 0, Tier = CommandTier.Player)]
         public static void CommandListFonts(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -120,7 +120,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Terminal.Log(TerminalLogType.Message, fontNames.Builder.ToString());
         }
 
-        [RegisterCommand(isDefault: true, Name = "set-theme", Help = "Sets the current Terminal UI theme", MinArgCount = 1, MaxArgCount = 1)]
+        [RegisterCommand(isDefault: true, Name = "set-theme", Help = "Sets the current Terminal UI theme", MinArgCount = 1, MaxArgCount = 1, Tier = CommandTier.Player)]
         public static void CommandSetTheme(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -159,7 +159,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Terminal.Log(TerminalLogType.Message, $"Theme '{theme}' set.");
         }
 
-        [RegisterCommand(isDefault: true, Name = "get-theme", Help = "Gets the current Terminal UI theme")]
+        [RegisterCommand(isDefault: true, Name = "get-theme", Help = "Gets the current Terminal UI theme", Tier = CommandTier.Player)]
         public static void CommandGetTheme(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -172,7 +172,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Terminal.Log(TerminalLogType.Message, $"Current terminal theme is '{terminal.CurrentFriendlyTheme}'.");
         }
 
-        [RegisterCommand(isDefault: true, Name = "get-font", Help = "Gets the current Terminal UI font")]
+        [RegisterCommand(isDefault: true, Name = "get-font", Help = "Gets the current Terminal UI font", Tier = CommandTier.Player)]
         public static void CommandGetFont(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -200,7 +200,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Terminal.Log(TerminalLogType.Message, $"Randomly selected and set theme to '{newTheme}'.");
         }
 
-        [RegisterCommand(isDefault: true, Name = "set-font", Help = "Sets the current Terminal UI font", MinArgCount = 1, MaxArgCount = 1)]
+        [RegisterCommand(isDefault: true, Name = "set-font", Help = "Sets the current Terminal UI font", MinArgCount = 1, MaxArgCount = 1, Tier = CommandTier.Player)]
         public static void CommandSetFont(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -251,7 +251,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Terminal.Log(TerminalLogType.Message, $"Randomly selected and set font to '{font.name}'.");
         }
 
-        [RegisterCommand(isDefault: true, Name = "clear-console", Help = "Clear the command console", MaxArgCount = 0)]
+        [RegisterCommand(isDefault: true, Name = "clear-console", Help = "Clear the command console", MaxArgCount = 0, Tier = CommandTier.Player)]
         public static void CommandClearConsole(CommandArg[] args)
         {
             Terminal.Buffer?.Clear();
@@ -263,13 +263,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Terminal.History?.Clear();
         }
 
-        [RegisterCommand(isDefault: true, Name = "copy-last", Help = "Copy the most recent log line to the clipboard", MaxArgCount = 0)]
+        [RegisterCommand(isDefault: true, Name = "copy-last", Help = "Copy the most recent log line to the clipboard", MaxArgCount = 0, Tier = CommandTier.Player)]
         public static void CommandCopyLast(CommandArg[] args)
         {
             CopyLogLines(1);
         }
 
-        [RegisterCommand(isDefault: true, Name = "copy-log", Help = "Copy the last N log lines to the clipboard", MaxArgCount = 1)]
+        [RegisterCommand(isDefault: true, Name = "copy-log", Help = "Copy the last N log lines to the clipboard", MaxArgCount = 1, Tier = CommandTier.Player)]
         public static void CommandCopyLog(CommandArg[] args)
         {
             if (0 < args.Length)
@@ -305,7 +305,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             reaches the search whole - the same rule `log` follows, and the
             reason `find "two words"` searches for two words.
          */
-        [RegisterCommand(isDefault: true, Name = "find", Help = "Show only the log lines that contain the text, then the next match on a repeat")]
+        [RegisterCommand(isDefault: true, Name = "find", Help = "Show only the log lines that contain the text, then the next match on a repeat", Tier = CommandTier.Player)]
         public static void CommandFind(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -324,7 +324,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             terminal.SetLogFilter(JoinArguments(args));
         }
 
-        [RegisterCommand(isDefault: true, Name = "clear-filter", Help = "Show every log line again, dropping a find", MaxArgCount = 0)]
+        [RegisterCommand(isDefault: true, Name = "clear-filter", Help = "Show every log line again, dropping a find", MaxArgCount = 0, Tier = CommandTier.Player)]
         public static void CommandClearFilter(CommandArg[] args)
         {
             TerminalUI terminal = TerminalUI.Instance;
@@ -337,7 +337,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             terminal.ClearLogFilter();
         }
 
-        [RegisterCommand(isDefault: true, Name = "help", Help = "Display help information about a command", MaxArgCount = 1)]
+        [RegisterCommand(isDefault: true, Name = "help", Help = "Display help information about a command", MaxArgCount = 1, Tier = CommandTier.Player)]
         public static void CommandHelp(CommandArg[] args)
         {
             CommandShell shell = Terminal.Shell;
@@ -595,7 +595,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             // No-op
         }
 
-        [RegisterCommand(isDefault: true, Name = "quit", Help = "Quit running application", MaxArgCount = 0)]
+        [RegisterCommand(isDefault: true, Name = "quit", Help = "Quit running application", MaxArgCount = 0, Tier = CommandTier.Player)]
         public static void CommandQuit(CommandArg[] args)
         {
 #if UNITY_EDITOR

@@ -21,7 +21,15 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators.Tests
         public static int PublicInvocations;
         public static int SecretInvocations;
 
-        [RegisterCommand(Name = "fixture-public", Help = "Public fixture command", MinArgCount = 0, MaxArgCount = 1)]
+        [RegisterCommand(
+            Name = "fixture-public",
+            Help = "Public fixture command",
+            MinArgCount = 0,
+            MaxArgCount = 1,
+            Tier = CommandTier.Tester,
+            Group = "Diagnostics",
+            HideFromActions = true
+        )]
         public static void FixturePublicCommand(CommandArg[] args)
         {
             PublicInvocations++;
@@ -135,6 +143,9 @@ namespace WallstopStudios.DxCommandTerminal.SourceGenerators.Tests
                 Assert.Equal(attribute.AddToHistory, entry.AddToHistory);
                 Assert.Equal(attribute.EditorOnly, entry.EditorOnly);
                 Assert.Equal(attribute.DevelopmentOnly, entry.DevelopmentOnly);
+                Assert.Equal(attribute.Tier, entry.Tier);
+                Assert.Equal(attribute.Group, entry.Group);
+                Assert.Equal(attribute.HideFromActions, entry.HideFromActions);
             }
         }
 
