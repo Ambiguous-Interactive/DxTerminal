@@ -244,6 +244,7 @@
         private readonly List<CommandToken> _tokenBuffer = new();
         private CommandBuilder.SubcommandRoute _signatureRoute;
         private int _signatureStage = -1;
+        private int _lastObservedCaret = -1;
         private string _activeQuery = string.Empty;
         private string _ghost;
         private string _matchTag = "<u>";
@@ -935,6 +936,7 @@
             ClearFeedback();
             string effectiveQuery = query ?? string.Empty;
             int normalizedCaret = NormalizeCaret(caretIndex, effectiveQuery);
+            _lastObservedCaret = normalizedCaret;
             _activeQuery = effectiveQuery;
             if (string.IsNullOrWhiteSpace(effectiveQuery))
             {
@@ -1049,6 +1051,7 @@
             _rowHintLabels.Clear();
             _signatureRoute = null;
             _signatureStage = -1;
+            _lastObservedCaret = -1;
             _ghost = null;
             _activeQuery = string.Empty;
             _recentMode = false;
@@ -1098,6 +1101,15 @@
             if (_isOpen && _input != null)
             {
                 string line = _input.value ?? string.Empty;
+                int caret = NormalizeCaret(_pendingCaretIndex ?? _input.cursorIndex, line);
+                if (caret != _lastObservedCaret)
+                {
+                    _lastObservedCaret = caret;
+                    RefreshSignature(line, caret);
+                    RefreshGhost(line, caret);
+                    UpdateFooter();
+                }
+
                 RefreshValidation(line);
                 RefreshHighlight(line);
             }
@@ -1889,6 +1901,7 @@
         {
             SetInputValue(string.Empty);
             _activeQuery = string.Empty;
+            _lastObservedCaret = 0;
             CollapseResults();
             RefreshSignature(string.Empty, 0);
             RefreshGhost(string.Empty, 0);
