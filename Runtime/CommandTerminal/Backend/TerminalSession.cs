@@ -13,6 +13,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     /// </summary>
     internal sealed class TerminalSession
     {
+        internal event Action ShellReplaced;
+
         /// <summary>
         ///     The process-wide session backing the <see cref="Terminal"/>
         ///     facade. Never null: initialized once per domain and the
@@ -37,6 +39,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         public CommandAutoComplete AutoComplete { get; internal set; }
 
+        public bool HasComponentConfiguration { get; private set; }
+
         /// <summary>
         ///     Applies <paramref name="config"/> to the backend objects. With
         ///     <paramref name="force"/>, every object is recreated; otherwise
@@ -49,8 +53,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         ///     True when the shell's auto-command configuration was reapplied and
         ///     callers holding completion state should reset it.
         /// </returns>
-        public bool Apply(Config config, bool force)
+        public bool Apply(Config config, bool force, bool markConfigured = true)
         {
+            if (markConfigured)
+            {
+                HasComponentConfiguration = true;
+            }
+
             int logBufferSize = Mathf.Max(0, config.LogBufferSize);
             if (force || Buffer == null)
             {
@@ -76,7 +85,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 History.Resize(historyBufferSize);
             }
 
-            if (force || Shell == null)
+            bool shellReplaced = force || Shell == null;
+            if (shellReplaced)
             {
                 Shell = new CommandShell(History);
             }
@@ -94,6 +104,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 Shell.ClearAutoRegisteredCommands();
                 Shell.InitializeAutoRegisteredCommands(ignoredCommands: config.DisabledCommands, ignoreDefaultCommands: config.IgnoreDefaultCommands, deferRegistration: true);
+            }
+
+            if (shellReplaced)
+            {
+                ShellReplaced?.Invoke();
             }
 
             return reconfigureShell;
@@ -126,6 +141,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             History = null;
             Shell = null;
             AutoComplete = null;
+            HasComponentConfiguration = false;
+            ShellReplaced = null;
         }
 
         /// <summary>

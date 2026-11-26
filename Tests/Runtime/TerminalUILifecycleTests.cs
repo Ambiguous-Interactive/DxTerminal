@@ -971,23 +971,165 @@
                 Assert.IsEmpty(LivePalettes(), "The play-session reset must clear the live-palette registry");
                 Assert.IsFalse(CommandArg.TryGetParser(out CommandArgParser<int> _), "The play-session reset must drop registered parsers");
                 CollectionAssert.AreEquivalent(new[] { ',', ';', ':', '_', '/', '\\' }, CommandArg.Delimiters, "The play-session reset must restore the default delimiters");
-                Assert.That(Terminal.Buffer == null, "The play-session reset must drop the session's backends");
-                Assert.That(Terminal.History == null, "The history must drop with the session");
-                Assert.That(Terminal.Shell == null, "The shell must drop with the session");
-                Assert.That(Terminal.AutoComplete == null, "The auto-complete must drop with the session");
+                Assert.That(Terminal.Buffer != null, "The play-session reset must bootstrap a fresh buffer");
+                Assert.That(Terminal.History != null, "The play-session reset must bootstrap a fresh history");
+                Assert.That(Terminal.Shell != null, "The play-session reset must bootstrap a fresh shell");
+                Assert.That(Terminal.AutoComplete != null, "The play-session reset must bootstrap a fresh auto-complete");
+                Assert.AreNotSame(originalBuffer, Terminal.Buffer, "The play-session reset must replace the previous buffer");
+                Assert.AreNotSame(originalHistory, Terminal.History, "The play-session reset must replace the previous history");
+                Assert.AreNotSame(originalShell, Terminal.Shell, "The play-session reset must replace the previous shell");
+                Assert.AreNotSame(originalAutoComplete, Terminal.AutoComplete, "The play-session reset must replace the previous auto-complete");
+                Assert.IsFalse(Terminal.Shell.AutoCommandsRegistered, "Play-session bootstrap must keep auto-command discovery deferred");
 
+                CommandShell firstBootstrappedShell = Terminal.Shell;
                 TerminalUI.ResetForNextPlaySession();
-                Assert.That(Terminal.Buffer == null, "A repeated play-session reset stays cleared");
+                Assert.That(Terminal.Buffer != null, "A repeated play-session reset keeps the session bootstrapped");
+                Assert.AreNotSame(firstBootstrappedShell, Terminal.Shell, "A repeated play-session reset replaces the previous shell");
+                Assert.IsFalse(Terminal.Shell.AutoCommandsRegistered, "A repeated play-session reset keeps discovery deferred");
                 Assert.IsEmpty(LivePalettes(), "A repeated play-session reset leaves the palette registry empty");
 
+                CommandShell bootstrappedShell = Terminal.Shell;
                 TerminalSession.Current.Apply(new TerminalSession.Config(64, 64, null, null, false), force: false);
-                Assert.That(Terminal.Buffer != null, "The next Apply recreates the session from the cleared state");
+                Assert.AreSame(bootstrappedShell, Terminal.Shell, "A non-forced Apply must reuse the bootstrapped shell");
+                Assert.AreEqual(64, Terminal.Buffer.Capacity, "A non-forced Apply must resize the bootstrapped buffer");
             }
             finally
             {
                 if (paletteObject != null)
                 {
                     UnityEngine.Object.Destroy(paletteObject);
+                }
+
+                Terminal.Buffer = originalBuffer;
+                Terminal.History = originalHistory;
+                Terminal.Shell = originalShell;
+                Terminal.AutoComplete = originalAutoComplete;
+                CommandArg.ResetForNextPlaySession();
+            }
+        }
+
+        [Test]
+        public void CommandBehaviourRegistersInOnEnableWithoutTerminalUIAndDisposesOnDisable()
+        {
+            CommandLog originalBuffer = Terminal.Buffer;
+            CommandHistory originalHistory = Terminal.History;
+            CommandShell originalShell = Terminal.Shell;
+            CommandAutoComplete originalAutoComplete = Terminal.AutoComplete;
+            GameObject behaviourObject = null;
+            try
+            {
+                TerminalUI.ResetForNextPlaySession();
+                Assert.That(TerminalUI.Instance == null, "Sanity: no TerminalUI exists in this scene");
+                Assert.That(Terminal.Shell != null, "Play-session bootstrap must provide a live shell before any TerminalUI");
+
+                behaviourObject = new GameObject("TerminalCommandBehaviourProbe");
+                SampleBehaviourProbe behaviour = behaviourObject.AddComponent<SampleBehaviourProbe>();
+
+                Assert.IsTrue(behaviour.SawNonNullShellInAwake, "Terminal.Shell must be non-null in Play Mode Awake");
+                Assert.IsFalse(behaviour.SawAutoCommandsRegisteredInAwake, "Auto-command discovery must remain deferred in Awake");
+                Assert.IsTrue(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "OnEnable must register the behaviour's command");
+                Assert.IsTrue(Terminal.Shell.RunCommand(SampleBehaviourProbe.CommandName), "Registered behaviour command must execute");
+                Assert.AreEqual(1, behaviour.Invocations);
+
+                CommandShell previousShell = Terminal.Shell;
+                TerminalSession.Current.Apply(TerminalSession.Config.Default, force: true);
+                Assert.AreNotSame(previousShell, Terminal.Shell, "Sanity: forced Apply replaces the shell");
+                Assert.IsTrue(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "Enabled behaviour must re-register when the shell is replaced");
+                Assert.IsTrue(Terminal.Shell.RunCommand(SampleBehaviourProbe.CommandName), "Re-registered behaviour command must execute");
+                Assert.AreEqual(2, behaviour.Invocations);
+
+                behaviour.enabled = false;
+                Assert.IsFalse(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "OnDisable must dispose the behaviour's registration handle");
+            }
+            finally
+            {
+                if (behaviourObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(behaviourObject);
+                }
+
+                Terminal.Buffer = originalBuffer;
+                Terminal.History = originalHistory;
+                Terminal.Shell = originalShell;
+                Terminal.AutoComplete = originalAutoComplete;
+                CommandArg.ResetForNextPlaySession();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CommandBehaviourSurvivesTerminalUIStartWithResetStateOnInit()
+        {
+            GameObject behaviourObject = new("BehaviourBeforeResetTerminal");
+            _spawnedObjects.Add(behaviourObject);
+            SampleBehaviourProbe behaviour = behaviourObject.AddComponent<SampleBehaviourProbe>();
+
+            yield return SpawnTerminalWithDocument(showButtons: false, resetState: true);
+
+            Assert.IsTrue(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "Enabled behaviour command must survive TerminalUI.Start with resetStateOnInit");
+            Assert.IsTrue(Terminal.Shell.RunCommand(SampleBehaviourProbe.CommandName), "Behaviour command must execute after TerminalUI.Start");
+            Assert.AreEqual(1, behaviour.Invocations);
+        }
+
+        [Test]
+        public void PaletteOnlySceneAppliesSettingsAssetOverBootstrappedSession()
+        {
+            CommandLog originalBuffer = Terminal.Buffer;
+            CommandHistory originalHistory = Terminal.History;
+            CommandShell originalShell = Terminal.Shell;
+            CommandAutoComplete originalAutoComplete = Terminal.AutoComplete;
+            TerminalSettings firstSettings = null;
+            TerminalSettings secondSettings = null;
+            GameObject firstPaletteObject = null;
+            GameObject secondPaletteObject = null;
+            try
+            {
+                TerminalUI.ResetForNextPlaySession();
+                Assert.IsFalse(TerminalSession.Current.HasComponentConfiguration, "Play-session bootstrap must leave component configuration unset");
+
+                firstSettings = ScriptableObject.CreateInstance<TerminalSettings>();
+                firstSettings.logBufferSize = 37;
+                firstSettings.ignoredLogTypes = new List<TerminalLogType> { TerminalLogType.Warning };
+
+                firstPaletteObject = new GameObject("PaletteOnlyFirst");
+                firstPaletteObject.SetActive(false);
+                CommandPaletteUI firstPalette = firstPaletteObject.AddComponent<CommandPaletteUI>();
+                firstPalette._settings = firstSettings;
+                firstPaletteObject.SetActive(true);
+
+                Assert.IsTrue(TerminalSession.Current.HasComponentConfiguration, "First palette must apply its settings over provisional bootstrap");
+                Assert.AreEqual(37, Terminal.Buffer.Capacity, "First palette settings logBufferSize must take effect");
+                Assert.IsFalse(Terminal.Log(TerminalLogType.Warning, "dropped"), "First palette settings ignoredLogTypes must take effect");
+
+                secondSettings = ScriptableObject.CreateInstance<TerminalSettings>();
+                secondSettings.logBufferSize = 99;
+                secondPaletteObject = new GameObject("PaletteOnlySecond");
+                secondPaletteObject.SetActive(false);
+                CommandPaletteUI secondPalette = secondPaletteObject.AddComponent<CommandPaletteUI>();
+                secondPalette._settings = secondSettings;
+                secondPaletteObject.SetActive(true);
+
+                Assert.AreEqual(37, Terminal.Buffer.Capacity, "A second palette must not override the first palette's configuration");
+            }
+            finally
+            {
+                if (secondPaletteObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(secondPaletteObject);
+                }
+
+                if (firstPaletteObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(firstPaletteObject);
+                }
+
+                if (secondSettings != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(secondSettings);
+                }
+
+                if (firstSettings != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(firstSettings);
                 }
 
                 Terminal.Buffer = originalBuffer;
@@ -1153,7 +1295,42 @@
             _terminal._fontPack = LoadAsset<TerminalFontPack>("Packs/Fonts/Medium.asset");
             StartTracker tracker = _terminalObject.AddComponent<StartTracker>();
             _terminalObject.SetActive(true);
-            yield return new WaitUntil(() => tracker.Started);
+            yield return new WaitUntil(() =>
+            {
+                return tracker.Started;
+            });
+        }
+
+        private sealed class SampleBehaviourProbe : TerminalCommandBehaviour
+        {
+            public const string CommandName = "probe-behaviour-cmd";
+
+            public bool SawNonNullShellInAwake { get; private set; }
+
+            public bool SawAutoCommandsRegisteredInAwake { get; private set; }
+
+            public int Invocations { get; private set; }
+
+            protected override void RegisterCommands()
+            {
+                Register(
+                    CommandBuilder
+                        .Create(CommandName, "Probe command")
+                        .Handler(
+                            (CommandExecutionContext context, CommandArguments arguments) =>
+                            {
+                                ++Invocations;
+                            }
+                        )
+                );
+            }
+
+            private void Awake()
+            {
+                CommandShell shell = Terminal.Shell;
+                SawNonNullShellInAwake = shell != null;
+                SawAutoCommandsRegisteredInAwake = shell != null && shell.AutoCommandsRegistered;
+            }
         }
     }
 }
