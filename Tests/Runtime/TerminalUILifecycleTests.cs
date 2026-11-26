@@ -1056,6 +1056,90 @@
             }
         }
 
+        [UnityTest]
+        public IEnumerator CommandBehaviourSurvivesTerminalUIStartWithResetStateOnInit()
+        {
+            GameObject behaviourObject = new("BehaviourBeforeResetTerminal");
+            _spawnedObjects.Add(behaviourObject);
+            SampleBehaviourProbe behaviour = behaviourObject.AddComponent<SampleBehaviourProbe>();
+
+            yield return SpawnTerminalWithDocument(showButtons: false, resetState: true);
+
+            Assert.IsTrue(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "Enabled behaviour command must survive TerminalUI.Start with resetStateOnInit");
+            Assert.IsTrue(Terminal.Shell.RunCommand(SampleBehaviourProbe.CommandName), "Behaviour command must execute after TerminalUI.Start");
+            Assert.AreEqual(1, behaviour.Invocations);
+        }
+
+        [Test]
+        public void PaletteOnlySceneAppliesSettingsAssetOverBootstrappedSession()
+        {
+            CommandLog originalBuffer = Terminal.Buffer;
+            CommandHistory originalHistory = Terminal.History;
+            CommandShell originalShell = Terminal.Shell;
+            CommandAutoComplete originalAutoComplete = Terminal.AutoComplete;
+            TerminalSettings firstSettings = null;
+            TerminalSettings secondSettings = null;
+            GameObject firstPaletteObject = null;
+            GameObject secondPaletteObject = null;
+            try
+            {
+                TerminalUI.ResetForNextPlaySession();
+                Assert.IsFalse(TerminalSession.Current.HasComponentConfiguration, "Play-session bootstrap must leave component configuration unset");
+
+                firstSettings = ScriptableObject.CreateInstance<TerminalSettings>();
+                firstSettings.logBufferSize = 37;
+                firstSettings.ignoredLogTypes = new List<TerminalLogType> { TerminalLogType.Warning };
+
+                firstPaletteObject = new GameObject("PaletteOnlyFirst");
+                firstPaletteObject.SetActive(false);
+                CommandPaletteUI firstPalette = firstPaletteObject.AddComponent<CommandPaletteUI>();
+                firstPalette._settings = firstSettings;
+                firstPaletteObject.SetActive(true);
+
+                Assert.IsTrue(TerminalSession.Current.HasComponentConfiguration, "First palette must apply its settings over provisional bootstrap");
+                Assert.AreEqual(37, Terminal.Buffer.Capacity, "First palette settings logBufferSize must take effect");
+                Assert.IsFalse(Terminal.Log(TerminalLogType.Warning, "dropped"), "First palette settings ignoredLogTypes must take effect");
+
+                secondSettings = ScriptableObject.CreateInstance<TerminalSettings>();
+                secondSettings.logBufferSize = 99;
+                secondPaletteObject = new GameObject("PaletteOnlySecond");
+                secondPaletteObject.SetActive(false);
+                CommandPaletteUI secondPalette = secondPaletteObject.AddComponent<CommandPaletteUI>();
+                secondPalette._settings = secondSettings;
+                secondPaletteObject.SetActive(true);
+
+                Assert.AreEqual(37, Terminal.Buffer.Capacity, "A second palette must not override the first palette's configuration");
+            }
+            finally
+            {
+                if (secondPaletteObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(secondPaletteObject);
+                }
+
+                if (firstPaletteObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(firstPaletteObject);
+                }
+
+                if (secondSettings != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(secondSettings);
+                }
+
+                if (firstSettings != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(firstSettings);
+                }
+
+                Terminal.Buffer = originalBuffer;
+                Terminal.History = originalHistory;
+                Terminal.Shell = originalShell;
+                Terminal.AutoComplete = originalAutoComplete;
+                CommandArg.ResetForNextPlaySession();
+            }
+        }
+
         private IEnumerator LogBeforeStartAndAwaitStart(bool resetStateOnInit)
         {
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();

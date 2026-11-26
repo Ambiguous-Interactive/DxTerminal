@@ -529,6 +529,58 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.IsTrue(Terminal.Log(TerminalLogType.Message, "{0}-{1}", values));
             Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem explicitType));
             Assert.AreEqual("alpha-42", explicitType.message);
+
+            string[] strings = { "alpha", "beta" };
+            Assert.IsTrue(Terminal.Log("{0}-{1}", strings));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem stringArrayDefault));
+            Assert.AreEqual("alpha-beta", stringArrayDefault.message);
+
+            Assert.IsTrue(Terminal.Log(TerminalLogType.Message, "{0}-{1}", strings));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem stringArrayExplicit));
+            Assert.AreEqual("alpha-beta", stringArrayExplicit.message);
+        }
+
+        [Test]
+        public void TypedLogFormatOverloadsThrowOnNullFormat()
+        {
+            TerminalSession.Current.Apply(Config(), force: true);
+
+            Assert.Throws<System.ArgumentNullException>(() =>
+            {
+                Terminal.Log((string)null, 1);
+            });
+            Assert.Throws<System.ArgumentNullException>(() =>
+            {
+                Terminal.Log((string)null, 1, 2);
+            });
+            Assert.Throws<System.ArgumentNullException>(() =>
+            {
+                Terminal.Log((string)null, 1, 2, 3);
+            });
+            Assert.Throws<System.ArgumentNullException>(() =>
+            {
+                Terminal.Log(TerminalLogType.Message, (string)null, 1);
+            });
+            Assert.Throws<System.ArgumentNullException>(() =>
+            {
+                Terminal.Log(TerminalLogType.Message, (string)null, 1, 2);
+            });
+            Assert.Throws<System.ArgumentNullException>(() =>
+            {
+                Terminal.Log(TerminalLogType.Message, (string)null, 1, 2, 3);
+            });
+        }
+
+        [Test]
+        public void ProvisionalBootstrapLeavesComponentConfigurationUnset()
+        {
+            TerminalSession session = new();
+            session.Apply(Config(), force: true, markConfigured: false);
+            Assert.IsFalse(session.HasComponentConfiguration, "Provisional bootstrap must not claim component configuration ownership");
+
+            session.Apply(Config(logBufferSize: 32), force: false);
+            Assert.IsTrue(session.HasComponentConfiguration, "Component Apply must mark component configuration applied");
+            Assert.AreEqual(32, session.Buffer.Capacity);
         }
 
         [Test]

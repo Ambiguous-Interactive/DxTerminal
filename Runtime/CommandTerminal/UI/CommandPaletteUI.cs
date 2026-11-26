@@ -1069,7 +1069,7 @@
          */
         private void EnsureBackendSession()
         {
-            if (TerminalSession.Current.Buffer != null)
+            if (TerminalSession.Current.Buffer != null && TerminalSession.Current.HasComponentConfiguration)
             {
                 return;
             }

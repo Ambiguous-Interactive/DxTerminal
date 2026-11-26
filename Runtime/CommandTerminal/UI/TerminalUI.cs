@@ -1056,7 +1056,7 @@
             CommandPaletteUI.ResetForNextPlaySession();
             CommandArg.ResetForNextPlaySession();
             TerminalSession.Current.ResetState();
-            TerminalSession.Current.Apply(TerminalSession.Config.Default, force: true);
+            TerminalSession.Current.Apply(TerminalSession.Config.Default, force: true, markConfigured: false);
 
             /*
                 No live component exists here (scene Awake has not run and the

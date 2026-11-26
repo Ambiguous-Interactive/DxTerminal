@@ -27,8 +27,9 @@ metadata:
   with `deferRegistration: true`. With disabled domain reload this isolates Play Mode sessions while keeping `Terminal.Shell` ready for `TerminalCommandBehaviour.OnEnable`.
 - `TerminalUI.OnEnable` and `.Start` call `RefreshStaticState(force: resetStateOnInit)`: `Apply` reuses/resizes existing backends when false, recreates when true. The enabling
   terminal becomes `_configOwner` (newest enabled claim wins).
-- `CommandPaletteUI.OnEnable` bootstraps ONLY when the session is cold (`Buffer == null`): config from its `TerminalSettings` asset, else `TerminalSession.Config.Default`. A
-  palette NEVER reconfigures an existing session, never takes `_configOwner`/`Instance`, and never forces.
+- `CommandPaletteUI.OnEnable` applies its `TerminalSettings` (or `TerminalSession.Config.Default`) when the session is cold (`Buffer == null`) or still provisionally bootstrapped
+  (`!HasComponentConfiguration`), reusing existing backends in place (`force: false`). Once any component configures the session, later palettes never reconfigure it, never take
+  `_configOwner`/`Instance`, and never force.
 - Command registration stays deferred to first use on every path (`RunCommand`, `Commands` read, `TryComplete`, or explicit `EnsureAutoCommandsRegistered`). Do not call
   `EnsureReady` on enable or `SubsystemRegistration` paths - that reintroduces startup discovery (readiness p95 gate). `TerminalSession.EnsureReady` exists only as an explicit
   headless bootstrap helper.

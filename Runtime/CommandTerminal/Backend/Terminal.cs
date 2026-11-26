@@ -1,5 +1,6 @@
 namespace WallstopStudios.DxCommandTerminal.Backend
 {
+    using System;
     using JetBrains.Annotations;
 
     public static class Terminal
@@ -78,10 +79,21 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         [StringFormatMethod("format")]
         public static bool Log<T0>(TerminalLogType type, string format, T0 arg0)
         {
+            if (format == null)
+            {
+                throw new ArgumentNullException(nameof(format));
+            }
+
             CommandLog buffer = Buffer;
             if (buffer == null || buffer.IsIgnored(type))
             {
                 return false;
+            }
+
+            if (arg0 is object[] objectArray)
+            {
+                string formatted = 0 < objectArray.Length ? string.Format(format, objectArray) : format;
+                return buffer.HandleLog(formatted, type);
             }
 
             return buffer.HandleLog(string.Format(format, arg0), type);
@@ -96,6 +108,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         [StringFormatMethod("format")]
         public static bool Log<T0, T1>(TerminalLogType type, string format, T0 arg0, T1 arg1)
         {
+            if (format == null)
+            {
+                throw new ArgumentNullException(nameof(format));
+            }
+
             CommandLog buffer = Buffer;
             if (buffer == null || buffer.IsIgnored(type))
             {
@@ -114,6 +131,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         [StringFormatMethod("format")]
         public static bool Log<T0, T1, T2>(TerminalLogType type, string format, T0 arg0, T1 arg1, T2 arg2)
         {
+            if (format == null)
+            {
+                throw new ArgumentNullException(nameof(format));
+            }
+
             CommandLog buffer = Buffer;
             if (buffer == null || buffer.IsIgnored(type))
             {
