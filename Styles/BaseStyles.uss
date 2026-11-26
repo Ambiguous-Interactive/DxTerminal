@@ -160,6 +160,7 @@
 }
 
 /* Text size presets (M 15, L 18; S 13 is the base default) precede narrow rules so touch targets keep 44 px floors. */
+.terminal-text-size--medium .terminal-log-row,
 .terminal-text-size--medium .terminal-output-label,
 .terminal-text-size--medium .terminal-output-label #unity-text-input,
 .terminal-text-size--medium .terminal-output-label #unity-text-input .unity-text-element,
@@ -175,7 +176,7 @@
     font-size: 15px;
 }
 
-.terminal-text-size--medium .terminal-output-label {
+.terminal-text-size--medium .terminal-log-row {
     min-height: 26px;
 }
 
@@ -228,6 +229,7 @@
     height: 34px;
 }
 
+.terminal-text-size--large .terminal-log-row,
 .terminal-text-size--large .terminal-output-label,
 .terminal-text-size--large .terminal-output-label #unity-text-input,
 .terminal-text-size--large .terminal-output-label #unity-text-input .unity-text-element,
@@ -243,7 +245,7 @@
     font-size: 18px;
 }
 
-.terminal-text-size--large .terminal-output-label {
+.terminal-text-size--large .terminal-log-row {
     min-height: 32px;
 }
 

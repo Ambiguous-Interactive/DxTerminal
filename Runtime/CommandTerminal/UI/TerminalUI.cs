@@ -3487,12 +3487,15 @@
                 The Log view is the only one that exists; the pressed tab
                 carries the line count the search field used to print while
                 idle. A no-op click answers with the view that is already on
-                screen rather than a state change.
+                screen rather than a state change, and the tab takes no
+                navigation stop - a dead stop between the search and the
+                chips would strand pad navigation (#245).
              */
             _logTabButton = new Button { name = "TerminalLogTab", tooltip = "Log output." };
             _logTabButton.AddToClassList("terminal-header-tab");
             _logTabButton.AddToClassList("terminal-header-tab--active");
             _logTabButton.text = "Log";
+            _logTabButton.focusable = false;
             _logTabCount = new Label { name = "TerminalLogTabCount", pickingMode = PickingMode.Ignore };
             _logTabCount.AddToClassList("terminal-header-tab-count");
             _logTabButton.Add(_logTabCount);

@@ -192,13 +192,14 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
             yield return SpawnOpenTerminal();
             Terminal.Buffer.Clear();
-            Terminal.Log("before the error");
+            Terminal.Log(TerminalLogType.Message, "before the error");
             Terminal.Buffer.HandleLog("NullReferenceException: boom", "  at Test.Site () (at Assets/S.cs:1)", TerminalLogType.Error);
             yield return WaitForRows(2);
 
             ScrollView log = _terminal._uiDocument.rootVisualElement.Q<ScrollView>("LogScrollView");
-            VisualElement errorRow = log.contentContainer.Query(className: "terminal-log-row--error").ToList()[0];
-            Assert.That(errorRow != null, "The error row is tagged");
+            List<VisualElement> errorRows = log.contentContainer.Query(className: "terminal-log-row--error").ToList();
+            Assert.That(errorRows, Is.Not.Empty, "The error row carries the error class");
+            VisualElement errorRow = errorRows[0];
             Assert.That(errorRow.ClassListContains("terminal-log-row--expanded"), Is.False, "The trace starts collapsed");
 
             TextField errorField = errorRow.Q<TextField>();
@@ -222,13 +223,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 "Copy with trace appends the captured stack"
             );
 
-            VisualElement messageRow = log.contentContainer.Query(className: "terminal-log-row--message").ToList()[0];
-            if (messageRow != null)
-            {
-                messageRow.Q<TextField>().Focus();
-                yield return WaitForRefresh();
-                Assert.That(errorRow.ClassListContains("terminal-log-row--expanded"), Is.False, "Selecting elsewhere collapses the trace");
-            }
+            Assert.That(log.contentContainer.childCount, Is.GreaterThanOrEqualTo(1), "The message row is drawn");
+            VisualElement messageRow = log.contentContainer[0];
+            Assert.That(messageRow.ClassListContains("terminal-log-row--message"), Is.True, "The first row is the message");
+            messageRow.Q<TextField>().Focus();
+            yield return WaitForRefresh();
+            Assert.That(errorRow.ClassListContains("terminal-log-row--expanded"), Is.False, "Selecting elsewhere collapses the trace");
         }
 
         [UnityTest]

@@ -228,7 +228,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 return string.Empty;
             }
 
-            return (content[content.childCount - 1] as TextField)?.value ?? string.Empty;
+            return content[content.childCount - 1].Q<TextField>()?.value ?? string.Empty;
         }
 
         /*

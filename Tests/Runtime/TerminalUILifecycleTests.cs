@@ -185,7 +185,7 @@
             }
 
             Assert.AreEqual(1, logView.contentContainer.childCount, "Opening the terminal syncs output logged while it was closed");
-            TextField loggedLine = logView.contentContainer[0] as TextField;
+            TextField loggedLine = logView.contentContainer[0].Q<TextField>();
             Assert.AreEqual("while-closed", loggedLine?.value, "The buffered message must survive the closed window");
         }
 

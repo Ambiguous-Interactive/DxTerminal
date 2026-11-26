@@ -289,8 +289,8 @@
             Assert.That(root.Q<TextField>("LogSearchInput").value, Is.EqualTo("alpha"));
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"));
 #if UNITY_EDITOR
-            TextField previousSearch = root.Q<TextField>("LogSearchInput");
             UIDocument previousDocument = _terminal._uiDocument;
+            TextField previousSearch = previousDocument.rootVisualElement.Q<TextField>("LogSearchInput");
             GameObject swapObject = new("TerminalRebuildSwapDocument");
             UIDocument swapDocument = swapObject.AddComponent<UIDocument>();
             swapDocument.panelSettings = previousDocument.panelSettings;
@@ -298,20 +298,27 @@
             inspector.FindProperty(nameof(TerminalUI._uiDocument)).objectReferenceValue = swapDocument;
             inspector.ApplyModifiedPropertiesWithoutUndo();
             int attempts = FrameBudget;
-            while (0 < attempts-- && ReferenceEquals(root.Q<TextField>("LogSearchInput"), previousSearch))
+            while (0 < attempts-- && ReferenceEquals(_terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput"), previousSearch))
             {
                 yield return null;
             }
-            Assert.That(root.Q<TextField>("LogSearchInput"), Is.Not.SameAs(previousSearch), "The inspector rebuilt the toolbar");
+            Assert.That(
+                _terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput"),
+                Is.Not.SameAs(previousSearch),
+                "The inspector rebuilt the toolbar in the swapped document"
+            );
             yield return Settle();
+            root = _terminal._uiDocument.rootVisualElement;
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"), "A new toolbar repopulates unchanged counts");
             inspector.FindProperty(nameof(TerminalUI._uiDocument)).objectReferenceValue = previousDocument;
             inspector.ApplyModifiedPropertiesWithoutUndo();
             attempts = FrameBudget;
-            while (0 < attempts-- && ReferenceEquals(root.Q<TextField>("LogSearchInput"), previousSearch))
+            while (0 < attempts-- && ReferenceEquals(_terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput"), previousSearch))
             {
                 yield return null;
             }
+            Assert.That(_terminal._uiDocument, Is.SameAs(previousDocument), "The swap-back restores the original document");
+            root = previousDocument.rootVisualElement;
             UnityEngine.Object.Destroy(swapObject);
 #endif
             _terminal.TeardownUI();
@@ -609,7 +616,7 @@
             Terminal.Buffer.Clear();
             Terminal.Log("select part of this line");
             yield return WaitForDrawnCount(1, "The log row exists");
-            TextField row = LogContent()[0] as TextField;
+            TextField row = LogContent()[0].Q<TextField>();
             Assert.That(row, Is.Not.Null);
             VisualElement textInput = row.Q("unity-text-input");
             int attempts = FrameBudget;
@@ -671,7 +678,7 @@
             Terminal.Buffer.Clear();
             Terminal.Log("select part of this line");
             yield return WaitForDrawnCount(1, "The log row exists");
-            TextField row = LogContent()[0] as TextField;
+            TextField row = LogContent()[0].Q<TextField>();
             Assert.That(row, Is.Not.Null, "A log row supports native text selection");
             Assert.That(row.isReadOnly);
             Assert.That(row.multiline);
@@ -1341,7 +1348,7 @@
                     builder.Append('\n');
                 }
 
-                builder.Append((content[i] as TextField)?.value);
+                builder.Append(content[i].Q<TextField>()?.value);
             }
 
             return builder.ToString();

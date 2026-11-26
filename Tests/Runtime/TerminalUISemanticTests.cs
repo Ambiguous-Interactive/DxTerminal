@@ -960,7 +960,7 @@
             VisualElement logContent = root.Q<ScrollView>("LogScrollView").contentContainer;
             Assert.That(logContent.childCount, Is.GreaterThanOrEqualTo(3));
 
-            TextField echoRow = (TextField)logContent[0];
+            TextField echoRow = logContent[0].Q<TextField>();
             Assert.That(echoRow.value, Is.EqualTo("spawn goblin 3"));
             Label echoHighlight = echoRow.Q<Label>("LogSyntaxHighlight");
             Assert.That(echoHighlight, Is.Not.Null, "Command echoes must render syntax-highlighted spans");
@@ -969,7 +969,7 @@
             Assert.That(echoHighlight.text, Does.Contain("<color=#E6EDF3FF>").And.Contain("<color=#C2F5D8FF>").And.Contain("<color=#6CB6FFFF>3</color>"));
             Assert.That(RenderedName(echoHighlight), Is.EqualTo("spawn goblin 3"));
 
-            TextField helpRow = (TextField)logContent[2];
+            TextField helpRow = logContent[2].Q<TextField>();
             VisualElement card = helpRow.Q<VisualElement>("CommandHelpCard");
             Assert.That(card, Is.Not.Null, "help <command> must render a structured help card");
             Assert.That(card.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
@@ -1034,7 +1034,7 @@
             _terminal.RefreshUI();
             yield return null;
 
-            TextField escapedEcho = (TextField)logContent[0];
+            TextField escapedEcho = logContent[0].Q<TextField>();
             Label escapedHighlight = escapedEcho.Q<Label>("LogSyntaxHighlight");
             Assert.That(escapedEcho.value, Is.EqualTo("spawn <b>"));
             Assert.That(escapedHighlight.text, Does.Contain("<noparse><</noparse>b<noparse>></noparse>"));
@@ -1044,7 +1044,7 @@
             _terminal.RefreshUI();
             yield return null;
 
-            TextField recycledRow = (TextField)logContent[0];
+            TextField recycledRow = logContent[0].Q<TextField>();
             Assert.That(recycledRow.value, Is.EqualTo("plain message"));
             Label recycledHighlight = recycledRow.Q<Label>("LogSyntaxHighlight");
             VisualElement recycledCard = recycledRow.Q<VisualElement>("CommandHelpCard");

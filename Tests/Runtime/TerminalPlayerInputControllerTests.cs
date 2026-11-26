@@ -637,7 +637,7 @@
                 yield return MoveGamepad(gamepad, Vector2.right);
                 Assert.That(root.panel.focusController.focusedElement, Is.SameAs(root.Q<Button>("TerminalSizeButton")));
                 yield return MoveGamepad(gamepad, Vector2.down);
-                for (int move = 0; move < 8 && !_terminal.SearchOwnsFocus; ++move)
+                for (int move = 0; move < 12 && !_terminal.SearchOwnsFocus; ++move)
                 {
                     yield return MoveGamepad(gamepad, Vector2.left);
                 }
