@@ -133,8 +133,44 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             Func<Action<CommandArg[]>> binder,
             Func<MethodInfo> methodAccessor,
             CommandExecutionContexts contexts = CommandExecutionContextSets.All,
-            string declaringTypeName = null,
-            CommandTier tier = CommandTier.Developer,
+            string declaringTypeName = null
+        )
+            : this(
+                name,
+                methodName,
+                minArgCount,
+                maxArgCount,
+                help,
+                hint,
+                addToHistory,
+                editorOnly,
+                developmentOnly,
+                isDefault,
+                binder,
+                methodAccessor,
+                contexts,
+                declaringTypeName,
+                CommandTier.Developer,
+                group: null,
+                hideFromActions: false
+            ) { }
+
+        public CommandCatalogEntry(
+            string name,
+            string methodName,
+            int minArgCount,
+            int maxArgCount,
+            string help,
+            string hint,
+            bool addToHistory,
+            bool editorOnly,
+            bool developmentOnly,
+            bool isDefault,
+            Func<Action<CommandArg[]>> binder,
+            Func<MethodInfo> methodAccessor,
+            CommandExecutionContexts contexts,
+            string declaringTypeName,
+            CommandTier tier,
             string group = null,
             bool hideFromActions = false
         )
