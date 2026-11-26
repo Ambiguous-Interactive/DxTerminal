@@ -163,24 +163,20 @@
 
         public bool respectSafeArea = true;
 
-        [Obsolete("Use CurrentMotionPreset and SetMotionPreset instead.")]
         [HideInInspector]
-        [Tooltip("Legacy curve the console followed from closed -> open")]
+        [Tooltip("Legacy curve the console followed from closed -> open; migrated to CurrentMotionPreset.")]
         public AnimationCurve easeOutCurve = new() { keys = new[] { new Keyframe(0, 0), new Keyframe(1, 1) } };
 
-        [Obsolete("Use CurrentMotionPreset and SetMotionPreset instead.")]
         [HideInInspector]
-        [Tooltip("Legacy duration for the ease-out animation in seconds")]
+        [Tooltip("Legacy duration for the ease-out animation in seconds; migrated to CurrentMotionPreset.")]
         public float easeOutTime = TerminalMotionPresetMetrics.DefaultLegacyDurationSeconds;
 
-        [Obsolete("Use CurrentMotionPreset and SetMotionPreset instead.")]
         [HideInInspector]
-        [Tooltip("Legacy curve the console followed from open -> closed")]
+        [Tooltip("Legacy curve the console followed from open -> closed; migrated to CurrentMotionPreset.")]
         public AnimationCurve easeInCurve = new() { keys = new[] { new Keyframe(0, 0), new Keyframe(1, 1) } };
 
-        [Obsolete("Use CurrentMotionPreset and SetMotionPreset instead.")]
         [HideInInspector]
-        [Tooltip("Legacy duration for the ease-in animation in seconds")]
+        [Tooltip("Legacy duration for the ease-in animation in seconds; migrated to CurrentMotionPreset.")]
         public float easeInTime = TerminalMotionPresetMetrics.DefaultLegacyDurationSeconds;
 
         [Header("Buttons")]

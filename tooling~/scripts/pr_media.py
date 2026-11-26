@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import os
 import pathlib
+import re
 import struct
 import subprocess
 import sys
@@ -30,7 +31,8 @@ BROWSER_MINIMUM_FRAME_MILLISECONDS = 10
 BROWSER_FALLBACK_FRAME_MILLISECONDS = 100
 ROUNDING_MILLISECONDS = 2
 ONE_STEP_LIMIT = 1.5
-REPOSITORY_RAW_URL = "https://raw.githubusercontent.com/Ambiguous-Interactive/DxTerminal"
+DEFAULT_REPOSITORY_SLUG = "Ambiguous-Interactive/DxTerminal"
+GITHUB_REMOTE_PATTERN = re.compile(r"github\.com[:/](?P<slug>[^/]+/[^/]+?)(?:\.git)?/?$")
 GIF_SIGNATURES = (b"GIF87a", b"GIF89a")
 GIF_EXTENSION = 0x21
 GIF_GRAPHIC_CONTROL = 0xF9
@@ -225,10 +227,24 @@ def try_remote_parent(repository: pathlib.Path, branch: str) -> str | None:
     return run_git(repository, "rev-parse", "FETCH_HEAD")
 
 
-def embed_markdown(commit: str, repo_path: str, label: str) -> str:
+def resolve_repository_slug(repository: pathlib.Path) -> str:
+    result = subprocess.run(
+        ["git", "remote", "get-url", "origin"],
+        cwd=repository,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        match = GITHUB_REMOTE_PATTERN.search(result.stdout.strip())
+        if match is not None:
+            return match.group("slug")
+    return DEFAULT_REPOSITORY_SLUG
+
+
+def embed_markdown(repository_slug: str, commit: str, repo_path: str, label: str) -> str:
     alt = label.replace("[", "(").replace("]", ")")
     quoted = urllib.parse.quote(repo_path, safe="/")
-    return f"![{alt}]({REPOSITORY_RAW_URL}/{commit}/{quoted})"
+    return f"![{alt}](https://raw.githubusercontent.com/{repository_slug}/{commit}/{quoted})"
 
 
 def post_files(repository: pathlib.Path, branch: str, prefix: str, paths: Sequence[pathlib.Path]) -> list[str]:
@@ -265,7 +281,8 @@ def post_files(repository: pathlib.Path, branch: str, prefix: str, paths: Sequen
     commit_args.extend(["-m", f"Add visual evidence for {branch}"])
     commit = run_git(repository, *commit_args)
     run_git(repository, "push", "--quiet", "origin", f"{commit}:refs/heads/{branch}")
-    return [embed_markdown(commit, repo_path, path.stem) for path, repo_path in zip(paths, repo_paths, strict=True)]
+    repository_slug = resolve_repository_slug(repository)
+    return [embed_markdown(repository_slug, commit, repo_path, path.stem) for path, repo_path in zip(paths, repo_paths, strict=True)]
 
 
 def _gif_bytes(delays_hundredths: Sequence[int]) -> bytes:

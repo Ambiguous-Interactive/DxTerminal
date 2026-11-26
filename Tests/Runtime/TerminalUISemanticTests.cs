@@ -54,7 +54,7 @@
         {
             foreach (TimeValue duration in element.resolvedStyle.transitionDuration)
             {
-                float seconds = duration.unit == TimeValueUnit.Millisecond ? duration.value * 0.001f : duration.value;
+                float seconds = duration.unit == TimeUnit.Millisecond ? duration.value * 0.001f : duration.value;
                 Assert.That(seconds <= maxSeconds + 0.0001f, Is.True, $"{label}: resolved transition-duration {seconds:0.###}s exceeds {maxSeconds:0.###}s.");
             }
         }
