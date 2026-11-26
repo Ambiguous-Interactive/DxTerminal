@@ -245,6 +245,7 @@
         private CommandBuilder.SubcommandRoute _signatureRoute;
         private int _signatureStage = -1;
         private int _lastObservedCaret = -1;
+        private int _lastRawCursorIndex = -1;
         private string _activeQuery = string.Empty;
         private string _ghost;
         private string _matchTag = "<u>";
@@ -588,7 +589,7 @@
             }
 
             string currentText = _input.value ?? string.Empty;
-            int currentCaret = NormalizeCaret(_pendingCaretIndex ?? _input.cursorIndex, currentText);
+            int currentCaret = ResolveCurrentCaret(currentText);
             RefreshSignature(currentText, currentCaret);
             RefreshGhost(currentText, currentCaret);
             RefreshHighlight(currentText);
@@ -937,6 +938,7 @@
             string effectiveQuery = query ?? string.Empty;
             int normalizedCaret = NormalizeCaret(caretIndex, effectiveQuery);
             _lastObservedCaret = normalizedCaret;
+            _lastRawCursorIndex = _input != null ? _input.cursorIndex : -1;
             _activeQuery = effectiveQuery;
             if (string.IsNullOrWhiteSpace(effectiveQuery))
             {
@@ -1052,6 +1054,7 @@
             _signatureRoute = null;
             _signatureStage = -1;
             _lastObservedCaret = -1;
+            _lastRawCursorIndex = -1;
             _ghost = null;
             _activeQuery = string.Empty;
             _recentMode = false;
@@ -1101,13 +1104,17 @@
             if (_isOpen && _input != null)
             {
                 string line = _input.value ?? string.Empty;
-                int caret = NormalizeCaret(_pendingCaretIndex ?? _input.cursorIndex, line);
-                if (caret != _lastObservedCaret)
+                if (!_pendingCaretIndex.HasValue && _input.cursorIndex != _lastRawCursorIndex)
                 {
-                    _lastObservedCaret = caret;
-                    RefreshSignature(line, caret);
-                    RefreshGhost(line, caret);
-                    UpdateFooter();
+                    _lastRawCursorIndex = _input.cursorIndex;
+                    int caret = NormalizeCaret(_input.cursorIndex, line);
+                    if (caret != _lastObservedCaret)
+                    {
+                        _lastObservedCaret = caret;
+                        RefreshSignature(line, caret);
+                        RefreshGhost(line, caret);
+                        UpdateFooter();
+                    }
                 }
 
                 RefreshValidation(line);
@@ -1561,6 +1568,22 @@
             return query.SnapToTextBoundary(clamped);
         }
 
+        private int ResolveCurrentCaret(string line)
+        {
+            if (_pendingCaretIndex is int queued)
+            {
+                return NormalizeCaret(queued, line);
+            }
+
+            if (_input != null && _input.cursorIndex != _lastRawCursorIndex)
+            {
+                _lastRawCursorIndex = _input.cursorIndex;
+                _lastObservedCaret = NormalizeCaret(_input.cursorIndex, line);
+            }
+
+            return NormalizeCaret(0 <= _lastObservedCaret ? _lastObservedCaret : line.Length, line);
+        }
+
         private void EnsureRowCapacity(int count)
         {
             while (_rows.Count < count)
@@ -1902,6 +1925,7 @@
             SetInputValue(string.Empty);
             _activeQuery = string.Empty;
             _lastObservedCaret = 0;
+            _lastRawCursorIndex = _input != null ? _input.cursorIndex : -1;
             CollapseResults();
             RefreshSignature(string.Empty, 0);
             RefreshGhost(string.Empty, 0);

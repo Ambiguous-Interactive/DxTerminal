@@ -72,6 +72,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Editor
             CommandPaletteSearch.CollectRecent(history, scratch, recent);
 
             Assert.That(recent, Is.EqualTo(new[] { "give sword 2", "spawn goblin 3", "teleport 1 2 3" }));
+
+            CommandHistory caseHistory = new(8);
+            caseHistory.Push("setname Alice", success: true, errorFree: true);
+            caseHistory.Push("setname alice", success: true, errorFree: true);
+            CommandPaletteSearch.CollectRecent(caseHistory, scratch, recent);
+            Assert.That(recent, Is.EqualTo(new[] { "setname alice", "setname Alice" }));
         }
 
         [Test]

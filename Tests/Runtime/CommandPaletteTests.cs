@@ -1832,10 +1832,8 @@
         [UnityTest]
         public IEnumerator QuickLaunchMatchesTerminalHighlightSpansForT10Lines()
         {
-            yield return SpawnPalette();
-            TerminalUI terminal = _paletteObject.AddComponent<TerminalUI>();
-            terminal._uiDocument = _palette._uiDocument;
-            terminal._themePack = _palette._themePack;
+            yield return SpawnSharedSurface();
+            TerminalUI terminal = TerminalUI.Instance;
             terminal.SetState(TerminalState.OpenSmall);
             yield return null;
 

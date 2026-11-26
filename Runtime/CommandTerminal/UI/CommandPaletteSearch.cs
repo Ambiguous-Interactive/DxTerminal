@@ -43,7 +43,7 @@
                 bool duplicate = false;
                 foreach (string existing in results)
                 {
-                    if (string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(existing, entry, StringComparison.Ordinal))
                     {
                         duplicate = true;
                         break;
