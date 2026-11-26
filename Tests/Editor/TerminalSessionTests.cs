@@ -386,5 +386,182 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.AreSame(autoComplete, session.AutoComplete, "A repeated readiness call reuses the auto-complete");
             Assert.IsTrue(session.Shell.AutoCommandsRegistered, "A repeated readiness call keeps registration complete");
         }
+
+        [Test]
+        public void ResetClearsLogHistoryAndVariablesWhilePreservingShellAndCommands()
+        {
+            TerminalSession session = TerminalSession.Current;
+            session.Apply(Config(), force: true);
+            CommandShell originalShell = Terminal.Shell;
+            CommandLog originalBuffer = Terminal.Buffer;
+            CommandHistory originalHistory = Terminal.History;
+            CommandAutoComplete originalAutoComplete = Terminal.AutoComplete;
+
+            int invocations = 0;
+            CommandBuilder command = CommandBuilder
+                .Create("reset-survives")
+                .Handler(
+                    (CommandExecutionContext context, CommandArguments arguments) =>
+                    {
+                        ++invocations;
+                    }
+                );
+            Assert.IsTrue(originalShell.AddCommand(command, out CommandRegistrationHandle handle), "Sanity: custom builder command should register");
+            try
+            {
+                originalShell.SetVariable("hp", new CommandArg("100"));
+                Terminal.Log("entry before reset");
+                Assert.IsTrue(originalShell.RunCommand("reset-survives"), "Sanity: custom command should run before reset");
+                Assert.AreEqual(1, invocations);
+                Assert.That(0 < originalBuffer.Count, "Sanity: buffer should contain an entry before reset");
+                Assert.That(0 < originalHistory.Count, "Sanity: history should contain an entry before reset");
+                Assert.IsTrue(originalShell.Variables.ContainsKey("hp"), "Sanity: variable should exist before reset");
+
+                Terminal.Reset();
+
+                Assert.AreSame(originalShell, Terminal.Shell, "Reset must preserve the shell instance");
+                Assert.AreSame(originalBuffer, Terminal.Buffer, "Reset must preserve the buffer instance");
+                Assert.AreSame(originalHistory, Terminal.History, "Reset must preserve the history instance");
+                Assert.AreSame(originalAutoComplete, Terminal.AutoComplete, "Reset must preserve the auto-complete instance");
+                Assert.AreEqual(0, originalBuffer.Count, "Reset must clear the log buffer");
+                Assert.AreEqual(0, originalHistory.Count, "Reset must clear command history");
+                Assert.IsFalse(originalShell.Variables.ContainsKey("hp"), "Reset must clear shell variables");
+                Assert.IsTrue(originalShell.Commands.ContainsKey("reset-survives"), "Reset must keep builder registrations");
+                Assert.IsTrue(originalShell.RunCommand("reset-survives"), "Builder commands must still run after reset");
+                Assert.AreEqual(2, invocations);
+            }
+            finally
+            {
+                handle.Dispose();
+            }
+        }
+
+        [Test]
+        public void ResetIsSafeWhenBackendsAreNull()
+        {
+            Terminal.Buffer = null;
+            Terminal.History = null;
+            Terminal.Shell = null;
+            Terminal.AutoComplete = null;
+
+            Assert.DoesNotThrow(() =>
+            {
+                Terminal.Reset();
+            });
+        }
+
+        [Test]
+        public void TypedLogOverloadsFormatAndDeliverMessages()
+        {
+            TerminalSession.Current.Apply(Config(), force: true);
+
+            Assert.IsTrue(Terminal.Log("plain"));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem plain));
+            Assert.AreEqual(TerminalLogType.ShellMessage, plain.type);
+            Assert.AreEqual("plain", plain.message);
+
+            Assert.IsTrue(Terminal.Log("one:{0}", 7));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem one));
+            Assert.AreEqual("one:7", one.message);
+
+            Assert.IsTrue(Terminal.Log("two:{0},{1}", "a", 2));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem two));
+            Assert.AreEqual("two:a,2", two.message);
+
+            Assert.IsTrue(Terminal.Log("three:{0},{1},{2}", 1, true, "z"));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem three));
+            Assert.AreEqual("three:1,True,z", three.message);
+
+            Assert.IsTrue(Terminal.Log(TerminalLogType.Warning, "typed-plain"));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem typedPlain));
+            Assert.AreEqual(TerminalLogType.Warning, typedPlain.type);
+            Assert.AreEqual("typed-plain", typedPlain.message);
+
+            Assert.IsTrue(Terminal.Log(TerminalLogType.Message, "typed-one:{0}", 9));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem typedOne));
+            Assert.AreEqual(TerminalLogType.Message, typedOne.type);
+            Assert.AreEqual("typed-one:9", typedOne.message);
+
+            Assert.IsTrue(Terminal.Log(TerminalLogType.Error, "typed-two:{0},{1}", "x", 4));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem typedTwo));
+            Assert.AreEqual(TerminalLogType.Error, typedTwo.type);
+            Assert.AreEqual("typed-two:x,4", typedTwo.message);
+
+            Assert.IsTrue(Terminal.Log(TerminalLogType.Warning, "typed-three:{0},{1},{2}", 1, 2, 3));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem typedThree));
+            Assert.AreEqual(TerminalLogType.Warning, typedThree.type);
+            Assert.AreEqual("typed-three:1,2,3", typedThree.message);
+        }
+
+        [Test]
+        public void TypedLogOverloadsSkipFormattingWhenTypeIsIgnored()
+        {
+            TerminalSession.Current.Apply(Config(ignoredLogTypes: new[] { TerminalLogType.ShellMessage, TerminalLogType.Warning }), force: true);
+
+            int[] calls = new int[1];
+            FormatSpy spy = new(calls);
+
+            Assert.IsFalse(Terminal.Log("ignored"));
+            Assert.IsFalse(Terminal.Log("{0}", spy));
+            Assert.IsFalse(Terminal.Log("{0} {1}", spy, 2));
+            Assert.IsFalse(Terminal.Log("{0} {1} {2}", spy, 2, 3));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Warning, "ignored"));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Warning, "{0}", spy));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Warning, "{0} {1}", spy, 2));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Warning, "{0} {1} {2}", spy, 2, 3));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Warning, "{0} {1} {2} {3}", spy, 2, 3, 4));
+
+            Assert.AreEqual(0, calls[0], "Ignored log types must return before formatting arguments");
+            Assert.AreEqual(0, Terminal.Buffer.Count);
+        }
+
+        [Test]
+        public void ObjectArrayStillBindsToParamsLogOverload()
+        {
+            TerminalSession.Current.Apply(Config(), force: true);
+            object[] values = { "alpha", 42 };
+
+            Assert.IsTrue(Terminal.Log("{0}-{1}", values));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem defaultType));
+            Assert.AreEqual("alpha-42", defaultType.message);
+
+            Assert.IsTrue(Terminal.Log(TerminalLogType.Message, "{0}-{1}", values));
+            Assert.IsTrue(Terminal.Buffer.TryGetLast(out LogItem explicitType));
+            Assert.AreEqual("alpha-42", explicitType.message);
+        }
+
+        [Test]
+        public void TypedLogOverloadsReturnFalseWhenBufferIsNull()
+        {
+            Terminal.Buffer = null;
+            int[] calls = new int[1];
+            FormatSpy spy = new(calls);
+
+            Assert.IsFalse(Terminal.Log("missing"));
+            Assert.IsFalse(Terminal.Log("{0}", spy));
+            Assert.IsFalse(Terminal.Log("{0} {1}", spy, 1));
+            Assert.IsFalse(Terminal.Log("{0} {1} {2}", spy, 1, 2));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Message, "missing"));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Message, "{0}", spy));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Message, "{0} {1}", spy, 1));
+            Assert.IsFalse(Terminal.Log(TerminalLogType.Message, "{0} {1} {2}", spy, 1, 2));
+            Assert.AreEqual(0, calls[0], "Null buffer must return before formatting arguments");
+        }
+
+        private readonly struct FormatSpy
+        {
+            private readonly int[] _calls;
+
+            public FormatSpy(int[] calls)
+            {
+                _calls = calls;
+            }
+
+            public override string ToString()
+            {
+                ++_calls[0];
+                return "formatted";
+            }
+        }
     }
 }
