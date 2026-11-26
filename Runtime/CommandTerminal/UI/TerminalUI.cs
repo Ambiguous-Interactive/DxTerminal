@@ -1042,10 +1042,10 @@
             with disabled domain reload it clears what a previous session's
             components left behind: stale static references (the registry
             and Instance hold destroyed components after play exits), the
-            shared session's backends (a previous session's shell would
-            otherwise keep its manual registrations), and any log callback
-            left attached by an abnormal exit. Exactly-once per session and
-            idempotent on repeat.
+            shared session's backends (re-bootstrapped with deferred discovery
+            so Terminal.Shell is non-null in any Play Mode Awake), and any log
+            callback left attached by an abnormal exit. Exactly-once per
+            session and idempotent on repeat.
          */
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         internal static void ResetForNextPlaySession()
@@ -1056,14 +1056,13 @@
             CommandPaletteUI.ResetForNextPlaySession();
             CommandArg.ResetForNextPlaySession();
             TerminalSession.Current.ResetState();
+            TerminalSession.Current.Apply(TerminalSession.Config.Default, force: true);
 
             /*
                 No live component exists here (scene Awake has not run and the
                 previous session's components are destroyed), so these
                 removals cannot strip a legitimate subscription; they clean
-                leaked occurrences from an abnormal exit. A leaked occurrence
-                that survives is inert: HandleUnityLog reads the buffer, which
-                is null until the next Apply.
+                leaked occurrences from an abnormal exit.
              */
             Application.logMessageReceivedThreaded -= UnityLogCallback;
             Application.logMessageReceivedThreaded -= HandleUnityLog;

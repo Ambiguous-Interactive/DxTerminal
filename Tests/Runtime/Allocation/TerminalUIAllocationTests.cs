@@ -415,6 +415,33 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation
             AllocationAssertions.AssertZeroAllocations("steady-state refresh pass while closed (the pass the idle gate skips)", () => _terminal.RefreshUI());
         }
 
+        [UnityTest]
+        public IEnumerator IgnoredTypedLogCallsAreAllocationFree()
+        {
+            yield return SpawnTerminal(HintDisplayMode.Always);
+            TerminalSession.Current.Apply(
+                new TerminalSession.Config(LogCapacity, 16, new[] { TerminalLogType.Warning }, null, false, TerminalStackTraceMode.Disabled),
+                force: false
+            );
+
+            AllocationAssertions.AssertZeroAllocations("ignored Terminal.Log(type, message)", () =>
+            {
+                Terminal.Log(TerminalLogType.Warning, "ignored");
+            });
+            AllocationAssertions.AssertZeroAllocations("ignored Terminal.Log<T0>(type, format, arg0)", () =>
+            {
+                Terminal.Log(TerminalLogType.Warning, "value={0}", 42);
+            });
+            AllocationAssertions.AssertZeroAllocations("ignored Terminal.Log<T0, T1>(type, format, arg0, arg1)", () =>
+            {
+                Terminal.Log(TerminalLogType.Warning, "{0}:{1}", 42, 3.5f);
+            });
+            AllocationAssertions.AssertZeroAllocations("ignored Terminal.Log<T0, T1, T2>(type, format, arg0, arg1, arg2)", () =>
+            {
+                Terminal.Log(TerminalLogType.Warning, "{0}:{1}:{2}", 42, 3.5f, true);
+            });
+        }
+
         private IEnumerator SpawnTerminal(HintDisplayMode hintMode)
         {
 #if UNITY_EDITOR
