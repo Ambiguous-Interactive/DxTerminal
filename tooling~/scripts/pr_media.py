@@ -31,7 +31,7 @@ BROWSER_MINIMUM_FRAME_MILLISECONDS = 10
 BROWSER_FALLBACK_FRAME_MILLISECONDS = 100
 ROUNDING_MILLISECONDS = 2
 ONE_STEP_LIMIT = 1.5
-GITHUB_REMOTE_PATTERN = re.compile(r"github\.com[:/](?P<slug>[^/]+/[^/]+?)(?:\.git)?/?$")
+GITHUB_REMOTE_PATTERN = re.compile(r"^(?:https?://(?:[^@/\s]+@)?|ssh://git@|git@)github\.com[:/](?P<slug>[^/\s]+/[^/\s]+?)(?:\.git)?/?$")
 EVIDENCE_BRANCH_PATTERN = re.compile(r"^evidence/[A-Za-z0-9._/-]+$")
 GIT_LOCATION_ENV_VARS = (
     "GIT_DIR",
@@ -320,6 +320,7 @@ def embed_markdown(repository_slug: str, commit: str, repo_path: str, label: str
 
 def post_files(repository: pathlib.Path, branch: str, prefix: str, paths: Sequence[pathlib.Path]) -> list[str]:
     validate_evidence_branch(branch)
+    repository_slug = resolve_repository_slug(repository)
     passed, loaded = load_and_check_files(paths)
     if not passed:
         raise MediaError("one or more media files failed validation")
@@ -354,7 +355,6 @@ def post_files(repository: pathlib.Path, branch: str, prefix: str, paths: Sequen
     commit_args.extend(["-m", f"Add visual evidence for {branch}"])
     commit = run_git(repository, *commit_args)
     run_git(repository, "push", "--quiet", "origin", f"{commit}:refs/heads/{branch}")
-    repository_slug = resolve_repository_slug(repository)
     return [embed_markdown(repository_slug, commit, repo_path, path.stem) for (path, _), repo_path in zip(loaded, repo_paths, strict=True)]
 
 

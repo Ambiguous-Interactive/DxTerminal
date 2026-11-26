@@ -654,17 +654,14 @@
                 {
                     _terminal.SetMotionPreset(TerminalMotionPreset.Off);
                     _terminal.SetState(TerminalState.Closed);
+                    _terminal.StepHeightAnimation(0f);
                     _terminal.RefreshUI();
 
                     _terminal.SetMotionPreset(preset);
                     _terminal.SetState(TerminalState.OpenSmall);
                     for (int frame = 0; frame < frameCount; ++frame)
                     {
-                        if (0 < frame)
-                        {
-                            _terminal.StepHeightAnimation(stepSeconds);
-                        }
-
+                        _terminal.StepHeightAnimation(0 < frame ? stepSeconds : 0f);
                         _terminal.RefreshUI();
                         ClearCaptureTarget(target);
                         TerminalSurfaceCapture.ForcePanelRender(_terminal._uiDocument.rootVisualElement, FirstRenderPasses);
