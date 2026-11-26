@@ -1031,6 +1031,13 @@
                 Assert.IsTrue(Terminal.Shell.RunCommand(SampleBehaviourProbe.CommandName), "Registered behaviour command must execute");
                 Assert.AreEqual(1, behaviour.Invocations);
 
+                CommandShell previousShell = Terminal.Shell;
+                TerminalSession.Current.Apply(TerminalSession.Config.Default, force: true);
+                Assert.AreNotSame(previousShell, Terminal.Shell, "Sanity: forced Apply replaces the shell");
+                Assert.IsTrue(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "Enabled behaviour must re-register when the shell is replaced");
+                Assert.IsTrue(Terminal.Shell.RunCommand(SampleBehaviourProbe.CommandName), "Re-registered behaviour command must execute");
+                Assert.AreEqual(2, behaviour.Invocations);
+
                 behaviour.enabled = false;
                 Assert.IsFalse(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "OnDisable must dispose the behaviour's registration handle");
             }

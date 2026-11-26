@@ -400,6 +400,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             int invocations = 0;
             CommandBuilder command = CommandBuilder
                 .Create("reset-survives")
+                .Contexts(CommandExecutionContextSets.All)
                 .Handler(
                     (CommandExecutionContext context, CommandArguments arguments) =>
                     {

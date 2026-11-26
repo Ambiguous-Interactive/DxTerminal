@@ -6,7 +6,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
     /// <summary>
     ///     Base component for scene-scoped builder commands: registers commands
-    ///     in <see cref="OnEnable"/> and disposes every registration handle in
+    ///     in <see cref="OnEnable"/>, re-registers if the session shell is
+    ///     replaced during startup, and disposes every registration handle in
     ///     <see cref="OnDisable"/> so disabling or destroying the component
     ///     removes only its own commands.
     /// </summary>
@@ -16,17 +17,14 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         protected virtual void OnEnable()
         {
+            TerminalSession.Current.ShellReplaced += HandleShellReplaced;
             RegisterCommands();
         }
 
         protected virtual void OnDisable()
         {
-            foreach (CommandRegistrationHandle handle in _handles)
-            {
-                handle.Dispose();
-            }
-
-            _handles.Clear();
+            TerminalSession.Current.ShellReplaced -= HandleShellReplaced;
+            DisposeHandles();
         }
 
         protected void Register(CommandBuilder builder)
@@ -49,5 +47,21 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         }
 
         protected abstract void RegisterCommands();
+
+        private void HandleShellReplaced()
+        {
+            DisposeHandles();
+            RegisterCommands();
+        }
+
+        private void DisposeHandles()
+        {
+            foreach (CommandRegistrationHandle handle in _handles)
+            {
+                handle.Dispose();
+            }
+
+            _handles.Clear();
+        }
     }
 }
