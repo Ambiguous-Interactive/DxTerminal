@@ -58,9 +58,9 @@ Reference for these shapes: unity-helpers' `ship-changes` and `update-documentat
 
 ## Visual review evidence
 
-For any visual change, attach a labeled before and after pair to the PR description. Use PNGs for stills or animated WebP or GIF files at 45 fps or higher for motion. Embed the
-pair on two image lines in `**How we know:**` so it fits the PR copy check. Use matched conditions for both captures. For Unity captures, follow
-[capture-unity-state](../capture-unity-state/SKILL.md).
+For any visual change, attach a labeled before and after comparison to the PR description under `**How we know:**`. Use PNGs for stills and animated WebP or GIF clips at 45 fps or
+higher for motion, hosted on an orphan `evidence/...` branch and validated with `pr_media.py check`. Fit the 3-line `**How we know:**` budget. Full workflow:
+[show-visual-changes](../show-visual-changes/SKILL.md) and [capture-unity-state](../capture-unity-state/SKILL.md).
 
 ## Enforcement (PRs)
 
