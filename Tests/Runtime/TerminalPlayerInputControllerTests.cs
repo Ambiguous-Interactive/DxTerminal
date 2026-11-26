@@ -640,12 +640,23 @@
                 /*
                     The header is one wrapping row (direction 1a), so the pad
                     walks LEFT from the window controls through the severity
-                    chips into the search field; the stacked-layout DOWN step
-                    would leave the header into the log.
+                    chips into the search field. Where the header wraps, the
+                    left walk stalls on the leftmost chip - the field above is
+                    not strictly left of it - and one UP step returns to the
+                    search row. The stacked-layout DOWN step would leave the
+                    header into the log.
                  */
-                for (int move = 0; move < 12 && !_terminal.SearchOwnsFocus; ++move)
+                VisualElement previousFocus = null;
+                for (int move = 0; move < 16 && !_terminal.SearchOwnsFocus; ++move)
                 {
                     yield return MoveGamepad(gamepad, Vector2.left);
+                    VisualElement focused = root.panel.focusController.focusedElement;
+                    if (focused == previousFocus)
+                    {
+                        yield return MoveGamepad(gamepad, Vector2.up);
+                    }
+
+                    previousFocus = root.panel.focusController.focusedElement;
                 }
                 Assert.That(_terminal.SearchOwnsFocus, Is.True, "The pad can enter the search field from the header.");
 
