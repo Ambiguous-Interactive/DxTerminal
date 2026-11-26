@@ -163,8 +163,8 @@
             yield return Settle();
             TextField first = LogContent()[0].Q<TextField>();
             TextField second = LogContent()[1].Q<TextField>();
-            Assert.That(first.ClassListContains("terminal-log-row--current-match"), Is.True);
-            Assert.That(second.ClassListContains("terminal-log-row--current-match"), Is.False);
+            Assert.That(first.parent.ClassListContains("terminal-log-row--current-match"), Is.True);
+            Assert.That(second.parent.ClassListContains("terminal-log-row--current-match"), Is.False);
             first.Focus();
             TextSelectionFixture.PrepareCaret(first);
             first.SelectRange(1, 4);
@@ -172,14 +172,14 @@
             Assert.That(first.selectIndex, Is.EqualTo(4));
             _terminal.StepLogFilter(true, false);
             _terminal.RefreshUI();
-            Assert.That(first.ClassListContains("terminal-log-row--current-match"), Is.False);
-            Assert.That(second.ClassListContains("terminal-log-row--current-match"), Is.True);
+            Assert.That(first.parent.ClassListContains("terminal-log-row--current-match"), Is.False);
+            Assert.That(second.parent.ClassListContains("terminal-log-row--current-match"), Is.True);
             Assert.That(first.value, Is.EqualTo("alpha one"));
             Assert.That(first.cursorIndex, Is.EqualTo(1));
             Assert.That(first.selectIndex, Is.EqualTo(4));
             _terminal.ClearLogFilter(false);
             _terminal.RefreshUI();
-            Assert.That(second.ClassListContains("terminal-log-row--current-match"), Is.False);
+            Assert.That(second.parent.ClassListContains("terminal-log-row--current-match"), Is.False);
             _terminal.SetLogFilter("missing", false);
             _terminal.RefreshUI();
             Assert.That(LogContent().childCount, Is.Zero);
@@ -451,7 +451,7 @@
             VisualElement root = _terminal._uiDocument.rootVisualElement;
             Button errors = root.Q<Button>("LogErrors");
             Assert.That(errors, Is.Not.Null, "The header exposes severity filters");
-            Assert.That(errors.text, Is.EqualTo("Errors 2"));
+            Assert.That(errors.Q<Label>("TerminalChipText").text, Is.EqualTo("2 Errors"));
             long version = Terminal.Buffer.Version;
             Submit(errors);
             root.Q<TextField>("LogSearchInput").value = "alpha";
@@ -459,7 +459,7 @@
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"));
             Assert.That(root.Q<ScrollView>("LogScrollView").contentContainer.childCount, Is.EqualTo(2));
             Assert.That(errors.ClassListContains("terminal-type-chip--excluded"), Is.True);
-            Assert.That(errors.text, Is.EqualTo("Errors 2"), "Counts describe retained logs, independent of search and visibility");
+            Assert.That(errors.Q<Label>("TerminalChipText").text, Is.EqualTo("2 Errors"), "Counts describe retained logs, independent of search and visibility");
             root.Q<TextField>("LogSearchInput").value = string.Empty;
             yield return Settle();
             Assert.That(root.Q<ScrollView>("LogScrollView").contentContainer.childCount, Is.EqualTo(2), "Erasing text preserves severity choices");
@@ -705,7 +705,7 @@
             Assert.That(row.selectIndex, Is.EqualTo(selection));
             Terminal.Log("a later line");
             yield return WaitForDrawnCount(2, "The later line is drawn");
-            Assert.That(LogContent()[0], Is.SameAs(row));
+            Assert.That(LogContent()[0].Q<TextField>(), Is.SameAs(row));
             Assert.That(row.value, Is.EqualTo("select part of this line"));
             Assert.That(row.cursorIndex, Is.EqualTo(cursor));
             Assert.That(row.selectIndex, Is.EqualTo(selection));
@@ -780,7 +780,7 @@
             Assert.That(status.text, Is.EqualTo("Clipboard copy could not be verified."));
             Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Copy feedback must not evict a log entry");
             Assert.That(Terminal.Buffer.Count, Is.EqualTo(3));
-            Assert.That(LogContent()[1], Is.SameAs(row));
+            Assert.That(LogContent()[1].Q<TextField>(), Is.SameAs(row));
             Assert.That(row.cursorIndex, Is.EqualTo(7));
             Assert.That(row.selectIndex, Is.EqualTo(11));
             using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
@@ -801,7 +801,7 @@
                 yield return null;
             }
 
-            Assert.That(LogContent()[0], Is.SameAs(row), "The selected entry moves with the ring even when every message is identical");
+            Assert.That(LogContent()[0].Q<TextField>(), Is.SameAs(row), "The selected entry moves with the ring even when every message is identical");
             Assert.That(row.cursorIndex, Is.EqualTo(7));
             Assert.That(row.selectIndex, Is.EqualTo(11));
             Assert.That(_terminal.LogOwnsFocus, Is.True, "Reordering the selected row keeps panel focus");

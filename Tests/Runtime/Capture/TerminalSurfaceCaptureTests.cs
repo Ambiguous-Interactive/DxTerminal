@@ -708,7 +708,9 @@
             int rowCount = content.childCount;
             for (int index = 0; index < rowCount; ++index)
             {
-                if (content[index] is TextField row && logView.scrollOffset.y <= row.layout.y && row.layout.yMax <= logView.scrollOffset.y + logView.contentViewport.layout.height)
+                VisualElement rowContainer = content[index];
+                TextField row = rowContainer.Q<TextField>();
+                if (row != null && logView.scrollOffset.y <= rowContainer.layout.y && rowContainer.layout.yMax <= logView.scrollOffset.y + logView.contentViewport.layout.height)
                 {
                     selected = row;
                     break;

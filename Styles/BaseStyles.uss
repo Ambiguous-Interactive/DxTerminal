@@ -100,6 +100,11 @@
     background-color: var(--dxt-line);
 }
 
+.terminal-header-size,
+.terminal-header-close {
+    flex-shrink: 0;
+}
+
 .terminal-header .terminal-search,
 .terminal-header .terminal-severities {
     padding: 0;
@@ -1076,10 +1081,13 @@
     Severity chips (direction 1a): the count and word carry the state in
     text, the glyph repeats it without color, and a chip switched off is
     struck through so the read survives grayscale and colorblind viewing.
+    Chips and the window controls keep their text unsqueezed: a chip that
+    flexed down to its border clipped its label into the neighbor's.
  */
 .terminal-severities .terminal-type-chip {
     flex-direction: row;
     align-items: center;
+    flex-shrink: 0;
     min-height: 28px;
     padding: 0 10px;
     border-width: 1px;
