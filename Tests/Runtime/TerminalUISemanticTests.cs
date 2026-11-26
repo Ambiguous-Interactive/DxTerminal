@@ -1234,13 +1234,16 @@
                 _terminal.SetMotionPreset(preset);
                 _terminal.SetState(TerminalState.OpenSmall);
                 TerminalMotionPresetMetrics metrics = TerminalMotionPresetMetrics.For(preset);
-                if (0f < metrics.OpenDurationSeconds)
+                for (int pass = 0; pass < 3; ++pass)
                 {
-                    _terminal.StepHeightAnimation(metrics.OpenDurationSeconds + 0.01f);
-                }
+                    if (0f < metrics.OpenDurationSeconds)
+                    {
+                        _terminal.StepHeightAnimation(metrics.OpenDurationSeconds + 0.01f);
+                    }
 
-                _terminal.RefreshUI();
-                yield return null;
+                    _terminal.RefreshUI();
+                    yield return null;
+                }
 
                 Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenSmall));
                 Assert.That(_terminal._commandInput.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));

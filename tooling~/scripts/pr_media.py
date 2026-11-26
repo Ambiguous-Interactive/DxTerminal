@@ -31,7 +31,6 @@ BROWSER_MINIMUM_FRAME_MILLISECONDS = 10
 BROWSER_FALLBACK_FRAME_MILLISECONDS = 100
 ROUNDING_MILLISECONDS = 2
 ONE_STEP_LIMIT = 1.5
-DEFAULT_REPOSITORY_SLUG = "Ambiguous-Interactive/DxTerminal"
 GITHUB_REMOTE_PATTERN = re.compile(r"github\.com[:/](?P<slug>[^/]+/[^/]+?)(?:\.git)?/?$")
 EVIDENCE_BRANCH_PATTERN = re.compile(r"^evidence/[A-Za-z0-9._/-]+$")
 GIT_LOCATION_ENV_VARS = (
@@ -310,7 +309,7 @@ def resolve_repository_slug(repository: pathlib.Path) -> str:
         match = GITHUB_REMOTE_PATTERN.search(result.stdout.strip())
         if match is not None:
             return match.group("slug")
-    return DEFAULT_REPOSITORY_SLUG
+    raise MediaError("could not resolve GitHub owner/repo from git remote origin")
 
 
 def embed_markdown(repository_slug: str, commit: str, repo_path: str, label: str) -> str:
