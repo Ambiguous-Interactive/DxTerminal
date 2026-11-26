@@ -97,10 +97,12 @@
     color: var(--button-selected-text);
 }
 
-.dxt-legacy .terminal-header-tab-count,
+.dxt-legacy .terminal-header-tab-count {
+    color: var(--text-shell);
+}
+
 .dxt-legacy .terminal-header-divider {
     background-color: var(--button-hover-bg);
-    color: var(--text-shell);
 }
 
 .dxt-legacy .terminal-severities .terminal-type-chip {
