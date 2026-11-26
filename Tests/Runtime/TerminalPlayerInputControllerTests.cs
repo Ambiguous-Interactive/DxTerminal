@@ -636,7 +636,13 @@
 
                 yield return MoveGamepad(gamepad, Vector2.right);
                 Assert.That(root.panel.focusController.focusedElement, Is.SameAs(root.Q<Button>("TerminalSizeButton")));
-                yield return MoveGamepad(gamepad, Vector2.down);
+
+                /*
+                    The header is one wrapping row (direction 1a), so the pad
+                    walks LEFT from the window controls through the severity
+                    chips into the search field; the stacked-layout DOWN step
+                    would leave the header into the log.
+                 */
                 for (int move = 0; move < 12 && !_terminal.SearchOwnsFocus; ++move)
                 {
                     yield return MoveGamepad(gamepad, Vector2.left);
