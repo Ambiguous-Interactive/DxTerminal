@@ -567,21 +567,38 @@
                 Swap the tracked UIDocument through a second document and
                 back: the change hook rebuilds while closed, with the idle
                 gate active, so only the initial-refresh latch can clamp the
-                stale tree back to the closed state.
+                stale tree back to the closed state. Each swap waits for the
+                rebuilt command input first, so the clamp assertions observe
+                the rebuilt tree and not the closed tree that was already
+                there.
              */
             GameObject swapObject = new("TerminalRebuildSwapDocument");
             _spawnedSwapObjects.Add(swapObject);
             UIDocument swapDocument = swapObject.AddComponent<UIDocument>();
             swapDocument.panelSettings = _panelSettings;
+            TextField previousInput = _terminal._commandInput;
             SwapDocumentInInspector(swapDocument);
-            frameBudget = 10;
-            while (0 < frameBudget--)
+            frameBudget = 600;
+            while (0 < frameBudget-- && ReferenceEquals(_terminal._commandInput, previousInput))
             {
                 yield return null;
             }
 
+            Assert.That(
+                ReferenceEquals(_terminal._commandInput?.panel?.visualTree, swapDocument.rootVisualElement?.panel?.visualTree),
+                Is.True,
+                "The closed rebuild lands in the swapped document"
+            );
+
+            TextField swapInput = _terminal._commandInput;
             SwapDocumentInInspector(_terminalObject.GetComponent<UIDocument>());
             frameBudget = 600;
+            while (0 < frameBudget-- && ReferenceEquals(_terminal._commandInput, swapInput))
+            {
+                yield return null;
+            }
+
+            Assert.That(ReferenceEquals(_terminal._commandInput, swapInput), Is.False, "The swap-back rebuilds the original document");
             while (
                 0 < frameBudget--
                 && (
@@ -1080,7 +1097,7 @@
             _spawnedObjects.Add(behaviourObject);
             SampleBehaviourProbe behaviour = behaviourObject.AddComponent<SampleBehaviourProbe>();
 
-            yield return SpawnTerminalWithDocument(showButtons: false, resetState: true);
+            yield return SpawnTerminalWithDocument(resetState: true);
 
             Assert.IsTrue(Terminal.Shell.Commands.ContainsKey(SampleBehaviourProbe.CommandName), "Enabled behaviour command must survive TerminalUI.Start with resetStateOnInit");
             Assert.IsTrue(Terminal.Shell.RunCommand(SampleBehaviourProbe.CommandName), "Behaviour command must execute after TerminalUI.Start");

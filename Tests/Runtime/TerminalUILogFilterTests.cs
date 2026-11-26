@@ -312,7 +312,7 @@
             {
                 yield return null;
             }
-            Object.Destroy(swapObject);
+            UnityEngine.Object.Destroy(swapObject);
 #endif
             _terminal.TeardownUI();
             _terminal.EnsureUI();

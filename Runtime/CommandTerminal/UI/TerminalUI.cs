@@ -2183,33 +2183,6 @@
             return ReferenceEquals(_explicitNavigationEvent, evt);
         }
 
-        /*
-            The expanded error's trace actions (#241, #242): "Copy line" puts
-            the message on the system clipboard, "Copy with trace" appends the
-            captured stack. A refused write shows the same status line the
-            selection copy uses, so an unsupported platform answers instead of
-            failing silently.
-         */
-        internal void CopyExpandedLine(TerminalLogRow row)
-        {
-            if (row == null)
-            {
-                return;
-            }
-
-            ShowCopyStatus(TerminalClipboard.TryWrite(row.Field.value));
-        }
-
-        internal void CopyExpandedTrace(TerminalLogRow row)
-        {
-            if (row == null || string.IsNullOrEmpty(row.Trace))
-            {
-                return;
-            }
-
-            ShowCopyStatus(TerminalClipboard.TryWrite($"{row.Field.value}{Environment.NewLine}{row.Trace}"));
-        }
-
         internal void HandleLogCopyResult(TextField field, KeyDownEvent evt, bool verified)
         {
             if (field == null || evt == null)
@@ -2222,37 +2195,6 @@
             if (verified)
             {
                 KeyEvents.Consume(field, evt);
-            }
-        }
-
-        /*
-            Selecting a row expands the trace of that error and only of that
-            error (#241): one expanded trace at a time, and a selection
-            anywhere else collapses it. Errors without a captured trace have
-            nothing to show, so they stay collapsed.
-         */
-        internal void OnLogRowFocused(TerminalLogRow row)
-        {
-            long? expanded = row != null && row.CanExpandTrace ? row.Sequence : null;
-            if (_expandedSequence == expanded)
-            {
-                return;
-            }
-
-            _expandedSequence = expanded;
-            VisualElement content = _logScrollView?.contentContainer;
-            if (content == null)
-            {
-                return;
-            }
-
-            int rowCount = content.childCount;
-            for (int i = 0; i < rowCount; ++i)
-            {
-                if (content[i] is TerminalLogRow pooled && pooled.IsExpanded != (pooled.Sequence == _expandedSequence))
-                {
-                    pooled.SetExpanded(pooled.Sequence == _expandedSequence);
-                }
             }
         }
 
@@ -2782,6 +2724,61 @@
             lines that are neither are the console's own, and there are only
             ever a handful - one per command the developer ran.
          */
+        /*
+            The expanded error's trace actions (#241, #242): "Copy line" puts
+            the message on the system clipboard, "Copy with trace" appends the
+            captured stack. A refused write shows the same status line the
+            selection copy uses, so an unsupported platform answers instead of
+            failing silently. The row hands over its rendered text instead of
+            itself, so these stay private over the private row type.
+         */
+        private void CopyExpandedLine(string message)
+        {
+            ShowCopyStatus(TerminalClipboard.TryWrite(message));
+        }
+
+        private void CopyExpandedTrace(string message, string trace)
+        {
+            if (string.IsNullOrEmpty(trace))
+            {
+                return;
+            }
+
+            ShowCopyStatus(TerminalClipboard.TryWrite($"{message}{Environment.NewLine}{trace}"));
+        }
+
+        /*
+            Selecting a row expands the trace of that error and only of that
+            error (#241): one expanded trace at a time, and focus anywhere
+            else - another row, the command line, the search field - collapses
+            it. Errors without a captured trace have nothing to show, so they
+            stay collapsed.
+         */
+        private void OnLogRowFocused(TerminalLogRow row)
+        {
+            long? expanded = row != null && row.CanExpandTrace ? row.Sequence : null;
+            if (_expandedSequence == expanded)
+            {
+                return;
+            }
+
+            _expandedSequence = expanded;
+            VisualElement content = _logScrollView?.contentContainer;
+            if (content == null)
+            {
+                return;
+            }
+
+            int rowCount = content.childCount;
+            for (int i = 0; i < rowCount; ++i)
+            {
+                if (content[i] is TerminalLogRow pooled && pooled.IsExpanded != (pooled.Sequence == _expandedSequence))
+                {
+                    pooled.SetExpanded(pooled.Sequence == _expandedSequence);
+                }
+            }
+        }
+
         private void ShowCopyStatus(bool verified)
         {
             if (_logCopyStatus != null)
@@ -3224,6 +3221,13 @@
             _commandInput.name = "CommandInput";
             _commandInput.AddToClassList("terminal-input-field");
             _commandInput.pickingMode = PickingMode.Position;
+            _commandInput.RegisterCallback<FocusInEvent, TerminalUI>(
+                static (_, terminal) =>
+                {
+                    terminal.OnLogRowFocused(null);
+                },
+                this
+            );
             /*
                 SetupUI can run before Awake (an external SetState while the
                 component is inactive); the input abstraction may not exist
@@ -3515,6 +3519,13 @@
             _logSearchInput = new TextField("Search") { name = "LogSearchInput", tooltip = "Search log output. Enter selects the next match. / focuses the field." };
             _logSearchInput.AddToClassList("terminal-search-field");
             _logSearchInput.SetValueWithoutNotify(_logFilter.Query ?? string.Empty);
+            _logSearchInput.RegisterCallback<FocusInEvent, TerminalUI>(
+                static (_, terminal) =>
+                {
+                    terminal.OnLogRowFocused(null);
+                },
+                this
+            );
             _logSearchInput.RegisterCallback<ChangeEvent<string>, TerminalUI>(
                 static (evt, terminal) =>
                 {
@@ -4646,6 +4657,7 @@
 
             public TerminalLogRow(TerminalUI owner)
             {
+                AddToClassList("terminal-log-row");
                 _time = new Label
                 {
                     name = "TerminalLogTime",
@@ -4672,11 +4684,11 @@
                 _traceRoot.Add(_traceText);
                 VisualElement actions = new() { name = "TerminalLogTraceActions" };
                 actions.AddToClassList("terminal-log-row__trace-actions");
-                _copyLineButton = new Button(() => owner.CopyExpandedLine(this)) { name = "TerminalLogCopyLine" };
+                _copyLineButton = new Button(() => owner.CopyExpandedLine(Field.value)) { name = "TerminalLogCopyLine" };
                 _copyLineButton.text = "Copy line";
                 _copyLineButton.AddToClassList("terminal-button");
                 actions.Add(_copyLineButton);
-                _copyTraceButton = new Button(() => owner.CopyExpandedTrace(this)) { name = "TerminalLogCopyTrace" };
+                _copyTraceButton = new Button(() => owner.CopyExpandedTrace(Field.value, _trace)) { name = "TerminalLogCopyTrace" };
                 _copyTraceButton.text = "Copy with trace";
                 _copyTraceButton.AddToClassList("terminal-button");
                 actions.Add(_copyTraceButton);
