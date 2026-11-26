@@ -103,6 +103,147 @@
     margin: 0 4px;
 }
 
+/* Text size presets (M 15, L 18; S 13 is the base default) precede narrow rules so touch targets keep 44 px floors. */
+.terminal-text-size--medium .terminal-output-label,
+.terminal-text-size--medium .terminal-output-label #unity-text-input,
+.terminal-text-size--medium .terminal-output-label #unity-text-input .unity-text-element,
+.terminal-text-size--medium .terminal-log-highlight,
+.terminal-text-size--medium .terminal-input-caret,
+.terminal-text-size--medium .terminal-input-field,
+.terminal-text-size--medium .terminal-input-field > #unity-text-input,
+.terminal-text-size--medium .terminal-input-field > #unity-text-input > .unity-text-element,
+.terminal-text-size--medium .completion-name,
+.terminal-text-size--medium .palette-row-name,
+.terminal-text-size--medium .palette-output,
+.terminal-text-size--medium .palette-feedback {
+    font-size: 15px;
+}
+
+.terminal-text-size--medium .terminal-output-label {
+    min-height: 26px;
+}
+
+.terminal-text-size--medium .terminal-output-label > .unity-base-field__label,
+.terminal-text-size--medium .completion-detail-title,
+.terminal-text-size--medium .completion-signature-description,
+.terminal-text-size--medium .completion-description,
+.terminal-text-size--medium .completion-hint,
+.terminal-text-size--medium .completion-kind,
+.terminal-text-size--medium .completion-keys,
+.terminal-text-size--medium .terminal-validation-hint,
+.terminal-text-size--medium .terminal-help-select-button {
+    font-size: 13px;
+}
+
+.terminal-text-size--medium .completion-signature,
+.terminal-text-size--medium .completion-detail-description,
+.terminal-text-size--medium .terminal-validation-message,
+.terminal-text-size--medium .terminal-help-signature,
+.terminal-text-size--medium .terminal-help-description,
+.terminal-text-size--medium .terminal-validation-chip,
+.terminal-text-size--medium .terminal-help-example,
+.terminal-text-size--medium .terminal-help-arg-name,
+.terminal-text-size--medium .terminal-help-arg-type,
+.terminal-text-size--medium .terminal-help-arg-default,
+.terminal-text-size--medium .palette-row-help {
+    font-size: 14px;
+}
+
+.terminal-text-size--medium .terminal-validation-chip,
+.terminal-text-size--medium .terminal-input-caret,
+.terminal-text-size--medium .terminal-input-field {
+    height: 26px;
+}
+
+.terminal-text-size--medium .palette-input > #unity-text-input {
+    font-size: 16px;
+}
+
+.terminal-text-size--medium .palette-footer {
+    font-size: 12px;
+}
+
+.terminal-text-size--medium .completion-row {
+    height: 28px;
+}
+
+.terminal-text-size--medium .input-container {
+    height: 34px;
+}
+
+.terminal-text-size--large .terminal-output-label,
+.terminal-text-size--large .terminal-output-label #unity-text-input,
+.terminal-text-size--large .terminal-output-label #unity-text-input .unity-text-element,
+.terminal-text-size--large .terminal-log-highlight,
+.terminal-text-size--large .terminal-input-caret,
+.terminal-text-size--large .terminal-input-field,
+.terminal-text-size--large .terminal-input-field > #unity-text-input,
+.terminal-text-size--large .terminal-input-field > #unity-text-input > .unity-text-element,
+.terminal-text-size--large .completion-name,
+.terminal-text-size--large .palette-row-name,
+.terminal-text-size--large .palette-output,
+.terminal-text-size--large .palette-feedback {
+    font-size: 18px;
+}
+
+.terminal-text-size--large .terminal-output-label {
+    min-height: 32px;
+}
+
+.terminal-text-size--large .terminal-output-label > .unity-base-field__label,
+.terminal-text-size--large .completion-detail-title,
+.terminal-text-size--large .completion-signature-description,
+.terminal-text-size--large .completion-description,
+.terminal-text-size--large .completion-hint,
+.terminal-text-size--large .completion-kind,
+.terminal-text-size--large .completion-keys,
+.terminal-text-size--large .terminal-validation-hint,
+.terminal-text-size--large .terminal-help-select-button {
+    font-size: 15px;
+}
+
+.terminal-text-size--large .completion-signature,
+.terminal-text-size--large .completion-detail-description,
+.terminal-text-size--large .terminal-validation-message,
+.terminal-text-size--large .terminal-help-signature,
+.terminal-text-size--large .terminal-help-description {
+    font-size: 16.5px;
+}
+
+.terminal-text-size--large .terminal-validation-chip,
+.terminal-text-size--large .terminal-help-example,
+.terminal-text-size--large .terminal-help-arg-name,
+.terminal-text-size--large .terminal-help-arg-type,
+.terminal-text-size--large .terminal-help-arg-default,
+.terminal-text-size--large .palette-row-help {
+    font-size: 16px;
+}
+
+.terminal-text-size--large .terminal-validation-chip {
+    height: 30px;
+}
+
+.terminal-text-size--large .palette-input > #unity-text-input {
+    font-size: 19px;
+}
+
+.terminal-text-size--large .palette-footer {
+    font-size: 14px;
+}
+
+.terminal-text-size--large .completion-row {
+    height: 34px;
+}
+
+.terminal-text-size--large .input-container {
+    height: 40px;
+}
+
+.terminal-text-size--large .terminal-input-caret,
+.terminal-text-size--large .terminal-input-field {
+    height: 32px;
+}
+
 .terminal-root--narrow .terminal-header .terminal-button,
 .terminal-root--narrow .terminal-search .terminal-button,
 .terminal-root--narrow .terminal-severities .terminal-button,
@@ -257,6 +398,10 @@
 
 .terminal-root--narrow .terminal-output-label {
     min-height: 30px;
+}
+
+.terminal-root--narrow.terminal-text-size--large .terminal-output-label {
+    min-height: 32px;
 }
 
 .terminal-root--narrow .log-scroll-view .unity-scroller--vertical,
@@ -470,6 +615,8 @@
 .terminal-output-label {
     flex-shrink: 0;
     min-width: 0;
+    min-height: 22px;
+    font-size: 13px;
     white-space: normal;
     margin: 0;
     padding: 0;
@@ -653,6 +800,7 @@
     flex-grow: 0;
     flex-shrink: 0;
     height: 22px;
+    font-size: 13px;
     align-items: center;
     padding: 2px 0;
     margin: 0;
@@ -663,6 +811,7 @@
     border-top-right-radius: 4px;
     border-bottom-right-radius: 4px;
     height: 22px;
+    font-size: 13px;
     flex-grow: 1;
     flex-shrink: 1;
     padding: 0;

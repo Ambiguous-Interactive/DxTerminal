@@ -12,12 +12,8 @@
 
     internal sealed class TerminalCompletionView
     {
-        private const int RowHeight = 24;
         private const int VisibleRows = 6;
-        private const int FooterHeight = 16;
         private const int BodyPadding = 3;
-        private const int DetailsHeight = 36;
-        private const int SignatureHeight = 30;
         private const KeyHints DefaultKeyHints = KeyHints.Previous | KeyHints.Next | KeyHints.Accept | KeyHints.Dismiss;
 
         private static readonly CustomStyleProperty<Color> AccentSoft = new("--dxt-accent-soft");
@@ -91,16 +87,25 @@
         private bool _previewAllowed;
         private KeyHints _boundHints;
         private KeyHints _footerHints;
+        private int _rowHeight;
+        private int _footerHeight;
+        private int _detailsHeight;
+        private int _signatureHeight;
 
-        internal TerminalCompletionView(VisualElement root, VisualElement parent, Action<int> accept)
+        internal TerminalCompletionView(VisualElement root, VisualElement parent, Action<int> accept, TerminalTextSize textSize = TerminalTextSize.Small)
         {
             _accept = accept;
+            TerminalTextSizeMetrics metrics = TerminalTextSizeMetrics.For(textSize);
+            _rowHeight = (int)metrics.CompletionRowHeight;
+            _footerHeight = (int)metrics.CompletionFooterHeight;
+            _detailsHeight = (int)metrics.CompletionDetailsHeight;
+            _signatureHeight = (int)metrics.SignatureHeight;
             root.RegisterCallback<CustomStyleResolvedEvent>(ApplyColors);
             Panel = new VisualElement { name = "CompletionPanel" };
             Panel.AddToClassList("completion-panel");
             _details = new VisualElement();
             _details.AddToClassList("completion-details");
-            _details.style.minHeight = DetailsHeight;
+            _details.style.minHeight = _detailsHeight;
             _argument = MakeLabel("CompletionArgument", "completion-detail-title");
             _argumentDescription = MakeLabel("CompletionArgumentDescription", "completion-detail-description");
             _details.Add(_argument);
@@ -108,17 +113,17 @@
             _list = new ListView
             {
                 name = "AutoCompletePopup",
-                fixedItemHeight = RowHeight,
+                fixedItemHeight = _rowHeight,
                 selectionType = SelectionType.None,
                 focusable = false,
             };
-            _list.style.minHeight = RowHeight;
+            _list.style.minHeight = _rowHeight;
             _list.makeItem = MakeRow;
             _list.bindItem = BindRow;
             _list.itemsSource = _rows;
             _list.AddToClassList("autocomplete-popup");
             _keys = MakeLabel("CompletionKeys", "completion-keys");
-            _keys.style.height = FooterHeight;
+            _keys.style.height = _footerHeight;
             _keys.style.flexShrink = 0f;
             _suggestions = new VisualElement();
             _suggestions.AddToClassList("completion-suggestions");
@@ -133,7 +138,7 @@
             Panel.Add(_body);
             _signature = new VisualElement { name = "CommandSignature" };
             _signature.AddToClassList("completion-signature");
-            _signature.style.height = SignatureHeight;
+            _signature.style.height = _signatureHeight;
             Panel.Add(_signature);
             parent.Add(Panel);
             Panel.style.display = DisplayStyle.None;
@@ -230,6 +235,38 @@
                 builder.Append("   ");
             }
             builder.Append(hint);
+        }
+
+        internal void SetTextSize(TerminalTextSize textSize)
+        {
+            TerminalTextSizeMetrics metrics = TerminalTextSizeMetrics.For(textSize);
+            int rowHeight = (int)metrics.CompletionRowHeight;
+            int footerHeight = (int)metrics.CompletionFooterHeight;
+            int detailsHeight = (int)metrics.CompletionDetailsHeight;
+            int signatureHeight = (int)metrics.SignatureHeight;
+            if (_rowHeight == rowHeight && _footerHeight == footerHeight && _detailsHeight == detailsHeight && _signatureHeight == signatureHeight)
+            {
+                return;
+            }
+
+            _rowHeight = rowHeight;
+            _footerHeight = footerHeight;
+            _detailsHeight = detailsHeight;
+            _signatureHeight = signatureHeight;
+            _list.fixedItemHeight = _rowHeight;
+            _list.style.minHeight = _rowHeight;
+            _details.style.minHeight = _detailsHeight;
+            _keys.style.height = _footerHeight;
+            _signature.style.height = _signatureHeight;
+            if (_list.panel != null)
+            {
+                _list.Rebuild();
+            }
+
+            if (_shell != null)
+            {
+                RefreshSelection();
+            }
         }
 
         internal void Refresh(
@@ -576,22 +613,22 @@
             _body.style.display = showSuggestions || showDetails ? DisplayStyle.Flex : DisplayStyle.None;
             _suggestions.style.display = showSuggestions ? DisplayStyle.Flex : DisplayStyle.None;
             _details.style.display = showDetails ? DisplayStyle.Flex : DisplayStyle.None;
-            _list.style.height = Math.Min(count, VisibleRows) * RowHeight;
+            _list.style.height = Math.Min(count, VisibleRows) * _rowHeight;
             int footerHeight = RefreshFooter(count);
             int bodyHeight = 0;
             if (showSuggestions)
             {
-                bodyHeight = RowHeight + footerHeight;
+                bodyHeight = _rowHeight + footerHeight;
             }
             if (showDetails)
             {
-                bodyHeight = Math.Max(bodyHeight, DetailsHeight);
+                bodyHeight = Math.Max(bodyHeight, _detailsHeight);
             }
             if (0 < bodyHeight)
             {
                 bodyHeight += 2 * BodyPadding;
             }
-            int signatureHeight = _signature.childCount == 0 ? 0 : SignatureHeight;
+            int signatureHeight = _signature.childCount == 0 ? 0 : _signatureHeight;
             _signature.style.display = signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
             Panel.style.minHeight = bodyHeight + signatureHeight;
             Panel.style.display = bodyHeight + signatureHeight != 0 ? DisplayStyle.Flex : DisplayStyle.None;
@@ -620,7 +657,7 @@
                 _footerHints = visible;
                 _keys.text = FooterLabels[(int)visible];
             }
-            return visible == default ? 0 : FooterHeight;
+            return visible == default ? 0 : _footerHeight;
         }
 
         private void ApplyColors(CustomStyleResolvedEvent evt)

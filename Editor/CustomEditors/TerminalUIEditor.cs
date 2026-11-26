@@ -28,6 +28,7 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
         private const string DefaultThemePackGuid = "6dac1d93083d4776a6e29ebef180573a";
 
         private static readonly TimeSpan CycleInterval = TimeSpan.FromSeconds(0.75);
+        private static readonly string[] TextSizeLabels = { "S 13", "M 15", "L 18" };
         private static readonly Dictionary<TerminalThemePack, (List<string> Names, string[] Labels)> ThemeDisplayNames = new();
         private static List<TerminalThemePack> _themePackNamesSource;
         private static string[] _themePackNames;
@@ -664,6 +665,7 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
                 nameof(TerminalUI._themePack),
                 nameof(TerminalUI._fontPack),
                 nameof(TerminalUI._persistedTheme),
+                nameof(TerminalUI._persistedTextSize),
                 nameof(TerminalUI._uiDocument)
             );
 
@@ -1211,7 +1213,31 @@ namespace WallstopStudios.DxCommandTerminal.Editor.CustomEditors
 
             CollectFonts(terminal, _fontsByPrefix);
             bool fontsUpdated = RenderSelectableFonts(terminal);
-            return anyChanged || fontsUpdated;
+            bool textSizeUpdated = RenderTextSizeControl(terminal);
+            return anyChanged || fontsUpdated || textSizeUpdated;
+        }
+
+        private bool RenderTextSizeControl(TerminalUI terminal)
+        {
+            int currentIndex = TerminalTextSizeMetrics.ToOptionIndex(terminal.CurrentTextSize);
+            EditorGUILayout.BeginHorizontal();
+            try
+            {
+                EditorGUILayout.PrefixLabel("Text Size");
+                int selectedIndex = GUILayout.Toolbar(currentIndex, TextSizeLabels);
+                if (selectedIndex == currentIndex)
+                {
+                    return false;
+                }
+
+                Undo.RecordObject(terminal, "Change Terminal Text Size");
+                terminal.SetTextSize(TerminalTextSizeMetrics.FromOptionIndex(selectedIndex), persist: true);
+                return true;
+            }
+            finally
+            {
+                EditorGUILayout.EndHorizontal();
+            }
         }
 
         private bool CheckForSimpleProperties(TerminalUI terminal)

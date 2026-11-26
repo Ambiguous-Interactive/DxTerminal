@@ -1049,6 +1049,88 @@
                 Assert.That(recycledCard.style.display.value, Is.EqualTo(DisplayStyle.None));
             }
         }
+
+        [UnityTest]
+        public IEnumerator TextSizeScalesTerminalCompletionAndPaletteRowsAndAppliesHighContrast()
+        {
+            yield return SpawnOpenTerminal(themePackPath: "Packs/Themes/Dx.asset", persistedTheme: "dx-high-contrast-theme", loadBaseTheme: true);
+            Terminal.Buffer.Clear();
+            Assert.That(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                ),
+                Is.True
+            );
+            Terminal.Log("scaling sample line");
+            _terminal.RefreshUI();
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            VisualElement terminalRoot = root.Q<VisualElement>("TerminalRoot");
+            root.panel.Pick(Vector2.zero);
+            yield return null;
+
+            Assert.That(_terminal.CurrentTheme, Is.EqualTo("dx-high-contrast-theme"));
+            Assert.That(terminalRoot.ClassListContains("dx-high-contrast-theme"), Is.True);
+            Assert.That(terminalRoot.customStyle.TryGetValue(new CustomStyleProperty<Color>("--dxt-ink"), out Color highContrastInk), Is.True);
+            Assert.That(highContrastInk, Is.EqualTo(Color.white));
+            Assert.That(_terminal.CurrentTextSize, Is.EqualTo(TerminalTextSize.Small));
+
+            yield return SetInputText("spawn g");
+            _terminal.RefreshUI();
+            root.panel.Pick(Vector2.zero);
+            yield return null;
+
+            VisualElement logRow = root.Q<ScrollView>("LogScrollView").contentContainer[0];
+            VisualElement signature = root.Q<VisualElement>("CommandSignature");
+            ListView completionList = _terminal.CompletionList;
+            Assert.That(completionList != null, Is.True);
+
+            TerminalTextSize[] sizes = { TerminalTextSize.Small, TerminalTextSize.Medium, TerminalTextSize.Large };
+            foreach (TerminalTextSize size in sizes)
+            {
+                _terminal.SetTextSize(size);
+                _terminal.RefreshUI();
+                root.panel.Pick(Vector2.zero);
+                yield return null;
+
+                TerminalTextSizeMetrics metrics = TerminalTextSizeMetrics.For(size);
+                Assert.That(_terminal.CurrentTextSize, Is.EqualTo(size));
+                Assert.That(terminalRoot.ClassListContains(metrics.CssClass), Is.True);
+                Assert.That(logRow.resolvedStyle.fontSize, Is.EqualTo(metrics.LogFontSize).Within(0.01f), $"{size} log font");
+                Assert.That(logRow.resolvedStyle.minHeight.value, Is.EqualTo(metrics.LogRowHeight).Within(0.01f), $"{size} log row height");
+                Assert.That(_terminal._commandInput.resolvedStyle.fontSize, Is.EqualTo(metrics.InputFontSize).Within(0.01f), $"{size} input font");
+                Assert.That(signature.resolvedStyle.fontSize, Is.EqualTo(metrics.SignatureFontSize).Within(0.01f), $"{size} signature font");
+                Assert.That(signature.style.height.value.value, Is.EqualTo(metrics.SignatureHeight).Within(0.01f), $"{size} signature height");
+                Assert.That(completionList.fixedItemHeight, Is.EqualTo(metrics.CompletionRowHeight).Within(0.01f), $"{size} virtualized completion row height");
+            }
+
+            CommandPaletteUI palette = _terminalObject.AddComponent<CommandPaletteUI>();
+            palette._uiDocument = _terminal._uiDocument;
+            palette._themePack = _terminal._themePack;
+            palette.Open();
+            palette.SetQuery("spawn");
+            yield return null;
+
+            Assert.That(palette.CurrentTextSize, Is.EqualTo(TerminalTextSize.Large), "Palette follows the terminal text size by default");
+            Assert.That(palette._paletteRoot.ClassListContains(TerminalTextSizeMetrics.LargeClass), Is.True);
+            Assert.That(palette.EffectiveRowHeight, Is.EqualTo(44f).Within(0.01f));
+            Assert.That(palette._rows[0].style.height.value.value, Is.EqualTo(44f).Within(0.01f));
+
+            palette.SetTextSize(TerminalTextSize.Medium);
+            Assert.That(palette.CurrentTextSize, Is.EqualTo(TerminalTextSize.Medium));
+            Assert.That(palette._paletteRoot.ClassListContains(TerminalTextSizeMetrics.MediumClass), Is.True);
+            Assert.That(palette._rows[0].style.height.value.value, Is.EqualTo(36f).Within(0.01f));
+
+            _terminal.SetTextSize((TerminalTextSize)99);
+            Assert.That(_terminal.CurrentTextSize, Is.EqualTo(TerminalTextSize.Small));
+            palette.Close();
+        }
 #endif
 
         private IEnumerator SpawnOpenTerminal(

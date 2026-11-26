@@ -79,6 +79,11 @@
             get { return _runtimeFont != null ? _runtimeFont : _persistedFont; }
         }
 
+        public TerminalTextSize CurrentTextSize
+        {
+            get { return TerminalTextSizeMetrics.Normalize(_runtimeTextSize ?? _persistedTextSize); }
+        }
+
         /*
             Internal for test coverage: a transition assertion needs the state
             a frame left behind, and IsClosed cannot answer that while the
@@ -202,6 +207,9 @@
         [SerializeField]
         internal Font _persistedFont;
 
+        [SerializeField]
+        internal TerminalTextSize _persistedTextSize = TerminalTextSize.Small;
+
         [Header("System")]
         [SerializeField]
         internal int _logBufferSize = TerminalSession.Config.DefaultLogBufferSize;
@@ -269,6 +277,7 @@
         private readonly List<SerializedProperty> _cursorBlinkProperties = new();
         private readonly List<SerializedProperty> _fontProperties = new();
         private readonly List<SerializedProperty> _fontPackProperties = new();
+        private readonly List<SerializedProperty> _textSizeProperties = new();
         private readonly List<SerializedProperty> _staticStateProperties = new();
         private readonly List<SerializedProperty> _windowProperties = new();
         private readonly List<SerializedProperty> _logUnityMessageProperties = new();
@@ -309,6 +318,7 @@
         private string _lastSeenEchoMonoTag;
 
         private TerminalState _state = TerminalState.Closed;
+        private TerminalTextSize? _runtimeTextSize;
         private bool _isClosingForDisable;
         private float _currentWindowHeight;
         private float _targetWindowHeight;
@@ -523,6 +533,9 @@
 
             string[] fontPackPropertiesTracked = { nameof(_fontPack) };
             TrackProperties(fontPackPropertiesTracked, _fontPackProperties);
+
+            string[] textSizePropertiesTracked = { nameof(_persistedTextSize) };
+            TrackProperties(textSizePropertiesTracked, _textSizeProperties);
 
             string[] staticStaticPropertiesTracked =
             {
@@ -863,6 +876,11 @@
                     InitializeFont();
                     WriteFontDefinition(_runtimeFont);
                 }
+            }
+
+            if (CheckForRefresh(_textSizeProperties))
+            {
+                SetTextSize(_persistedTextSize);
             }
 
             if (CheckForRefresh(_staticStateProperties))
@@ -1614,6 +1632,35 @@
                 }
 
                 terminalRoot.AddToClassList(validatedTheme);
+            }
+        }
+
+        public void SetTextSize(TerminalTextSize size, bool persist = false)
+        {
+            TerminalTextSize normalized = TerminalTextSizeMetrics.Normalize(size);
+            bool changed = CurrentTextSize != normalized;
+            if (Application.isPlaying || !persist)
+            {
+                _runtimeTextSize = normalized;
+            }
+
+            if (persist)
+            {
+                _persistedTextSize = normalized;
+            }
+
+            if (Application.isPlaying && _uiDocument != null)
+            {
+                VisualElement terminalRoot = _uiDocument.rootVisualElement?.Q<VisualElement>(TerminalRootName);
+                if (terminalRoot != null)
+                {
+                    ApplyTextSize(terminalRoot, normalized, updateWindow: true);
+                }
+            }
+
+            if (changed || persist)
+            {
+                CommandPaletteUI.SyncTextSizeFromTerminal();
             }
         }
 
@@ -2930,7 +2977,8 @@
             /* A fresh view starts at zero, so no earlier pin describes it. */
             _logTail.Attach();
 
-            _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint);
+            _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint, CurrentTextSize);
+            ApplyTextSize(root, CurrentTextSize, updateWindow: false);
 
             _logCopyStatus = new Label("Clipboard copy could not be verified.") { name = "LogCopyStatus", pickingMode = PickingMode.Ignore };
             _logCopyStatus.AddToClassList("terminal-copy-status");
@@ -4377,6 +4425,20 @@
         private void OnSyntaxStyleResolved(CustomStyleResolvedEvent evt)
         {
             _syntaxPalette.Apply(evt.customStyle);
+        }
+
+        private void ApplyTextSize(VisualElement root, TerminalTextSize size, bool updateWindow)
+        {
+            TerminalTextSize normalized = TerminalTextSizeMetrics.Normalize(size);
+            root.EnableInClassList(TerminalTextSizeMetrics.SmallClass, normalized == TerminalTextSize.Small);
+            root.EnableInClassList(TerminalTextSizeMetrics.MediumClass, normalized == TerminalTextSize.Medium);
+            root.EnableInClassList(TerminalTextSizeMetrics.LargeClass, normalized == TerminalTextSize.Large);
+            _completionView?.SetTextSize(normalized);
+            _lastSeenEchoMonoTag = null;
+            if (updateWindow && _terminalContainer != null && IsOpenState(_state))
+            {
+                ResetWindowIdempotent();
+            }
         }
 
         private void ApplyLogRichContent(LogTextField logText, LogItem logItem, string echoMonoTag)
