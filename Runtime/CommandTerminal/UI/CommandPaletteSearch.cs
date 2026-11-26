@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using Backend;
 
     /*
         Pure search ranking for the quick-launch bar. Match tiers read in
@@ -14,6 +15,67 @@
         internal const int ExactMatch = 0;
         internal const int PrefixMatch = 1;
         internal const int SubsequenceMatch = 2;
+        internal const int MaxRecentEntries = 3;
+        internal const string FailedRunFooterText = "Edit the line to retry";
+        internal const string EmptyFooterText = "Enter run · Esc close";
+        internal const string SingleRowFooterText = "Tab accept · Enter run · Esc close";
+        internal const string SingleRowGhostFooterText = "Tab accept · → accept word · Enter run · Esc close";
+        internal const string MultiRowFooterText = "↑↓ select · Tab accept · Enter run · Esc close";
+        internal const string MultiRowGhostFooterText = "↑↓ select · Tab accept · → accept word · Enter run · Esc close";
+
+        internal static void CollectRecent(CommandHistory history, List<string> scratch, List<string> results, int maxCount = MaxRecentEntries)
+        {
+            results.Clear();
+            if (history == null || maxCount <= 0)
+            {
+                return;
+            }
+
+            history.CopyHistory(onlySuccess: false, onlyErrorFree: false, scratch);
+            for (int index = scratch.Count - 1; 0 <= index && results.Count < maxCount; --index)
+            {
+                string entry = scratch[index];
+                if (string.IsNullOrWhiteSpace(entry))
+                {
+                    continue;
+                }
+
+                bool duplicate = false;
+                foreach (string existing in results)
+                {
+                    if (string.Equals(existing, entry, StringComparison.Ordinal))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+
+                if (!duplicate)
+                {
+                    results.Add(entry);
+                }
+            }
+        }
+
+        internal static string FormatFooterHint(int rowCount, bool hasGhost, bool failedRun)
+        {
+            if (failedRun)
+            {
+                return FailedRunFooterText;
+            }
+
+            if (rowCount <= 0)
+            {
+                return EmptyFooterText;
+            }
+
+            if (rowCount == 1)
+            {
+                return hasGhost ? SingleRowGhostFooterText : SingleRowFooterText;
+            }
+
+            return hasGhost ? MultiRowGhostFooterText : MultiRowFooterText;
+        }
 
         internal static int Rank(string query, string candidate)
         {

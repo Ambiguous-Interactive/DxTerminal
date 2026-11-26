@@ -144,6 +144,156 @@
             Panel.style.display = DisplayStyle.None;
         }
 
+        internal static void AppendHighlightedMatch(StringBuilder builder, string text, string query, string matchTag, string matchEnd)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(query))
+            {
+                CommandInputHighlight.AppendLiteral(builder, text, 0, text.Length);
+                return;
+            }
+
+            int match = 0;
+            bool insideMatch = false;
+            for (int index = 0; index < text.Length; )
+            {
+                int width = char.IsSurrogatePair(text, index) ? 2 : 1;
+                ReadOnlySpan<char> character = text.AsSpan(index, width);
+                bool hit = width <= query.Length - match && character.Equals(query.AsSpan(match, width), StringComparison.OrdinalIgnoreCase);
+                if (hit)
+                {
+                    match += width;
+                }
+
+                if (hit != insideMatch)
+                {
+                    builder.Append(hit ? matchTag : matchEnd);
+                    insideMatch = hit;
+                }
+                CommandInputHighlight.AppendLiteral(builder, text, index, index + width);
+                index += width;
+            }
+
+            if (insideMatch)
+            {
+                builder.Append(matchEnd);
+            }
+        }
+
+        internal static bool PopulateSignature(
+            VisualElement signature,
+            CommandShell shell,
+            List<CommandToken> tokens,
+            int active,
+            int caret,
+            ref CommandBuilder.SubcommandRoute cachedRoute,
+            ref int cachedStage,
+            out CommandArgument activeArgument,
+            out int activeIndex,
+            out int totalArguments
+        )
+        {
+            CommandBuilder.SubcommandRoute route = null;
+            if (
+                shell != null
+                && 0 < tokens.Count
+                && shell.TryResolveToken(tokens[0], tokens[0].GetVariableName(), out CommandArg nameToken)
+                && !string.IsNullOrWhiteSpace(nameToken.contents)
+                && shell.TryGetCommand(CommandShell.NormalizeCommandName(nameToken.contents), out CommandInfo command)
+            )
+            {
+                route = command.SyntaxRoute;
+            }
+
+            int routed = 1;
+            while (route is { IsRouter: true } && routed <= active && routed < tokens.Count)
+            {
+                CommandToken selector = tokens[routed];
+                if (routed == active && caret < selector.End)
+                {
+                    break;
+                }
+
+                if (
+                    !shell.TryResolveToken(selector, selector.GetVariableName(), out CommandArg resolved)
+                    || !route.Lookup.TryGetValue(resolved.contents ?? string.Empty, out CommandBuilder.SubcommandRoute child)
+                )
+                {
+                    break;
+                }
+
+                route = child;
+                ++routed;
+            }
+
+            CommandArgument[] specs = route?.Specs ?? Array.Empty<CommandArgument>();
+            int stage = active - routed;
+            if (route?.HasRemaining == true && specs.Length <= stage)
+            {
+                stage = specs.Length - 1;
+            }
+
+            if (ReferenceEquals(cachedRoute, route) && cachedStage == stage)
+            {
+                activeArgument = 0 <= stage && stage < specs.Length ? specs[stage] : null;
+                activeIndex = stage;
+                totalArguments = specs.Length;
+                return false;
+            }
+
+            cachedRoute = route;
+            cachedStage = stage;
+            signature.Clear();
+            if (route == null)
+            {
+                activeArgument = null;
+                activeIndex = -1;
+                totalArguments = specs.Length;
+                return true;
+            }
+
+            CommandArgument foundArgument = null;
+            int foundIndex = -1;
+            Label name = MakeLabel("SignatureCommand", "completion-signature-name");
+            name.text = LogTextSanitizer.Sanitize(route.FullPath);
+            signature.Add(name);
+            for (int i = 0; i < specs.Length; ++i)
+            {
+                CommandArgument spec = specs[i];
+                VisualElement argument = new();
+                argument.AddToClassList("completion-signature-argument");
+                argument.EnableInClassList("completion-argument-active", i == stage);
+                Label argumentName = MakeLabel(null, "completion-signature-part");
+                argumentName.text = spec.IsRequired ? spec.Name + ": " : "[" + spec.Name + ": ";
+                Label type = MakeLabel(null, "completion-signature-part");
+                type.text = LogTextSanitizer.Sanitize(spec.SignatureType);
+                type.AddToClassList("completion-type-" + (spec.HasChoices ? CommandSyntaxClassifier.CommandSyntaxRole.Choice : spec.SyntaxRole));
+                Label suffix = MakeLabel(null, "completion-signature-part");
+                suffix.text = LogTextSanitizer.Sanitize(spec.SignatureSuffix);
+                argument.Add(argumentName);
+                argument.Add(type);
+                argument.Add(suffix);
+                signature.Add(argument);
+                if (i == stage)
+                {
+                    foundArgument = spec;
+                    foundIndex = i;
+                }
+            }
+
+            Label description = MakeLabel("SignatureDescription", "completion-signature-description");
+            description.text = LogTextSanitizer.Sanitize(route.Help ?? string.Empty);
+            signature.Add(description);
+            activeArgument = foundArgument;
+            activeIndex = foundIndex;
+            totalArguments = specs.Length;
+            return true;
+        }
+
         private static int CompareRank(Row left, Row right)
         {
             return left.Rank == right.Rank ? left.Order.CompareTo(right.Order) : left.Rank.CompareTo(right.Rank);
@@ -427,31 +577,7 @@
 
         private void AppendMatch(StringBuilder builder, string text)
         {
-            int match = 0;
-            bool insideMatch = false;
-            for (int index = 0; index < text.Length; )
-            {
-                int width = char.IsSurrogatePair(text, index) ? 2 : 1;
-                ReadOnlySpan<char> character = text.AsSpan(index, width);
-                bool hit = width <= _query.Length - match && character.Equals(_query.AsSpan(match, width), StringComparison.OrdinalIgnoreCase);
-                if (hit)
-                {
-                    match += width;
-                }
-
-                if (hit != insideMatch)
-                {
-                    builder.Append(hit ? _matchTag : _matchEnd);
-                    insideMatch = hit;
-                }
-                CommandInputHighlight.AppendLiteral(builder, text, index, index + width);
-                index += width;
-            }
-
-            if (insideMatch)
-            {
-                builder.Append(_matchEnd);
-            }
+            AppendHighlightedMatch(builder, text, _query, _matchTag, _matchEnd);
         }
 
         private void Rebuild()
@@ -679,90 +805,30 @@
 
         private void RefreshSignature(int active)
         {
-            CommandBuilder.SubcommandRoute route = null;
             if (
-                0 < _tokens.Count
-                && _shell.TryResolveToken(_tokens[0], _tokens[0].GetVariableName(), out CommandArg nameToken)
-                && !string.IsNullOrWhiteSpace(nameToken.contents)
-                && _shell.TryGetCommand(CommandShell.NormalizeCommandName(nameToken.contents), out CommandInfo command)
+                !PopulateSignature(
+                    _signature,
+                    _shell,
+                    _tokens,
+                    active,
+                    _caret,
+                    ref _signatureRoute,
+                    ref _signatureStage,
+                    out CommandArgument activeArgument,
+                    out int activeIndex,
+                    out int totalArguments
+                )
             )
             {
-                route = command.SyntaxRoute;
-            }
-
-            int routed = 1;
-            while (route is { IsRouter: true } && routed <= active && routed < _tokens.Count)
-            {
-                CommandToken selector = _tokens[routed];
-                if (routed == active && _caret < selector.End)
-                {
-                    break;
-                }
-
-                if (
-                    !_shell.TryResolveToken(selector, selector.GetVariableName(), out CommandArg resolved)
-                    || !route.Lookup.TryGetValue(resolved.contents ?? string.Empty, out CommandBuilder.SubcommandRoute child)
-                )
-                {
-                    break;
-                }
-
-                route = child;
-                ++routed;
-            }
-
-            CommandArgument[] specs = route?.Specs ?? Array.Empty<CommandArgument>();
-            int stage = active - routed;
-            if (route?.HasRemaining == true && specs.Length <= stage)
-            {
-                stage = specs.Length - 1;
-            }
-
-            if (ReferenceEquals(_signatureRoute, route) && _signatureStage == stage)
-            {
                 return;
             }
 
-            _signatureRoute = route;
-            _signatureStage = stage;
-            _signature.Clear();
-            _activeArgument = null;
-            if (route == null)
+            _activeArgument = activeArgument;
+            if (_activeArgument != null)
             {
-                return;
+                _argument.text = $"{_activeArgument.Name} · {activeIndex + 1} of {totalArguments} arguments";
+                _argumentDescription.text = LogTextSanitizer.Sanitize(_activeArgument.Description ?? string.Empty);
             }
-
-            Label name = MakeLabel("SignatureCommand", "completion-signature-name");
-            name.text = LogTextSanitizer.Sanitize(route.FullPath);
-            _signature.Add(name);
-            for (int i = 0; i < specs.Length; ++i)
-            {
-                CommandArgument spec = specs[i];
-                VisualElement argument = new();
-                argument.AddToClassList("completion-signature-argument");
-                argument.EnableInClassList("completion-argument-active", i == stage);
-                Label argumentName = MakeLabel(null, "completion-signature-part");
-                argumentName.text = spec.IsRequired ? spec.Name + ": " : "[" + spec.Name + ": ";
-                Label type = MakeLabel(null, "completion-signature-part");
-                type.text = LogTextSanitizer.Sanitize(spec.SignatureType);
-                type.AddToClassList("completion-type-" + (spec.HasChoices ? CommandSyntaxClassifier.CommandSyntaxRole.Choice : spec.SyntaxRole));
-                Label suffix = MakeLabel(null, "completion-signature-part");
-                suffix.text = LogTextSanitizer.Sanitize(spec.SignatureSuffix);
-                argument.Add(argumentName);
-                argument.Add(type);
-                argument.Add(suffix);
-                _signature.Add(argument);
-                if (i == stage)
-                {
-                    _activeArgument = spec;
-                    _argument.text = $"{spec.Name} · {i + 1} of {specs.Length} arguments";
-                    _argumentDescription.text = LogTextSanitizer.Sanitize(spec.Description ?? string.Empty);
-                }
-            }
-
-            Label description = MakeLabel("SignatureDescription", "completion-signature-description");
-            description.text = LogTextSanitizer.Sanitize(route.Help ?? string.Empty);
-            _signature.Add(description);
         }
 
         private VisualElement MakeRow()

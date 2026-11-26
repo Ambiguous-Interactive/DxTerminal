@@ -1119,13 +1119,13 @@
 
             Assert.That(palette.CurrentTextSize, Is.EqualTo(TerminalTextSize.Large), "Palette follows the terminal text size by default");
             Assert.That(palette._paletteRoot.ClassListContains(TerminalTextSizeMetrics.LargeClass), Is.True);
-            Assert.That(palette.EffectiveRowHeight, Is.EqualTo(44f).Within(0.01f));
-            Assert.That(palette._rows[0].style.height.value.value, Is.EqualTo(44f).Within(0.01f));
+            Assert.That(palette.EffectiveRowHeight, Is.EqualTo(54f).Within(0.01f));
+            Assert.That(palette._rows[0].style.height.value.value, Is.EqualTo(54f).Within(0.01f));
 
             palette.SetTextSize(TerminalTextSize.Medium);
             Assert.That(palette.CurrentTextSize, Is.EqualTo(TerminalTextSize.Medium));
             Assert.That(palette._paletteRoot.ClassListContains(TerminalTextSizeMetrics.MediumClass), Is.True);
-            Assert.That(palette._rows[0].style.height.value.value, Is.EqualTo(36f).Within(0.01f));
+            Assert.That(palette._rows[0].style.height.value.value, Is.EqualTo(46f).Within(0.01f));
 
             palette.SetTextSize(TerminalTextSize.Small, persist: true);
             palette._runtimeTextSize = null;

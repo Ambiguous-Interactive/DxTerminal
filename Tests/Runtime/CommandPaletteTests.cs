@@ -162,16 +162,13 @@
                     {
                         Name = "spawnitem",
                         Handler = (context, arguments) => { },
-                        CompletionProvider = CommandCompletionProviders.Staged(
-                            InventoryStage(),
-                            (in CommandCompletionContext context, List<CommandCompletion> results) =>
+                        CompletionProvider = CommandCompletionProviders.Staged(InventoryStage(), (in CommandCompletionContext context, List<CommandCompletion> results) =>
+                        {
+                            foreach (string count in new[] { "1", "2", "3" })
                             {
-                                foreach (string count in new[] { "1", "2", "3" })
-                                {
-                                    results.Add(new CommandCompletion(count));
-                                }
+                                results.Add(new CommandCompletion(count));
                             }
-                        ),
+                        }),
                     }
                 )
             );
@@ -701,7 +698,8 @@
 
             _palette.Open();
             _palette.keyBindings.paletteClose = Array.Empty<ConsoleKeyBindings.Shortcut>();
-            Assert.That(_palette._paletteRoot.Q<Label>("PaletteFooter").text, Is.EqualTo("Type a query to find a command."));
+            string footerText = _palette._paletteRoot.Q<Label>("PaletteFooter").text;
+            Assert.That(footerText, Does.Contain("Esc close"));
             Dispatch(KeyCode.F9, handled: false);
             Assert.That(_palette.IsOpen, Is.True, "An empty shortcut list disables its action");
             _palette.keyBindings.paletteClose = new[] { new ConsoleKeyBindings.Shortcut(KeyCode.F9) };
@@ -1829,6 +1827,192 @@
 
             _palette.Close();
             Assert.IsFalse(_palette.InputOwnsFocus, "A closed palette must not report owning focus, whatever still holds it");
+        }
+
+        [UnityTest]
+        public IEnumerator QuickLaunchMatchesTerminalHighlightSpansForT10Lines()
+        {
+            yield return SpawnSharedSurface();
+            TerminalUI terminal = TerminalUI.Instance;
+            terminal.SetState(TerminalState.OpenSmall);
+            yield return null;
+
+            Assert.IsTrue(Terminal.Shell.AddCommand(CommandBuilder.Create("inspect").Contexts(CommandExecutionContextSets.All).Arg<string>("text").Handler((_, _) => { }), out _));
+            Assert.IsTrue(Terminal.Shell.AddCommand(CommandBuilder.Create("mode").Contexts(CommandExecutionContextSets.All).Arg<bool>("enabled").Handler((_, _) => { }), out _));
+            Assert.IsTrue(Terminal.Shell.AddCommand(CommandBuilder.Create("day").Contexts(CommandExecutionContextSets.All).Arg<DayOfWeek>("day").Handler((_, _) => { }), out _));
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("gain")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<int>("value", spec =>
+                        {
+                            return spec.Range(-20, 20);
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                )
+            );
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(CommandBuilder.Create("point").Contexts(CommandExecutionContextSets.All).Arg<Vector3>("position").Handler((_, _) => { }), out _)
+            );
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("tool")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Subcommand("set", child =>
+                        {
+                            child.Remaining<int>("values").Handler((_, _) => { });
+                        }),
+                    out _
+                )
+            );
+            Assert.IsTrue(Terminal.Shell.SetVariable("current", "7"));
+            Assert.IsTrue(Terminal.Shell.SetVariable("action", "set"));
+
+            string[] t10Lines =
+            {
+                "inspect",
+                "missing abc",
+                "mode true",
+                "day Friday",
+                "day someday",
+                "gain -12",
+                "gain 21",
+                "gain $current",
+                "gain $missing",
+                "inspect \"two words\"",
+                "inspect \"two words",
+                "point \"(1, 2,-3)\"",
+                "tool $action 2",
+                "tool set 2 wrong",
+            };
+
+            Label terminalOverlay = terminal._commandInput.Q<Label>("CommandInputHighlight");
+            Assert.That(terminalOverlay != null, "Terminal must have a CommandInputHighlight overlay");
+
+            _palette.Open();
+            yield return null;
+            Label paletteOverlay = _palette._input.Q<Label>("CommandInputHighlight");
+            Assert.That(paletteOverlay != null, "Quick launch must share the CommandInputHighlight overlay");
+
+            foreach (string line in t10Lines)
+            {
+                terminal.SetState(TerminalState.OpenSmall);
+                yield return null;
+                terminal._commandInput.value = line;
+                yield return null;
+                List<CommandSyntaxClassifier.CommandSyntaxSpan> expectedSpans = new(terminal._commandInputHighlight.Spans);
+                string expectedRichText = terminalOverlay.text;
+
+                _palette.Open();
+                yield return null;
+                _palette._input.value = line;
+                yield return null;
+
+                Assert.That(_palette._inputHighlight.Spans, Is.EqualTo(expectedSpans), $"Quick launch spans must match terminal for '{line}'");
+                Assert.That(paletteOverlay.text, Is.EqualTo(expectedRichText), $"Quick launch highlight must match terminal for '{line}'");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator EmptyInputShowsLastThreeRecentLinesWithArgumentsAndEnterReruns()
+        {
+            yield return SpawnPalette();
+            string lastRan = null;
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("qlrun")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("target")
+                        .Arg<int>("count")
+                        .Handler(
+                            (_, arguments) =>
+                            {
+                                lastRan = $"{arguments.Get<string>(0)}:{arguments.Get<int>(1)}";
+                            }
+                        ),
+                    out _
+                )
+            );
+
+            Terminal.Shell.RunCommand("qlrun alpha 1");
+            Terminal.Shell.RunCommand("qlrun beta 2");
+            Terminal.Shell.RunCommand("qlrun gamma 3");
+            Terminal.Shell.RunCommand("qlrun delta 4");
+
+            _palette.Open();
+            yield return null;
+
+            Assert.That(_palette._recentMode, Is.True);
+            Assert.That(_palette._matchNames, Is.EqualTo(new[] { "qlrun delta 4", "qlrun gamma 3", "qlrun beta 2" }));
+            Assert.That(_palette._paletteRoot.Q<Label>("PaletteRecentHeader").style.display.value, Is.EqualTo(DisplayStyle.Flex));
+
+            lastRan = null;
+            Assert.That(_palette.Submit(), Is.True, "Enter re-runs the newest recent line with its arguments");
+            Assert.That(lastRan, Is.EqualTo("delta:4"));
+        }
+
+        [UnityTest]
+        public IEnumerator QuickLaunchShowsSignatureGhostValidationAndFailedRunFooter()
+        {
+            yield return SpawnPalette();
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("spawn", "Spawns enemies at a point")
+                        .Group("Combat")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<string>("prefab", spec =>
+                        {
+                            return spec.Required().Choices("goblin", "ghoul", "golem");
+                        })
+                        .Arg<int>("count", spec =>
+                        {
+                            return spec.Range(1, 50).Default(1);
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                )
+            );
+
+            _palette.Open();
+            yield return null;
+
+            Assert.That(_palette.rowHeight, Is.EqualTo(40f));
+            Assert.That(_palette._paletteRoot.Q<Label>("PalettePrompt").text, Is.EqualTo("›"));
+            Assert.That(_palette._footer.text, Does.Not.Contain("↑↓"));
+            Assert.That(_palette._footer.text, Does.Not.Contain("Tab"));
+
+            _palette._input.value = "spaw";
+            yield return null;
+            Assert.That(_palette.GhostText, Is.EqualTo("n"));
+            Assert.That(_palette._footer.text, Does.Contain("→ accept word"));
+
+            _palette._input.value = "spawn g";
+            yield return null;
+            Assert.That(_palette.GhostText, Is.EqualTo("oblin"));
+            Assert.That(_palette.MoveSelection(1), Is.True);
+            Assert.That(_palette.GhostText, Is.EqualTo("houl"), "Moving selection updates ghost text to the newly selected completion");
+
+            _palette._input.value = "spawn gob";
+            yield return null;
+            Assert.That(_palette._signature.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(_palette._signature.Q<Label>("SignatureDescription").text, Is.EqualTo("Spawns enemies at a point"));
+            Assert.That(_palette.GhostText, Is.EqualTo("lin"));
+
+            _palette._input.value = "spawn goblin 80";
+            yield return null;
+            Assert.That(_palette.ValidationMessage, Is.Not.Null.And.Contains("count"));
+
+            Assert.That(_palette.Submit(), Is.False);
+            Assert.That(_palette.IsOpen, Is.True);
+            Assert.That(_palette._input.value, Is.EqualTo("spawn goblin 80"));
+            Assert.That(_palette._feedback.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(_palette._feedback.ClassListContains("palette-feedback--error"), Is.True);
+            Assert.That(_palette._footer.text, Is.EqualTo("Edit the line to retry"));
         }
 
         private IEnumerator WaitForCaret(int expected, string message)

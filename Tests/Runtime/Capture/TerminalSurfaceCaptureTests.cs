@@ -1019,6 +1019,78 @@
         }
 
         [UnityTest]
+        public IEnumerator CapturesQuickLaunchStates()
+        {
+            yield return SpawnTerminal(useEditorDefaults: true);
+            AttachPalette();
+            TerminalFontPack fontPack = LoadPack<TerminalFontPack>("Packs/Fonts/JetBrains Mono.asset");
+            _terminal.SetFont(fontPack._fonts[0]);
+
+            CommandBuilder spawn = CommandBuilder
+                .Create("spawn", "Spawns enemies at a point with a deliberately long description that truncates in the help column")
+                .Group("Combat")
+                .Contexts(CommandExecutionContextSets.All)
+                .Arg<string>("prefab", spec =>
+                {
+                    return spec.Required()
+                        .Choices("goblin", "ghoul", "golem")
+                        .DescribeChoices(value =>
+                        {
+                            return value switch
+                            {
+                                "goblin" => "HP 30",
+                                "ghoul" => "HP 55",
+                                _ => "HP 400",
+                            };
+                        });
+                })
+                .Arg<int>("count", spec =>
+                {
+                    return spec.Range(1, 50).Default(1);
+                })
+                .Handler((_, _) => { });
+            Assert.That(Terminal.Shell.AddCommand(spawn, out _), Is.True);
+            Assert.That(Terminal.Shell.AddCommand("heal", _ => { }, help: "Restores player health"), Is.True);
+            Terminal.Shell.RunCommand("spawn goblin 3");
+            Terminal.Shell.RunCommand("heal");
+
+            _palette.Open();
+            yield return SettleRenders();
+            Assert.That(_palette._recentMode, Is.True);
+            Assert.That(_palette._paletteRoot.Q<Label>("PalettePrompt").worldBound.xMin, Is.GreaterThanOrEqualTo(_palette._paletteRoot.Q("PaletteInputContainer").worldBound.xMin));
+            Assert.That(_palette._paletteRoot.Q("PaletteInputContainer").resolvedStyle.height, Is.EqualTo(44f).Within(1f));
+            Assert.That(_palette._rows[0].resolvedStyle.height, Is.EqualTo(40f).Within(1f));
+            Assert.That(_palette._footer.resolvedStyle.fontSize, Is.EqualTo(11f).Within(0.5f));
+            yield return CapturePaletteSurface(nameof(CapturesQuickLaunchStates) + "-recent", ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+
+            _palette._input.value = "spaw";
+            yield return WaitForPaletteRows("spaw");
+            yield return SettleRenders();
+            yield return CapturePaletteSurface(nameof(CapturesQuickLaunchStates) + "-search", ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+
+            _palette._paletteRoot.RemoveFromClassList("dx-dark-theme");
+            _palette._paletteRoot.AddToClassList("dx-paper-theme");
+            _palette._input.value = "spawn gob";
+            yield return WaitForPaletteRows("spawn gob");
+            yield return SettleRenders();
+            Assert.That(_palette._signature.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            yield return CapturePaletteSurface(nameof(CapturesQuickLaunchStates) + "-arg-paper", ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+
+            _palette._paletteRoot.RemoveFromClassList("dx-paper-theme");
+            _palette._paletteRoot.AddToClassList("phosphor-theme");
+            _palette._input.value = "spawn goblin 80";
+            yield return SettleRenders();
+            Assert.That(_palette.Submit(), Is.False);
+            yield return SettleRenders();
+            Assert.That(_palette._footer.text, Is.EqualTo("Edit the line to retry"));
+            yield return CapturePaletteSurface(nameof(CapturesQuickLaunchStates) + "-err-phosphor", ArgumentCaptureWidth, ArgumentCaptureHeight);
+            AssertAcceptable(_lastOutcome);
+        }
+
+        [UnityTest]
         public IEnumerator CapturesDefaultThemeSurface()
         {
             yield return SpawnTerminal(useEditorDefaults: true);

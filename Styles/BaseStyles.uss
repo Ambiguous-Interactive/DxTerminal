@@ -969,11 +969,34 @@
     background-color: var(--dxt-surface);
     border-color: var(--dxt-line);
     border-width: 1px;
-    border-radius: 10px;
-    padding: 10px 12px 8px 12px;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.palette-input-container {
+    flex-direction: row;
+    align-items: center;
+    height: 44px;
+    padding: 0 10px;
+    background-color: var(--dxt-input);
+    border-width: 1px;
+    border-color: var(--dxt-line);
+    border-radius: 8px;
+}
+
+.palette-prompt {
+    flex-shrink: 0;
+    margin: 0 6px 0 0;
+    padding: 0;
+    font-size: 15px;
+    color: var(--dxt-accent);
+    -unity-text-align: middle-left;
 }
 
 .palette-input {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
     margin: 0;
     background-color: transparent;
     border-width: 0;
@@ -986,23 +1009,52 @@
 
 .palette-input > #unity-text-input {
     --unity-cursor-color: var(--dxt-accent);
-    background-color: var(--dxt-input);
+    --unity-selection-color: var(--dxt-selection);
+    background-color: transparent;
     border-width: 0;
-    border-radius: 6px;
-    font-size: 14px;
-    padding: 4px 8px 4px 8px;
+    border-radius: 0;
+    font-size: 15px;
+    padding: 0;
     margin: 0;
+    -unity-text-align: middle-left;
+}
+
+.palette-panel .completion-signature {
+    margin-top: 6px;
+    border-radius: 6px;
+}
+
+.palette-panel .terminal-validation {
+    margin-top: 6px;
+    border-width: 1px;
+    border-color: var(--dxt-line);
+    border-radius: 8px;
+    background-color: var(--dxt-surface-raised);
+    padding: 6px 10px;
+}
+
+.palette-panel .terminal-validation--error {
+    border-color: var(--dxt-error-line);
 }
 
 .palette-divider {
     height: 1px;
-    margin-top: 6px;
+    margin-top: 8px;
     align-self: stretch;
     background-color: var(--dxt-line);
 }
 
+.palette-recent-header {
+    margin: 6px 4px 2px 4px;
+    padding: 0;
+    font-size: 11px;
+    color: var(--dxt-ink-muted);
+    -unity-text-align: middle-left;
+}
+
 .palette-results {
     margin-top: 4px;
+    background-color: transparent;
 }
 
 .palette-results .unity-scroller--vertical {
@@ -1055,10 +1107,10 @@
 .palette-row {
     flex-direction: row;
     align-items: center;
-    padding: 3px 7px;
+    padding: 0 10px;
     border-width: 1px;
     border-color: transparent;
-    border-radius: 4px;
+    border-radius: 8px;
     transition: background-color 0.1s ease;
 }
 
@@ -1075,6 +1127,14 @@
 .palette-row-name {
     flex-shrink: 0;
     min-width: 140px;
+    max-width: 42%;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    -unity-text-align: middle-left;
     color: var(--dxt-ink-body);
 }
 
@@ -1088,26 +1148,63 @@
 
 .palette-row-help {
     flex-grow: 1;
-    white-space: normal;
+    flex-shrink: 1;
+    min-width: 0;
+    margin: 0 0 0 12px;
+    padding: 0;
+    font-size: 13px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    -unity-text-align: middle-left;
     color: var(--dxt-ink-muted);
 }
 
-.palette-output {
-    margin-top: 4px;
+.palette-row-hint {
+    flex-shrink: 0;
+    margin: 0 0 0 8px;
+    padding: 0;
+    font-size: 11px;
+    color: var(--dxt-ink-muted);
+    -unity-text-align: middle-right;
+}
+
+.palette-output,
+.palette-feedback {
+    margin-top: 8px;
+    padding: 8px 10px;
     white-space: normal;
+    background-color: var(--dxt-surface-raised);
+    border-width: 1px;
+    border-color: var(--dxt-line);
+    border-radius: 8px;
+}
+
+.palette-output {
     color: var(--dxt-ink-body);
 }
 
 .palette-feedback {
-    margin-top: 4px;
-    white-space: normal;
     color: var(--dxt-error-text);
 }
 
+.palette-feedback--error {
+    border-color: var(--dxt-error-line);
+}
+
 .palette-footer {
-    margin-top: 6px;
-    font-size: 10px;
+    min-height: 24px;
+    margin: 6px 0 0 0;
+    padding: 0 2px;
+    font-size: 11px;
+    -unity-text-align: middle-left;
     color: var(--dxt-ink-muted);
+}
+
+.palette-root--narrow .palette-panel {
+    width: 100%;
+    border-radius: 0;
+    padding: 10px;
 }
 
 .terminal-header .terminal-button:focus,

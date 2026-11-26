@@ -28,6 +28,11 @@ namespace WallstopStudios.DxCommandTerminal.UI
             get { return _monoTag; }
         }
 
+        internal IReadOnlyList<CommandSyntaxSpan> Spans
+        {
+            get { return _spans; }
+        }
+
         private readonly Label _label;
         private readonly VisualElement _nativeText;
         private readonly bool _labelFollowsNativeScroll;
