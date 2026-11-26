@@ -162,16 +162,13 @@
                     {
                         Name = "spawnitem",
                         Handler = (context, arguments) => { },
-                        CompletionProvider = CommandCompletionProviders.Staged(
-                            InventoryStage(),
-                            (in CommandCompletionContext context, List<CommandCompletion> results) =>
+                        CompletionProvider = CommandCompletionProviders.Staged(InventoryStage(), (in CommandCompletionContext context, List<CommandCompletion> results) =>
+                        {
+                            foreach (string count in new[] { "1", "2", "3" })
                             {
-                                foreach (string count in new[] { "1", "2", "3" })
-                                {
-                                    results.Add(new CommandCompletion(count));
-                                }
+                                results.Add(new CommandCompletion(count));
                             }
-                        ),
+                        }),
                     }
                 )
             );
@@ -1829,6 +1826,94 @@
 
             _palette.Close();
             Assert.IsFalse(_palette.InputOwnsFocus, "A closed palette must not report owning focus, whatever still holds it");
+        }
+
+        [UnityTest]
+        public IEnumerator QuickLaunchMatchesTerminalHighlightSpansForT10Lines()
+        {
+            yield return SpawnPalette();
+            TerminalUI terminal = _paletteObject.AddComponent<TerminalUI>();
+            terminal._uiDocument = _palette._uiDocument;
+            terminal._themePack = _palette._themePack;
+            terminal.SetState(TerminalState.OpenSmall);
+            yield return null;
+
+            Assert.IsTrue(Terminal.Shell.AddCommand(CommandBuilder.Create("inspect").Contexts(CommandExecutionContextSets.All).Arg<string>("text").Handler((_, _) => { }), out _));
+            Assert.IsTrue(Terminal.Shell.AddCommand(CommandBuilder.Create("mode").Contexts(CommandExecutionContextSets.All).Arg<bool>("enabled").Handler((_, _) => { }), out _));
+            Assert.IsTrue(Terminal.Shell.AddCommand(CommandBuilder.Create("day").Contexts(CommandExecutionContextSets.All).Arg<DayOfWeek>("day").Handler((_, _) => { }), out _));
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("gain")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Arg<int>("value", spec =>
+                        {
+                            return spec.Range(-20, 20);
+                        })
+                        .Handler((_, _) => { }),
+                    out _
+                )
+            );
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(CommandBuilder.Create("point").Contexts(CommandExecutionContextSets.All).Arg<Vector3>("position").Handler((_, _) => { }), out _)
+            );
+            Assert.IsTrue(
+                Terminal.Shell.AddCommand(
+                    CommandBuilder
+                        .Create("tool")
+                        .Contexts(CommandExecutionContextSets.All)
+                        .Subcommand("set", child =>
+                        {
+                            child.Remaining<int>("values").Handler((_, _) => { });
+                        }),
+                    out _
+                )
+            );
+            Assert.IsTrue(Terminal.Shell.SetVariable("current", "7"));
+            Assert.IsTrue(Terminal.Shell.SetVariable("action", "set"));
+
+            string[] t10Lines =
+            {
+                "inspect",
+                "missing abc",
+                "mode true",
+                "day Friday",
+                "day someday",
+                "gain -12",
+                "gain 21",
+                "gain $current",
+                "gain $missing",
+                "inspect \"two words\"",
+                "inspect \"two words",
+                "point \"(1, 2,-3)\"",
+                "tool $action 2",
+                "tool set 2 wrong",
+            };
+
+            Label terminalOverlay = terminal._commandInput.Q<Label>("CommandInputHighlight");
+            Assert.That(terminalOverlay != null, "Terminal must have a CommandInputHighlight overlay");
+
+            _palette.Open();
+            yield return null;
+            Label paletteOverlay = _palette._input.Q<Label>("CommandInputHighlight");
+            Assert.That(paletteOverlay != null, "Quick launch must share the CommandInputHighlight overlay");
+
+            foreach (string line in t10Lines)
+            {
+                terminal.SetState(TerminalState.OpenSmall);
+                yield return null;
+                terminal._commandInput.value = line;
+                yield return null;
+                string expectedRichText = terminalOverlay.text;
+
+                _palette.Open();
+                yield return null;
+                _palette._input.value = line;
+                yield return null;
+                string actualRichText = paletteOverlay.text;
+
+                Assert.That(actualRichText, Is.EqualTo(expectedRichText), $"Quick launch highlight must match terminal for '{line}'");
+            }
         }
 
         private IEnumerator WaitForCaret(int expected, string message)
