@@ -30,6 +30,34 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         }
 
         /// <summary>
+        ///     The session's watch registry (milestone C4, #244). Reads null
+        ///     until the first <see cref="TerminalSession.Apply"/>, exactly
+        ///     like the other facade getters.
+        /// </summary>
+        public static CommandWatchRegistry Watches
+        {
+            get { return TerminalSession.Current.Watches; }
+            internal set { TerminalSession.Current.Watches = value; }
+        }
+
+        /// <summary>
+        ///     Registers a watch and returns the handle that removes it.
+        ///     Throws when no session backends exist yet (an Edit Mode call
+        ///     before any terminal applied its configuration); Play Mode
+        ///     backends exist from any Awake onward.
+        /// </summary>
+        public static WatchHandle Watch<T>(string name, Func<T> getter, string source = null, string format = null, CommandTier tier = CommandTier.Developer)
+        {
+            CommandWatchRegistry watches = TerminalSession.Current.Watches;
+            if (watches == null)
+            {
+                throw new InvalidOperationException("No watch registry is ready. Enable a TerminalUI or call TerminalSession.Current.EnsureReady before Terminal.Watch.");
+            }
+
+            return watches.Watch(name, getter, source, format, tier);
+        }
+
+        /// <summary>
         ///     Clears the log buffer, command history, and shell variables in place
         ///     without replacing the shell or dropping registered commands.
         /// </summary>

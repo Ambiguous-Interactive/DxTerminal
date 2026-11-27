@@ -6,10 +6,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
     /// <summary>
     ///     Owns the backend objects exposed through the <see cref="Terminal"/>
-    ///     facade: the log buffer, history, shell, and auto-complete. Applying a
-    ///     configuration creates missing objects, resizes and resynchronizes
-    ///     existing ones, and reports whether the shell needed reconfiguration,
-    ///     so UI components stay thin delegates over this owner.
+    ///     facade: the log buffer, history, shell, auto-complete, and watch
+    ///     registry. Applying a configuration creates missing objects,
+    ///     resizes and resynchronizes existing ones, and reports whether the
+    ///     shell needed reconfiguration, so UI components stay thin
+    ///     delegates over this owner.
     /// </summary>
     internal sealed class TerminalSession
     {
@@ -38,6 +39,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         public CommandShell Shell { get; internal set; }
 
         public CommandAutoComplete AutoComplete { get; internal set; }
+
+        public CommandWatchRegistry Watches { get; internal set; }
 
         public bool HasComponentConfiguration { get; private set; }
 
@@ -91,6 +94,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 Shell = new CommandShell(History);
             }
 
+            if (force || Watches == null)
+            {
+                Watches = new CommandWatchRegistry();
+            }
+
             if (force || AutoComplete == null)
             {
                 AutoComplete = new CommandAutoComplete(History, Shell);
@@ -141,6 +149,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             History = null;
             Shell = null;
             AutoComplete = null;
+            Watches = null;
             HasComponentConfiguration = false;
             ShellReplaced = null;
         }

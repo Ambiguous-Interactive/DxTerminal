@@ -1637,3 +1637,164 @@
 .terminal-motion--none .palette-row {
     transition-duration: 0s;
 }
+
+/* -- Watches (#244, board S3) -- */
+
+.terminal-watches {
+    flex-grow: 1;
+    min-height: 0;
+    padding: 6px 14px;
+}
+
+.terminal-watches-header {
+    flex-direction: row;
+    align-items: center;
+    height: 26px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--dxt-line);
+}
+
+.terminal-watches-header-label {
+    font-size: 11px;
+    color: var(--dxt-ink-muted);
+    -unity-text-align: middle-left;
+}
+
+.terminal-watches-scroll {
+    flex-grow: 1;
+}
+
+.terminal-watches-row {
+    flex-direction: row;
+    align-items: center;
+    height: 30px;
+}
+
+.terminal-watches-name {
+    width: 200px;
+    margin-right: 8px;
+    font-size: 13px;
+    color: var(--dxt-ink-body);
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.terminal-watches-value {
+    width: 160px;
+    margin-right: 8px;
+    font-size: 13px;
+    color: var(--dxt-ink);
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.terminal-watches-value--number {
+    color: var(--dxt-syn-number);
+}
+
+.terminal-watches-value--string {
+    color: var(--dxt-syn-string);
+}
+
+.terminal-watches-value--choice {
+    color: var(--dxt-syn-choice);
+}
+
+.terminal-watches-value--body {
+    color: var(--dxt-ink);
+}
+
+.terminal-watches-source {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin-right: 8px;
+    font-size: 12px;
+    color: var(--dxt-ink-muted);
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.terminal-watches-pin {
+    width: 80px;
+    height: 22px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--dxt-ink-muted);
+    -unity-text-align: middle-center;
+}
+
+.terminal-watches-pin--pinned {
+    background-color: var(--dxt-selection);
+    color: var(--dxt-accent-soft);
+}
+
+.terminal-watches-empty {
+    padding: 10px 0;
+    font-size: 12px;
+    color: var(--dxt-ink-muted);
+}
+
+.terminal-watches-hud {
+    position: absolute;
+    width: 250px;
+    padding: 10px 12px;
+    border-width: 1px;
+    border-radius: 8px;
+    border-color: var(--dxt-line);
+    background-color: var(--dxt-surface);
+}
+
+.terminal-watches-hud--bottom-right {
+    right: 20px;
+    bottom: 20px;
+}
+
+.terminal-watches-hud--bottom-left {
+    left: 20px;
+    bottom: 20px;
+}
+
+.terminal-watches-hud--top-right {
+    right: 20px;
+    top: 20px;
+}
+
+.terminal-watches-hud--top-left {
+    left: 20px;
+    top: 20px;
+}
+
+.terminal-watches-hud-header {
+    margin-bottom: 2px;
+    font-size: 11px;
+    color: var(--dxt-ink-muted);
+}
+
+.terminal-watches-hud-rows {
+    flex-direction: column;
+}
+
+.terminal-watches-hud-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 22px;
+}
+
+.terminal-watches-hud-name {
+    font-size: 12px;
+    color: var(--dxt-ink-muted);
+    -unity-text-align: middle-left;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.terminal-watches-hud-value {
+    font-size: 12px;
+    color: var(--dxt-ink);
+    -unity-text-align: middle-right;
+    white-space: nowrap;
+}

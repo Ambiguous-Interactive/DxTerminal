@@ -42,6 +42,21 @@ namespace WallstopStudios.DxCommandTerminal.UI
         [Tooltip("Allow clicking completion hints to apply them")]
         public bool makeHintsClickable = true;
 
+        [Header("Watches")]
+        [Tooltip("Show the corner HUD with the pinned watches while the terminal is closed")]
+        public bool watchesHudEnabled = true;
+
+        [Tooltip("Screen corner the Watches HUD anchors to")]
+        public TerminalHudCorner watchesHudCorner = TerminalHudCorner.BottomRight;
+
+        [Tooltip("Maximum rows the Watches HUD shows; extra pinned watches stay in the tab")]
+        [Min(1)]
+        public int watchesHudMaxRows = 6;
+
+        [Tooltip("Times per second watch getters run on the main thread; clamped to 0.5-30 Hz")]
+        [Min(0.5f)]
+        public float watchesSampleRate = 4f;
+
         [Header("System")]
         [Tooltip("Reset static command state when a terminal wakes")]
         public bool resetStateOnInit;
