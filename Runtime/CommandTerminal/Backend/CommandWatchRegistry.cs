@@ -98,6 +98,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 throw new ArgumentException($"Watch name '{trimmed}' must not contain spaces; the watch command addresses watches by name.", nameof(name));
             }
 
+            if (0 <= trimmed.IndexOf(';', StringComparison.Ordinal))
+            {
+                throw new ArgumentException($"Watch name '{trimmed}' must not contain ';'; pin persistence stores names ';'-separated.", nameof(name));
+            }
+
             return trimmed;
         }
 
@@ -212,10 +217,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         private static void AddDiscovered(List<DiscoveredWatch> discovered, WatchAttribute attribute, Type declaringType, string memberName, Func<object> getter)
         {
-            string name = attribute.Name;
-            if (string.IsNullOrWhiteSpace(name))
+            string name;
+            try
             {
-                Debug.LogWarning(LogTextSanitizer.Sanitize($"[DxTerminal] [Watch] on {declaringType.Name}.{memberName} has an empty name and is skipped."));
+                name = NormalizeWatchName(attribute.Name);
+            }
+            catch (ArgumentException e)
+            {
+                Debug.LogException(e);
+                Debug.LogWarning(LogTextSanitizer.Sanitize($"[DxTerminal] [Watch] on {declaringType.Name}.{memberName} is skipped."));
                 return;
             }
 
@@ -548,21 +558,25 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private void RegisterBuiltInWatches()
         {
             /*
-                The handles are dropped on purpose: built-in watches live as
-                long as the registry does, and a dropped handle can never
-                remove them.
+                Built-ins register through AddEntry directly: triggering
+                discovery here would let a user [Watch("fps")] land first
+                and then make the built-in registration throw mid-
+                construction. The handles are dropped on purpose: built-in
+                watches live as long as the registry does, and a dropped
+                handle can never remove them.
              */
-            Watch("fps", (Func<object>)(() => 1f / Mathf.Max(Time.unscaledDeltaTime, MinimumDeltaTimeSeconds)), BuiltInWatchSource, "F1", CommandTier.Player);
-            Watch("frame", (Func<object>)(() => Time.frameCount), BuiltInWatchSource, null, CommandTier.Player);
+            AddEntry("fps", () => 1f / Mathf.Max(Time.unscaledDeltaTime, MinimumDeltaTimeSeconds), BuiltInWatchSource, "F1", CommandTier.Player);
+            AddEntry("frame", () => Time.frameCount, BuiltInWatchSource, null, CommandTier.Player);
         }
 
         private WatchHandle AddEntry(string name, Func<object> getter, string source, string format, CommandTier tier)
         {
-            WatchEntry entry = new WatchEntry(_nextRegistrationId, name, string.IsNullOrWhiteSpace(source) ? "Script" : source, format, NormalizeTier(tier), getter);
+            string normalized = NormalizeWatchName(name);
+            WatchEntry entry = new WatchEntry(_nextRegistrationId, normalized, string.IsNullOrWhiteSpace(source) ? "Script" : source, format, NormalizeTier(tier), getter);
             _nextRegistrationId++;
             _entries.Add(entry);
-            _entriesByName.Add(name, entry);
-            if (_pinnedNames.Contains(name))
+            _entriesByName.Add(normalized, entry);
+            if (_pinnedNames.Contains(normalized))
             {
                 entry.Pinned = true;
             }
@@ -580,12 +594,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
             catch (Exception e)
             {
-                if (entry.LoggedGetterFailure)
+                if (entry.LoggedSampleFailure)
                 {
                     return;
                 }
 
-                entry.LoggedGetterFailure = true;
+                entry.LoggedSampleFailure = true;
                 Debug.LogException(e);
                 Debug.LogWarning(LogTextSanitizer.Sanitize($"[DxTerminal] Watch '{entry.Name}' getter threw; sampling skips it until it stops throwing."));
                 return;
@@ -596,10 +610,33 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return;
             }
 
+            string text;
+            try
+            {
+                text = FormatEntryValue(entry, value);
+            }
+            catch (Exception e)
+            {
+                /*
+                    A ToString or format failure must not break the frame's
+                    sampling pass; the entry keeps its previous text and
+                    retries when the value changes.
+                 */
+                if (entry.LoggedSampleFailure)
+                {
+                    return;
+                }
+
+                entry.LoggedSampleFailure = true;
+                Debug.LogException(e);
+                Debug.LogWarning(LogTextSanitizer.Sanitize($"[DxTerminal] Watch '{entry.Name}' value formatting threw; sampling keeps the last text."));
+                return;
+            }
+
             entry.LastValue = value;
-            entry.LoggedGetterFailure = false;
+            entry.LoggedSampleFailure = false;
             entry.Role = ClassifyRole(value);
-            entry.ValueText = FormatEntryValue(entry, value);
+            entry.ValueText = text;
             entry.HasValue = true;
         }
 
@@ -664,7 +701,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             internal readonly Func<object> Getter;
             internal readonly StringBuilder Builder;
             internal object LastValue;
-            internal bool LoggedGetterFailure;
+            internal bool LoggedSampleFailure;
 
             internal WatchEntry(long registrationId, string name, string source, string format, CommandTier tier, Func<object> getter)
             {

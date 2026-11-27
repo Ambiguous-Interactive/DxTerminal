@@ -37,6 +37,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             get { return 11; }
         }
 
+        [Watch("fps")]
+        private static int DiscoveredBuiltInCollision
+        {
+            get { return 60; }
+        }
+
         [Watch("discovered.field")]
         internal static string DiscoveredField = "field-value";
 
@@ -161,6 +167,35 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         }
 
         [Test]
+        public void WatchSampleSurvivesAThrowingToString()
+        {
+            _registry.Watch("hostile", () => new HostileText());
+            _registry.Sample(CommandTier.Developer);
+            Assert.That(_registry.TryGetEntry("hostile", out WatchEntry entry), Is.True);
+            Assert.That(entry.HasValue, Is.False, "A formatting throw keeps the entry unsampled instead of breaking the pass");
+
+            _registry.Sample(CommandTier.Developer);
+            Assert.That(entry.HasValue, Is.False, "The formatting throw stays skipped on later samples");
+        }
+
+        [Test]
+        public void DiscoveredNamesCollidingWithBuiltInsKeepTheBuiltIn()
+        {
+            Assert.DoesNotThrow(
+                () =>
+                {
+                    CommandWatchRegistry colliding = new CommandWatchRegistry();
+                    Assert.That(colliding.Count, Is.GreaterThanOrEqualTo(2), "The registry constructs with its built-ins");
+                },
+                "A discovered [Watch] named like a built-in must not break registry construction"
+            );
+
+            Assert.That(_registry.TryGetEntry("fps", out WatchEntry fps), Is.True);
+            Assert.That(fps.Source, Is.EqualTo("DxTerminal built-in"), "The built-in fps wins over the discovered collision");
+            Assert.That(fps.Format, Is.EqualTo("F1"));
+        }
+
+        [Test]
         public void WatchHandleDisposeRemovesExactlyItsRegistration()
         {
             WatchHandle handle = _registry.Watch("temp", () => 1);
@@ -179,6 +214,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             _registry.Watch("taken", () => 1);
             Assert.Throws<ArgumentException>(() => _registry.Watch("taken", () => 2), "A taken name throws");
             Assert.Throws<ArgumentException>(() => _registry.Watch("has space", () => 3), "A spaced name throws");
+            Assert.Throws<ArgumentException>(() => _registry.Watch("semi;colon", () => 4), "A semicolon name throws; pin persistence stores names ';'-separated");
             Assert.Throws<ArgumentException>(() => _registry.Watch("  ", () => 4), "A blank name throws");
             Assert.Throws<ArgumentException>(() => _registry.Watch(null, () => 5), "A null name throws");
             Assert.Throws<ArgumentNullException>(() => _registry.Watch<int>("valid", null), "A null getter throws");
@@ -366,6 +402,14 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(TerminalWatchesModel.ValueClassName(WatchValueRole.Choice), Is.EqualTo("choice"));
             Assert.That(TerminalWatchesModel.ValueClassName(WatchValueRole.Body), Is.EqualTo("body"));
             Assert.That(TerminalWatchesModel.ValueClassName((WatchValueRole)99), Is.EqualTo("body"), "An unknown role falls back to body");
+        }
+
+        private sealed class HostileText
+        {
+            public override string ToString()
+            {
+                throw new InvalidOperationException("no text for you");
+            }
         }
 
         private enum WaveState

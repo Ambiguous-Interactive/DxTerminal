@@ -3793,6 +3793,7 @@
 
                 ResetAutoComplete();
                 _validationView?.Refresh(Terminal.Shell, string.Empty, open: false);
+                _actionsView?.SetVisible(false);
                 _watchesView?.SetVisible(true);
                 RefreshWatchesView();
                 SampleWatchesNow();
