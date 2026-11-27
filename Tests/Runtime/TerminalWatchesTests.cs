@@ -279,6 +279,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         }
 
         [UnityTest]
+        public IEnumerator HudRootCarriesThemeSheetsAndClass()
+        {
+            yield return SpawnTerminal(open: true);
+            _terminal.SampleWatchesNow();
+
+            VisualElement hudDocumentRoot = _terminal._watchesHudDocument.rootVisualElement;
+            Assert.That(hudDocumentRoot.styleSheets.count, Is.GreaterThan(0), "The HUD document mirrors the terminal's theme sheets");
+            Assert.That(hudDocumentRoot.ClassListContains(_terminal._runtimeTheme), "The HUD document carries the active theme class so the dxt role variables resolve");
+        }
+
+        [UnityTest]
         public IEnumerator PinsPersistAcrossPlaySessionResets()
         {
 #if UNITY_EDITOR

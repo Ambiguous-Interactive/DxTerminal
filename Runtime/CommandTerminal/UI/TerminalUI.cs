@@ -449,6 +449,8 @@
         private readonly List<CommandWatchRegistry.WatchEntry> _watchesVisibleBuffer = new();
         private float _watchesSampleInterval = 0.25f;
         private float _lastWatchesSampleTime;
+        private string _lastHudTheme;
+        private string _lastHudThemeClass;
         private VisualElement _inputContainer;
         private Button _jumpLatestButton;
         private Label _logCopyStatus;
@@ -2429,6 +2431,8 @@
                 _watchesHudDocument.rootVisualElement.Clear();
             }
 
+            _lastHudTheme = null;
+            _lastHudThemeClass = null;
             _logTabCount = null;
             _actionsView = null;
             _expandedSequence = null;
@@ -3831,6 +3835,7 @@
 
             CommandShell shell = Terminal.Shell;
             CommandTier tier = shell != null ? shell.ActiveTier : CommandTier.Developer;
+            SyncHudTheme();
             _watchesView?.RefreshIfNeeded(watches, tier, watchesHudEnabled, watchesHudMaxRows, watchesHudCorner);
         }
 
@@ -3888,6 +3893,58 @@
 
             hudRoot.pickingMode = PickingMode.Ignore;
             _watchesView = new TerminalWatchesView(_terminalContainer, hudRoot, HandleWatchPinToggled);
+            SyncHudTheme();
+        }
+
+        /*
+            The HUD renders in its own document, so neither the theme sheets
+            (attached to the terminal's root) nor the theme class (swapped on
+            theme changes) reach it. Both are mirrored here; the theme
+            signature keeps this to one sync per theme change instead of per
+            refresh.
+         */
+        private void SyncHudTheme()
+        {
+            if (_watchesHudDocument == null || _uiDocument == null)
+            {
+                return;
+            }
+
+            VisualElement hudRoot = _watchesHudDocument.rootVisualElement;
+            VisualElement themedRoot = _uiDocument.rootVisualElement;
+            if (hudRoot == null || themedRoot == null)
+            {
+                return;
+            }
+
+            string theme = _runtimeTheme;
+            if (string.Equals(theme, _lastHudTheme, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastHudTheme = theme;
+            hudRoot.styleSheets.Clear();
+            int sheetCount = themedRoot.styleSheets.count;
+            for (int index = 0; index < sheetCount; ++index)
+            {
+                StyleSheet sheet = themedRoot.styleSheets[index];
+                if (sheet != null)
+                {
+                    hudRoot.styleSheets.Add(sheet);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_lastHudThemeClass))
+            {
+                hudRoot.RemoveFromClassList(_lastHudThemeClass);
+            }
+
+            _lastHudThemeClass = theme;
+            if (!string.IsNullOrWhiteSpace(_lastHudThemeClass))
+            {
+                hudRoot.AddToClassList(_lastHudThemeClass);
+            }
         }
 
         /*

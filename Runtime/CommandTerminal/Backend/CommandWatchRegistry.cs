@@ -178,7 +178,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             {
                 PropertyInfo property = properties[index];
                 WatchAttribute attribute = property.GetCustomAttribute<WatchAttribute>(false);
-                if (attribute == null || property.GetMethod == null || property.GetMethod.GetParameters().Length != 0)
+                /*
+                    GetGetMethod(true) is the portable read: GetMethod can come
+                    back null on runtimes that only surface public accessors
+                    through it, and a write-only property has neither.
+                 */
+                MethodInfo getter = property.GetGetMethod(true);
+                if (attribute == null || getter == null || getter.GetParameters().Length != 0)
                 {
                     continue;
                 }
