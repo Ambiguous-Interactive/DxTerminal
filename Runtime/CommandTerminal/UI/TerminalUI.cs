@@ -1074,7 +1074,7 @@
             for (int index = liveCount - 1; 0 <= index; --index)
             {
                 TerminalUI candidate = LiveTerminals[index];
-                if (candidate != null && (candidate.InputOwnsFocus || candidate.SearchOwnsFocus))
+                if (candidate != null && (candidate.InputOwnsFocus || candidate.SearchOwnsFocus || (candidate._actionsView != null && candidate._actionsView.TextFieldOwnsFocus)))
                 {
                     return true;
                 }
@@ -3827,7 +3827,7 @@
             VisualElement focused = _logSearchInput.panel?.focusController?.focusedElement as VisualElement;
             while (focused != null)
             {
-                if (focused == _commandInput || focused == _logSearchInput)
+                if (focused == _commandInput || focused == _logSearchInput || focused is TextField)
                 {
                     return false;
                 }

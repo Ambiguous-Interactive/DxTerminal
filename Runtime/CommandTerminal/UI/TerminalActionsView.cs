@@ -24,6 +24,30 @@ namespace WallstopStudios.DxCommandTerminal.UI
             get { return _root; }
         }
 
+        internal bool TextFieldOwnsFocus
+        {
+            get
+            {
+                if (!_visible)
+                {
+                    return false;
+                }
+
+                VisualElement cursor = _root.panel?.focusController?.focusedElement as VisualElement;
+                while (cursor != null && cursor != _root)
+                {
+                    if (cursor is TextField)
+                    {
+                        return true;
+                    }
+
+                    cursor = cursor.parent;
+                }
+
+                return false;
+            }
+        }
+
         private readonly VisualElement _root;
         private readonly ScrollView _sidebar;
         private readonly ScrollView _cardsScroll;
