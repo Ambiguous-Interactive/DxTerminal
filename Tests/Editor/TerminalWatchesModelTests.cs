@@ -14,7 +14,6 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
     using UnityEngine.TestTools;
 #endif
 
-
     /*
         Engine-free pins for the Watches registry and model (milestone C4,
         #244): registration and handle semantics, pin set and pending
@@ -71,13 +70,16 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [Test]
         public void RegistryRegistersBuiltInFpsAndFrameWatches()
         {
+            _registry.Sample(CommandTier.Developer);
             Assert.That(_registry.TryGetEntry("fps", out WatchEntry fps), Is.True, "The fps watch is built in");
             Assert.That(fps.Source, Is.EqualTo("DxTerminal built-in"));
             Assert.That(fps.Format, Is.EqualTo("F1"));
             Assert.That(fps.Tier, Is.EqualTo(CommandTier.Player));
+            Assert.That(fps.Role, Is.EqualTo(WatchValueRole.Number), "A typed built-in renders with the numeric syntax role");
             Assert.That(_registry.TryGetEntry("frame", out WatchEntry frame), Is.True, "The frame watch is built in");
             Assert.That(frame.Format, Is.Null, "The frame watch renders its raw integer");
             Assert.That(frame.Tier, Is.EqualTo(CommandTier.Player));
+            Assert.That(frame.Role, Is.EqualTo(WatchValueRole.Number));
         }
 
         [Test]

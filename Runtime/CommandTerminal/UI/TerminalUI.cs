@@ -2473,6 +2473,18 @@
 
             _lastHudTheme = null;
             _lastHudThemeClass = null;
+#if UNITY_EDITOR
+            /*
+                A disabled terminal leaves the shared registry, so its save
+                callback must not accumulate across enable/disable cycles.
+                The next RefreshStaticState re-hooks and reloads stored pins.
+             */
+            if (_watchesPinHookedRegistry != null)
+            {
+                _watchesPinHookedRegistry.PinsChanged -= SaveWatchesPins;
+                _watchesPinHookedRegistry = null;
+            }
+#endif
             _logTabCount = null;
             _actionsView = null;
             _expandedSequence = null;

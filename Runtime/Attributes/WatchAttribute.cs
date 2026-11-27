@@ -23,7 +23,7 @@ namespace WallstopStudios.DxCommandTerminal.Attributes
         ///     or a parameterless method whose return value is sampled. The
         ///     watch name defaults to the member name.
         /// </summary>
-        public WatchAttribute(string name)
+        public WatchAttribute(string name = null)
         {
             if (0 <= name?.IndexOf(' ', StringComparison.Ordinal))
             {

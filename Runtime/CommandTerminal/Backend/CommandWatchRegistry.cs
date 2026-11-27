@@ -776,6 +776,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             entry.LoggedSampleFailure = false;
+            entry.Role = WatchValueRole.Number;
             entry.ValueText = builder.ToString();
             entry.HasValue = true;
         }
