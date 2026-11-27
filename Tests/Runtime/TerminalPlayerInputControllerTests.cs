@@ -660,19 +660,22 @@
 
                 /*
                     The header is one wrapping row (direction 1a), so the pad
-                    walks LEFT from the window controls through the severity
-                    chips into the search field. Where the header wraps, the
-                    left walk stalls on the leftmost chip - the field above is
-                    not strictly left of it - and one UP step returns to the
-                    search row. The stacked-layout DOWN step would leave the
-                    header into the log.
+                    walks LEFT from the window controls toward the search
+                    field. On a wrapped header the geometric left walk cycles
+                    between the chip line and the controls line instead of
+                    reaching the field, so the walk detects a revisit and
+                    steps UP one line (back toward the search row); the
+                    stacked-layout DOWN step would leave the header into the
+                    log.
                  */
+                HashSet<string> visited = new(StringComparer.Ordinal);
                 Focusable previousFocus = null;
                 for (int move = 0; move < 16 && !_terminal.SearchOwnsFocus; ++move)
                 {
                     yield return MoveGamepad(gamepad, Vector2.left);
                     Focusable focused = root.panel.focusController.focusedElement;
-                    if (focused == previousFocus)
+                    bool revisited = focused != null && !visited.Add($"{focused.name}@{focused.layout.y:0}");
+                    if (focused == previousFocus || revisited)
                     {
                         yield return MoveGamepad(gamepad, Vector2.up);
                     }
