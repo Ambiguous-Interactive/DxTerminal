@@ -3443,6 +3443,7 @@
 
             _actionsView = new TerminalActionsView(_terminalContainer, RunActionsCommand, FormatSyntaxPreview);
             EnsureWatchesView();
+            _watchesView?.AttachTabTo(_terminalContainer);
 
             EnsureMotionPresetMigrated();
             _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint, CurrentTextSize);
@@ -3934,9 +3935,10 @@
         /*
             The HUD renders in its own document, so neither the theme sheets
             (attached to the terminal's root) nor the theme class (swapped on
-            theme changes) reach it. Both are mirrored here; the theme
-            signature keeps this to one sync per theme change instead of per
-            refresh.
+            theme changes) reach it. Both are mirrored here. The first sync
+            runs even before a theme is resolved (a null theme still needs
+            the sheets), and after that the signature keeps it to one sync
+            per theme change instead of per refresh.
          */
         private void SyncHudTheme()
         {
@@ -3953,7 +3955,7 @@
             }
 
             string theme = _runtimeTheme;
-            if (string.Equals(theme, _lastHudTheme, StringComparison.Ordinal))
+            if (_lastHudTheme != null && string.Equals(theme, _lastHudTheme, StringComparison.Ordinal))
             {
                 return;
             }

@@ -157,6 +157,14 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(_registry.TryGetEntry("fragile", out WatchEntry entry), Is.True);
             Assert.That(entry.ValueText, Is.EqualTo("ok"));
 
+            /*
+                The registry logs the throw through Debug.LogException; the
+                live editor's test runner fails a test on an unexpected
+                exception log unless it is expected up front.
+             */
+#if UNITY_EDITOR
+            LogAssert.Expect(LogType.Exception, "InvalidOperationException: boom");
+#endif
             throwNow = true;
             _registry.Sample(CommandTier.Developer);
             Assert.That(entry.ValueText, Is.EqualTo("ok"), "A throwing getter keeps the last value");
@@ -170,10 +178,17 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         public void WatchSampleSurvivesAThrowingToString()
         {
             _registry.Watch("hostile", () => new HostileText());
+#if UNITY_EDITOR
+            LogAssert.Expect(LogType.Exception, "InvalidOperationException: no text for you");
+#endif
             _registry.Sample(CommandTier.Developer);
             Assert.That(_registry.TryGetEntry("hostile", out WatchEntry entry), Is.True);
             Assert.That(entry.HasValue, Is.False, "A formatting throw keeps the entry unsampled instead of breaking the pass");
 
+            /*
+                The once-flag suppresses the second sample's log, so no second
+                expectation is registered; the entry stays unsampled.
+             */
             _registry.Sample(CommandTier.Developer);
             Assert.That(entry.HasValue, Is.False, "The formatting throw stays skipped on later samples");
         }
