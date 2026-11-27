@@ -434,20 +434,17 @@
         private int? _lastSearchPosition;
         private bool _lastSearchActive;
         private int? _lastTabCount;
-        private TerminalWatchesView _watchesView;
         private TerminalTab _activeTab = TerminalTab.Log;
         private Button _logTabButton;
         private Button _actionsTabButton;
         private Label _logTabCount;
         private TerminalActionsView _actionsView;
+        private TerminalWatchesView _watchesView;
         private Button _watchesTabButton;
         private Label _watchesTabCount;
         private int? _lastWatchesTabCount;
         private long _lastWatchesVersion = -1;
         private CommandTier _lastWatchesTabTier;
-
-        private TerminalWatchesView _watchesView;
-
         private CommandWatchRegistry _watchesPinHookedRegistry;
         private readonly List<CommandWatchRegistry.WatchEntry> _watchesVisibleBuffer = new();
         private float _watchesSampleInterval = 0.25f;
@@ -3865,7 +3862,7 @@
         /// <summary>Creates the Watches tab view and its HUD document once per component.</summary>
         private void EnsureWatchesView()
         {
-            if (_watchesView != null)
+            if (_watchesView != null || _terminalContainer == null || _uiDocument == null)
             {
                 return;
             }

@@ -205,7 +205,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 row.Add(pin);
 
                 _rowsScroll.Add(row);
-                _rowBindings.Add(new WatchRowBinding(entry, value, pin));
+                _rowBindings.Add(new WatchRowBinding(entry, value));
             }
 
             _emptyLabel.style.display = entryCount == 0 ? DisplayStyle.Flex : DisplayStyle.None;
@@ -252,20 +252,20 @@ namespace WallstopStudios.DxCommandTerminal.UI
             One binding per rendered row. Refresh compares the entry's live
             value text and role against what the labels carry, so a steady
             value rewrites nothing (the zero-allocation idle HUD pin) and a
-            changed value is the only text write.
+            changed value is the only text write. Pin state never syncs
+            here: every pin change bumps the registry version, which
+            rebuilds the rows.
          */
         private sealed class WatchRowBinding
         {
             private readonly WatchEntry _entry;
             private readonly Label _value;
-            private readonly Button _pin;
             private WatchValueRole _role = WatchValueRole.Body;
 
-            internal WatchRowBinding(WatchEntry entry, Label value, Button pin)
+            internal WatchRowBinding(WatchEntry entry, Label value)
             {
                 _entry = entry;
                 _value = value;
-                _pin = pin;
             }
 
             internal void Refresh()
@@ -281,13 +281,6 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     _value.EnableInClassList($"{ValueClassPrefix}{TerminalWatchesModel.ValueClassName(_role)}", false);
                     _role = _entry.Role;
                     _value.EnableInClassList($"{ValueClassPrefix}{TerminalWatchesModel.ValueClassName(_role)}", true);
-                }
-
-                string expectedPin = _entry.Pinned ? TerminalWatchesModel.PinnedLabel : TerminalWatchesModel.PinLabel;
-                if (!string.Equals(_pin.text, expectedPin, StringComparison.Ordinal))
-                {
-                    _pin.text = expectedPin;
-                    _pin.EnableInClassList("terminal-watches-pin--pinned", _entry.Pinned);
                 }
             }
         }
