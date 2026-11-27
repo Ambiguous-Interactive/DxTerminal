@@ -137,7 +137,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             if (_root.parent != null)
             {
-                _root.Remove();
+                _root.parent.Remove(_root);
             }
 
             _tabAttached = false;
