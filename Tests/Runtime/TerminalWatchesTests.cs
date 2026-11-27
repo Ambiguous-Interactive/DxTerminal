@@ -276,6 +276,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
 #if UNITY_EDITOR
             yield return SpawnTerminal(open: false);
+            Terminal.Watches.Watch("hud.kept", () => "kept-value", source: "Tests", tier: CommandTier.Player);
             Terminal.Shell.RunCommand("watch hud.kept");
             Assert.That(Terminal.Watches.IsPinned("hud.kept"), Is.True, "Sanity: the pin landed");
 
@@ -311,7 +312,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             _terminal.SampleWatchesNow();
             VisualElement hudDocumentRoot = _terminal._watchesHudDocument.rootVisualElement;
-            Assert.That(hudDocumentRoot.Query<Label>("TerminalWatchesHudRow").ToList().Count, Is.EqualTo(4), "Sanity: the idle HUD renders exactly the four pinned watches");
+            Assert.That(
+                hudDocumentRoot.Query<VisualElement>("TerminalWatchesHudRow").ToList().Count,
+                Is.EqualTo(4),
+                "Sanity: the idle HUD renders exactly the four pinned watches"
+            );
 
             AllocationAssertions.AssertZeroAllocations("idle watch frame gate (HUD with 4 pinned watches)", _terminal.UpdateWatchesSampling);
             AllocationAssertions.AssertZeroAllocations("watch sample pass (HUD with 4 pinned watches, unchanged values)", _terminal.SampleWatchesNow);

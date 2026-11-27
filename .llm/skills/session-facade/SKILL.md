@@ -12,14 +12,15 @@ metadata:
 - `TerminalSession.Current` is NEVER null: `public static TerminalSession Current { get; } = new();` - one instance per domain, immutable property. Never write a null guard for it.
   `ResetState()` clears the session's backend objects, not the session itself.
 - In Play Mode, `TerminalUI.ResetForNextPlaySession` runs at `SubsystemRegistration` (before any scene `Awake`) and applies `TerminalSession.Config.Default` with
-  `deferRegistration: true`. As a result, `Terminal.Buffer`, `Terminal.Shell`, `Terminal.History`, and `Terminal.AutoComplete` are non-null in any Play Mode `Awake` or `OnEnable`,
-  with and without domain reload.
+  `deferRegistration: true`. As a result, `Terminal.Buffer`, `Terminal.Shell`, `Terminal.History`, `Terminal.AutoComplete`, and `Terminal.Watches` are non-null in any Play Mode
+  `Awake` or `OnEnable`, with and without domain reload.
 - In Edit Mode (or after a direct `TerminalSession.ResetState()` call in tests), the facade getters still read null until the first `Apply`. Library code that can run in Edit Mode
   still captures into a local once and checks for null (`CommandLog buffer = Terminal.Buffer; if (buffer == null) { ... }`). Never mix `?.` reads with unguarded reads of the same
   chain in one method.
 - `Terminal.Buffer?.X` / `x = Terminal.Shell` + null-check are legal here: these are plain C# objects, not UnityEngine.Object (rule 25 does not apply). The singleton COMPONENTS
-  (`TerminalUI.Instance`, `CommandPaletteUI.Instance`) ARE Unity objects - guard them only with the Unity `== null` / `!= null` operators.
-- `Terminal.Reset()` clears `Buffer`, `History`, and `Shell` variables in place without replacing the shell or dropping registered commands.
+  (`TerminalUI.Instance`, `CommandPaletteUI.Instance`) ARE Unity objects - guard them only with the Unity `== null` / `!= null` operators. `Terminal.Watch` (and `Terminal.Shell`
+  registration) throws or returns when the session is cold in Edit Mode; Play Mode backends exist from any `Awake`.
+- `Terminal.Reset()` clears `Buffer`, `History`, and `Shell` variables in place without replacing the shell or dropping registered commands or watches.
 
 ## Who applies the session, and when
 
