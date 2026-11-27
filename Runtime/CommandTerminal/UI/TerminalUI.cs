@@ -3824,10 +3824,15 @@
                 return false;
             }
 
+            if (_actionsView != null && _actionsView.TextFieldOwnsFocus)
+            {
+                return false;
+            }
+
             VisualElement focused = _logSearchInput.panel?.focusController?.focusedElement as VisualElement;
             while (focused != null)
             {
-                if (focused == _commandInput || focused == _logSearchInput || focused is TextField)
+                if (focused == _commandInput || focused == _logSearchInput)
                 {
                     return false;
                 }
