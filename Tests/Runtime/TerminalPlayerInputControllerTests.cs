@@ -957,36 +957,6 @@
             yield return Settle();
         }
 
-        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
-        {
-            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
-            yield return Settle();
-            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
-            yield return Settle();
-            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
-            yield return Settle();
-        }
-
-        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
-        {
-            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
-            yield return Settle();
-            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
-            yield return Settle();
-            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
-            yield return Settle();
-        }
-
-        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
-        {
-            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
-            yield return Settle();
-            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
-            yield return Settle();
-            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
-            yield return Settle();
-        }
-
         private InputAction FindAction(string message)
         {
             return _asset.FindAction(_customActionNames ? $"GameConsole/Custom{message}" : message);
