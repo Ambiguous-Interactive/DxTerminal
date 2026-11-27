@@ -26,9 +26,10 @@
             SessionState-backed pin storage: per project, survives play
             mode sessions (domain reload included) until the editor quits,
             which is the exact lifetime the pins acceptance criterion asks
-            for.
+            for. Internal so the PlayMode pins test can reset it between
+            runs.
          */
-        private static readonly string WatchesPinsSessionKey = "DxCommandTerminal.WatchPins";
+        internal static readonly string WatchesPinsSessionKey = "DxCommandTerminal.WatchPins";
 #endif
 
         /*
@@ -223,6 +224,9 @@
 
         [SerializeField]
         internal string _persistedTheme = "dark-theme";
+
+        /* Internal so the PlayMode suite can query the HUD document. */
+        internal UIDocument _watchesHudDocument;
 
         [Header("Input")]
         [SerializeField]
@@ -430,6 +434,7 @@
         private int? _lastSearchPosition;
         private bool _lastSearchActive;
         private int? _lastTabCount;
+        private TerminalWatchesView _watchesView;
         private TerminalTab _activeTab = TerminalTab.Log;
         private Button _logTabButton;
         private Button _actionsTabButton;
@@ -440,10 +445,10 @@
         private int? _lastWatchesTabCount;
         private long _lastWatchesVersion = -1;
         private CommandTier _lastWatchesTabTier;
+
         private TerminalWatchesView _watchesView;
-        private UIDocument _watchesHudDocument;
+
         private CommandWatchRegistry _watchesPinHookedRegistry;
-        private readonly List<string> _watchesPinsBuffer = new();
         private readonly List<CommandWatchRegistry.WatchEntry> _watchesVisibleBuffer = new();
         private float _watchesSampleInterval = 0.25f;
         private float _lastWatchesSampleTime;
@@ -2332,6 +2337,38 @@
             Internal for test coverage of the first-open tree build
             measurement (see WallstopStudios.DxCommandTerminal.Tests.Runtime).
          */
+        /*
+            The 4 Hz watch sampler. Gated by the HUD setting and the active
+            tab, so a terminal with no watch surfaces pays one registry null
+            check per frame; sampling itself runs on the due cadence into
+            the registry's reused entry buffers. Internal so the allocation
+            pins drive the exact per-frame path.
+         */
+        internal void UpdateWatchesSampling()
+        {
+            EnsureWatchesPinHook();
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (watches == null || watches.Count == 0)
+            {
+                return;
+            }
+
+            bool watchesTabActive = IsOpenState(_state) && _activeTab == TerminalTab.Watches;
+            if (!watchesHudEnabled && !watchesTabActive)
+            {
+                return;
+            }
+
+            float now = Time.unscaledTime;
+            if (0f < _lastWatchesSampleTime && now - _lastWatchesSampleTime < _watchesSampleInterval)
+            {
+                return;
+            }
+
+            _lastWatchesSampleTime = now;
+            SampleWatchesNow();
+        }
+
         internal void SampleWatchesNow()
         {
             CommandWatchRegistry watches = Terminal.Watches;
@@ -2342,6 +2379,7 @@
 
             CommandShell shell = Terminal.Shell;
             watches.Sample(shell != null ? shell.ActiveTier : CommandTier.Developer);
+            EnsureWatchesView();
             RefreshWatchesView();
             _watchesView?.RefreshValues();
             RefreshWatchesTabCount(watches);
@@ -3799,37 +3837,6 @@
             _watchesView?.RefreshIfNeeded(watches, tier, watchesHudEnabled, watchesHudMaxRows, watchesHudCorner);
         }
 
-        /*
-            The 4 Hz watch sampler. Gated by the HUD setting and the active
-            tab, so a terminal with no watch surfaces pays one registry null
-            check per frame; sampling itself runs on the due cadence into
-            the registry's reused entry buffers.
-         */
-        private void UpdateWatchesSampling()
-        {
-            EnsureWatchesPinHook();
-            CommandWatchRegistry watches = Terminal.Watches;
-            if (watches == null || watches.Count == 0)
-            {
-                return;
-            }
-
-            bool watchesTabActive = IsOpenState(_state) && _activeTab == TerminalTab.Watches;
-            if (!watchesHudEnabled && !watchesTabActive)
-            {
-                return;
-            }
-
-            float now = Time.unscaledTime;
-            if (0f < _lastWatchesSampleTime && now - _lastWatchesSampleTime < _watchesSampleInterval)
-            {
-                return;
-            }
-
-            _lastWatchesSampleTime = now;
-            SampleWatchesNow();
-        }
-
         private void RefreshWatchesTabCount(CommandWatchRegistry watches)
         {
             CommandShell shell = Terminal.Shell;
@@ -3926,8 +3933,9 @@
                 return;
             }
 
-            watches.CollectPinnedNames(_watchesPinsBuffer);
-            SessionState.SetString(WatchesPinsSessionKey, string.Join(";", _watchesPinsBuffer));
+            List<string> pinned = new(watches.Count);
+            watches.CollectPinnedNames(pinned);
+            SessionState.SetString(WatchesPinsSessionKey, string.Join(";", pinned));
         }
 
         private void LoadWatchesPins(CommandWatchRegistry watches)
@@ -3938,17 +3946,17 @@
                 return;
             }
 
-            _watchesPinsBuffer.Clear();
+            List<string> pins = new();
             string[] names = stored.Split(';');
             for (int index = 0; index < names.Length; ++index)
             {
                 if (!string.IsNullOrWhiteSpace(names[index]))
                 {
-                    _watchesPinsBuffer.Add(names[index]);
+                    pins.Add(names[index]);
                 }
             }
 
-            watches.LoadPins(_watchesPinsBuffer);
+            watches.LoadPins(pins);
         }
 #endif
 

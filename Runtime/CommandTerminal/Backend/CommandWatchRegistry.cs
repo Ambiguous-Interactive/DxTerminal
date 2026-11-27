@@ -53,7 +53,6 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         private readonly List<WatchEntry> _entries;
         private readonly Dictionary<string, WatchEntry> _entriesByName;
         private readonly HashSet<string> _pinnedNames;
-        private readonly HashSet<string> _pendingPins;
         private long _nextRegistrationId;
         private bool _discovered;
 
@@ -62,7 +61,6 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             _entries = new List<WatchEntry>();
             _entriesByName = new Dictionary<string, WatchEntry>(StringComparer.OrdinalIgnoreCase);
             _pinnedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _pendingPins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             _nextRegistrationId = 1;
             RegisterBuiltInWatches();
         }
@@ -391,7 +389,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         /// <summary>
         ///     Replaces the pin set from storage and applies it to live
-        ///     entries. Names without a live watch become pending: the first
+        ///     entries. Names without a live watch stay in the set: the first
         ///     later registration with that name comes back pinned.
         /// </summary>
         public void LoadPins(IReadOnlyList<string> pinnedNames)
@@ -402,7 +400,6 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
 
             _pinnedNames.Clear();
-            _pendingPins.Clear();
             for (int index = 0; index < pinnedNames.Count; ++index)
             {
                 string name = pinnedNames[index];
@@ -412,14 +409,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 }
 
                 _pinnedNames.Add(name);
-                _pendingPins.Add(name);
             }
 
             int entryCount = _entries.Count;
             for (int index = 0; index < entryCount; ++index)
             {
                 WatchEntry entry = _entries[index];
-                entry.Pinned = _pendingPins.Remove(entry.Name);
+                entry.Pinned = _pinnedNames.Contains(entry.Name);
             }
 
             Version++;
