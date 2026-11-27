@@ -288,6 +288,40 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(TerminalActionsModel.BuildCommandLine(recentCard, null), Is.EqualTo("heal 250 true"));
         }
 
+        [Test]
+        public void DefaultLabelsSmallRangesAndQuotingProduceValidCommandLines()
+        {
+            _shell.AddCommand(
+                CommandBuilder
+                    .Create("tune")
+                    .Group("Test")
+                    .Arg<decimal>("step", arg =>
+                    {
+                        return arg.Required().Range(0.001m, 0.009m);
+                    })
+                    .Arg<int>("count", arg =>
+                    {
+                        return arg.Default(42, "automatic");
+                    })
+                    .Arg<string>("path", arg =>
+                    {
+                        return arg;
+                    })
+                    .Handler((_, _) => { }),
+                out _
+            );
+
+            List<ActionGroup> groups = new();
+            TerminalActionsModel.BuildGroups(_shell, new CommandExecutionContext(CommandExecutionContexts.EditorPlayMode), CommandTier.Developer, null, groups);
+            ActionCard card = groups[0].Cards[0];
+
+            Assert.That(card.Fields[0].InitialValue, Is.EqualTo("0.001"));
+            Assert.That(card.Fields[1].InitialValue, Is.EqualTo("42"));
+            Assert.That(TerminalActionsModel.BuildCommandLine(card, new[] { "0.001", "42", @"C:\Program Files\Game" }), Is.EqualTo("tune 0.001 42 \"C:\\Program Files\\Game\""));
+            Assert.That(TerminalActionsModel.CanRun(card, new[] { "0.001", string.Empty, "ok" }), Is.False);
+            Assert.That(TerminalActionsModel.CanRun(card, new[] { "0.001", "42", "has 'single' and \"double\" quotes" }), Is.False);
+        }
+
         private enum SampleMode
         {
             [Obsolete("Use a valid SampleMode value.")]

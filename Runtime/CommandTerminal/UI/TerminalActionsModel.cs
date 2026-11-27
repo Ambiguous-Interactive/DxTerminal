@@ -222,17 +222,30 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             ActionField[] fields = card.Fields;
             int fieldCount = fields.Length;
+            int lastIncluded = GetLastIncludedIndex(card, fieldValues);
+
             for (int i = 0; i < fieldCount; ++i)
             {
-                if (!fields[i].IsRequired)
-                {
-                    continue;
-                }
+                ActionField field = fields[i];
+                string value = fieldValues != null && i < fieldValues.Count ? fieldValues[i] : field.InitialValue;
+                bool isBlank = string.IsNullOrWhiteSpace(value);
 
-                string value = fieldValues != null && i < fieldValues.Count ? fieldValues[i] : fields[i].InitialValue;
-                if (string.IsNullOrWhiteSpace(value))
+                if (field.IsRequired && isBlank)
                 {
                     return false;
+                }
+
+                if (!card.IsRawArguments && i <= lastIncluded && field.Kind != ActionControlKind.Remaining)
+                {
+                    if (isBlank && field.Kind != ActionControlKind.Text)
+                    {
+                        return false;
+                    }
+
+                    if (!CommandTokenizer.TrySerializeValue(value ?? string.Empty, out _, out _))
+                    {
+                        return false;
+                    }
                 }
             }
 
@@ -251,7 +264,6 @@ namespace WallstopStudios.DxCommandTerminal.UI
             builder.Append(card.CommandPath);
 
             ActionField[] fields = card.Fields;
-            int fieldCount = fields.Length;
             if (card.IsRawArguments)
             {
                 string raw = fieldValues != null && 0 < fieldValues.Count ? fieldValues[0] : string.Empty;
@@ -263,16 +275,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 return builder.ToString();
             }
 
-            int lastIncluded = -1;
-            for (int i = 0; i < fieldCount; ++i)
-            {
-                string value = fieldValues != null && i < fieldValues.Count ? fieldValues[i] : fields[i].InitialValue;
-                if (fields[i].IsRequired || !string.IsNullOrWhiteSpace(value))
-                {
-                    lastIncluded = i;
-                }
-            }
-
+            int lastIncluded = GetLastIncludedIndex(card, fieldValues);
             for (int i = 0; i <= lastIncluded; ++i)
             {
                 ActionField field = fields[i];
@@ -290,7 +293,14 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 }
 
                 builder.Append(' ');
-                AppendToken(builder, value);
+                if (CommandTokenizer.TrySerializeValue(value, out string serialized, out _))
+                {
+                    builder.Append(serialized);
+                }
+                else
+                {
+                    builder.Append(value);
+                }
             }
 
             return builder.ToString();
@@ -338,7 +348,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             if (spec.HasExplicitDefault)
             {
-                return spec.DefaultDisplayText ?? string.Empty;
+                return FormatDefaultValue(spec.GetDefault());
             }
 
             if (kind == ActionControlKind.Toggle)
@@ -348,7 +358,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             if (kind == ActionControlKind.RangeNumber && spec.TryGetNumericRange(out double min, out _))
             {
-                return IsIntegralType(spec.DeclaredType) ? ((long)Math.Round(min)).ToString(CultureInfo.InvariantCulture) : min.ToString("0.##", CultureInfo.InvariantCulture);
+                return IsIntegralType(spec.DeclaredType) ? ((long)Math.Round(min)).ToString(CultureInfo.InvariantCulture) : min.ToString("G", CultureInfo.InvariantCulture);
             }
 
             if (kind is ActionControlKind.Segmented or ActionControlKind.Menu)
@@ -546,45 +556,56 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return $"{names[0]}, {names[1]}, and {names[2]}";
         }
 
-        private static void AppendToken(StringBuilder builder, string value)
+        private static int GetLastIncludedIndex(ActionCard card, IReadOnlyList<string> fieldValues)
         {
-            if (value.Length == 0)
+            ActionField[] fields = card.Fields;
+            int fieldCount = fields.Length;
+            int lastIncluded = -1;
+            for (int i = 0; i < fieldCount; ++i)
             {
-                builder.Append("\"\"");
-                return;
-            }
-
-            bool needsQuotes = false;
-            int length = value.Length;
-            for (int i = 0; i < length; ++i)
-            {
-                char ch = value[i];
-                if (char.IsWhiteSpace(ch) || ch == '"' || ch == '\'')
+                string value = fieldValues != null && i < fieldValues.Count ? fieldValues[i] : fields[i].InitialValue;
+                if (fields[i].IsRequired || !string.IsNullOrWhiteSpace(value))
                 {
-                    needsQuotes = true;
-                    break;
+                    lastIncluded = i;
                 }
             }
 
-            if (!needsQuotes)
+            return lastIncluded;
+        }
+
+        private static string FormatDefaultValue(object value)
+        {
+            if (value == null)
             {
-                builder.Append(value);
-                return;
+                return string.Empty;
             }
 
-            builder.Append('"');
-            for (int i = 0; i < length; ++i)
+            if (value is bool boolean)
             {
-                char ch = value[i];
-                if (ch is '"' or '\\')
-                {
-                    builder.Append('\\');
-                }
-
-                builder.Append(ch);
+                return boolean ? "true" : "false";
             }
 
-            builder.Append('"');
+            if (value is Vector2 v2)
+            {
+                return string.Format(CultureInfo.InvariantCulture, "({0:G},{1:G})", v2.x, v2.y);
+            }
+
+            if (value is Vector3 v3)
+            {
+                return string.Format(CultureInfo.InvariantCulture, "({0:G},{1:G},{2:G})", v3.x, v3.y, v3.z);
+            }
+
+            if (value is Vector4 v4)
+            {
+                return string.Format(CultureInfo.InvariantCulture, "({0:G},{1:G},{2:G},{3:G})", v4.x, v4.y, v4.z, v4.w);
+            }
+
+            if (value is Color color)
+            {
+                return string.Format(CultureInfo.InvariantCulture, "({0:G},{1:G},{2:G},{3:G})", color.r, color.g, color.b, color.a);
+            }
+
+            return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
         private static int CompareGroups(ActionGroup left, ActionGroup right)

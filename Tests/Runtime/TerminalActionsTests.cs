@@ -167,9 +167,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 Assert.That(healCount, Is.EqualTo(1), "Actions Run executes the command.");
                 Assert.That(lastAmount, Is.EqualTo(50));
                 Assert.That(lastFull, Is.False);
-                List<LogItem> logs = new();
-                Terminal.Buffer.CopyTo(logs);
-                Assert.That(logs.Count, Is.GreaterThanOrEqualTo(2), "Actions Run echoes the command and logs output.");
+                LogItem[] logs = new LogItem[8];
+                int logCount = Terminal.Buffer.CopyTo(logs);
+                Assert.That(logCount, Is.GreaterThanOrEqualTo(2), "Actions Run echoes the command and logs output.");
                 Assert.That(logs[0].type, Is.EqualTo(TerminalLogType.Input));
                 Assert.That(logs[0].message, Is.EqualTo("heal 50 false"));
                 Assert.That(Terminal.History.Previous(false), Is.EqualTo("heal 50 false"), "Actions Run records the command line in history.");
@@ -358,6 +358,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             PlayerInput playerInput = _terminalObject.AddComponent<PlayerInput>();
             playerInput.actions = _asset;
+            playerInput.defaultActionMap = "Console";
             playerInput.notificationBehavior = PlayerNotifications.InvokeCSharpEvents;
             _terminalObject.AddComponent<TerminalPlayerInputController>();
             _terminalObject.SetActive(true);

@@ -135,14 +135,10 @@ namespace WallstopStudios.DxCommandTerminal.UI
             long commandsVersion = shell.CommandsVersion;
             CommandTier tier = shell.ActiveTier;
             CommandExecutionContexts env = context.Environment;
-            bool structureChanged =
-                !ReferenceEquals(_lastShell, shell)
-                || _lastCommandsVersion != commandsVersion
-                || _lastTier != tier
-                || _lastEnvironment != env
-                || _lastRecentVersion != _recentVersion;
+            bool registryChanged = !ReferenceEquals(_lastShell, shell) || _lastCommandsVersion != commandsVersion || _lastTier != tier || _lastEnvironment != env;
+            bool recentChanged = _lastRecentVersion != _recentVersion;
 
-            if (structureChanged)
+            if (registryChanged || recentChanged)
             {
                 _lastShell = shell;
                 _lastCommandsVersion = commandsVersion;
@@ -150,7 +146,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 _lastEnvironment = env;
                 _lastRecentVersion = _recentVersion;
                 _lastPaletteVersion = paletteVersion;
-                Rebuild(shell, context, tier);
+                bool preserveCards = !registryChanged && !string.Equals(_selectedGroup, TerminalActionsModel.RecentGroupName, StringComparison.OrdinalIgnoreCase);
+                Rebuild(shell, context, tier, preserveCards);
                 return;
             }
 
@@ -243,7 +240,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return false;
         }
 
-        private void Rebuild(CommandShell shell, CommandExecutionContext context, CommandTier tier)
+        private void Rebuild(CommandShell shell, CommandExecutionContext context, CommandTier tier, bool preserveCards = false)
         {
             TerminalActionsModel.BuildGroups(shell, context, tier, _recent, _groups);
             _sidebar.Clear();
@@ -271,6 +268,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             if (!hasSelected)
             {
                 _selectedGroup = _groups[0].Name;
+                preserveCards = false;
             }
 
             for (int i = 0; i < groupCount; ++i)
@@ -295,7 +293,10 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 _groupButtons.Add(button);
             }
 
-            RebuildCards(shell, context);
+            if (!preserveCards)
+            {
+                RebuildCards(shell, context);
+            }
         }
 
         private void SelectGroup(string groupName, CommandShell shell, CommandExecutionContext context)
@@ -636,7 +637,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 slider.AddToClassList("terminal-actions-slider");
                 slider.RegisterValueChangedCallback(evt =>
                 {
-                    string text = evt.newValue.ToString("0.##", CultureInfo.InvariantCulture);
+                    string text = evt.newValue.ToString("G", CultureInfo.InvariantCulture);
                     binding.Values[index] = text;
                     numberField.SetValueWithoutNotify(text);
                     UpdateCardPreviewAndRun(binding);
