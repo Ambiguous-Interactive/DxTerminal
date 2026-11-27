@@ -118,7 +118,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                         return arg.BoolChoices().Default(false).Describe("Restore to maximum.");
                     })
                     .Handler(
-                        (args, _) =>
+                        (_, args) =>
                         {
                             ++healCount;
                             lastAmount = args.Get<int>("amount");
@@ -167,9 +167,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 Assert.That(healCount, Is.EqualTo(1), "Actions Run executes the command.");
                 Assert.That(lastAmount, Is.EqualTo(50));
                 Assert.That(lastFull, Is.False);
-                Assert.That(Terminal.Buffer.Logs.Count, Is.GreaterThanOrEqualTo(2), "Actions Run echoes the command and logs output.");
-                Assert.That(Terminal.Buffer.Logs[0].type, Is.EqualTo(TerminalLogType.Input));
-                Assert.That(Terminal.Buffer.Logs[0].message, Is.EqualTo("heal 50 false"));
+                List<LogItem> logs = new();
+                Terminal.Buffer.CopyTo(logs);
+                Assert.That(logs.Count, Is.GreaterThanOrEqualTo(2), "Actions Run echoes the command and logs output.");
+                Assert.That(logs[0].type, Is.EqualTo(TerminalLogType.Input));
+                Assert.That(logs[0].message, Is.EqualTo("heal 50 false"));
                 Assert.That(Terminal.History.Previous(false), Is.EqualTo("heal 50 false"), "Actions Run records the command line in history.");
             }
             finally
@@ -245,7 +247,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                             return arg.BoolChoices().Default(false).Describe("Restore to maximum.");
                         })
                         .Handler(
-                            (args, _) =>
+                            (_, args) =>
                             {
                                 ++healRuns;
                                 healedAmount = args.Get<int>("amount");
