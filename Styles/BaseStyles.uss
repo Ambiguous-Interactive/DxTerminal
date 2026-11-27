@@ -199,6 +199,10 @@
     display: none;
 }
 
+.terminal-root--narrow .terminal-header-tab {
+    padding: 0 8px;
+}
+
 /* Text size presets (M 15, L 18; S 13 is the base default) precede narrow rules so touch targets keep 44 px floors. */
 .terminal-text-size--medium .terminal-log-row,
 .terminal-text-size--medium .terminal-output-label,
@@ -1169,6 +1173,9 @@
     right: 8px;
     top: 50%;
     height: 1px;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
     background-color: var(--dxt-ink-muted);
     display: none;
 }
@@ -1177,8 +1184,13 @@
     display: flex;
 }
 
-.terminal-root--narrow .terminal-type-chip {
+.terminal-root--narrow .terminal-severities .terminal-type-chip {
+    padding: 0 6px;
     font-size: 12px;
+}
+
+.terminal-root--narrow .terminal-severities .terminal-type-chip__glyph {
+    margin: 0 4px 0 0;
 }
 
 /* -- Command palette -- */

@@ -367,6 +367,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
 #if UNITY_EDITOR
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            _panelSettings.themeStyleSheet = LoadAsset<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
             _terminalObject = new GameObject("TerminalUIChrome");
             _terminalObject.SetActive(false);
             UIDocument document = _terminalObject.AddComponent<UIDocument>();
