@@ -164,7 +164,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(header.Q<Button>("TerminalActionsTab") != null, "The Actions tab exists for #243");
             Assert.That(header.Q<Button>("TerminalActionsTab").enabledSelf, Is.True, "The Actions tab is enabled");
             Assert.That(header.Q<Button>("TerminalWatchesTab") != null, "The Watches tab exists for #244");
-            Assert.That(header.Q<Button>("TerminalWatchesTab").enabledSelf, Is.False, "The Watches tab is disabled until #244");
+            Assert.That(header.Q<Button>("TerminalWatchesTab").enabledSelf, Is.True, "The Watches tab is enabled");
             Assert.That(header.Q<Button>("TerminalSizeButton") != null, "The header size control replaces showGUIButtons");
             Assert.That(header.Q<Button>("TerminalCloseButton") != null, "The header close control replaces showGUIButtons");
             Assert.That(header.Q<Button>("TerminalCloseButton").text, Is.EqualTo("×"), "The close control is an icon button");

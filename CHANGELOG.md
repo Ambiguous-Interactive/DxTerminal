@@ -13,6 +13,12 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add the Watches tab with a name/value/source grid, per-row pin toggles, and a corner HUD that keeps pinned values on screen while the terminal is closed
+  ([#244](https://github.com/Ambiguous-Interactive/DxTerminal/issues/244)).
+- Add `Terminal.Watches`, `Terminal.Watch` with a disposable `WatchHandle`, the `[Watch]` attribute for static members, and built-in `fps` and `frame` watches
+  ([#244](https://github.com/Ambiguous-Interactive/DxTerminal/issues/244)).
+- Add `watch <name>`, `unwatch <name>`, and `watches` commands, with watch pins persisting per project across Play Mode sessions in the Editor
+  ([#244](https://github.com/Ambiguous-Interactive/DxTerminal/issues/244)).
 - Add the Actions tab with grouped typed command forms, syntax-colored previews, tier/context unavailability reasons, Recent runs, and gamepad tab/edit navigation
   ([#243](https://github.com/Ambiguous-Interactive/DxTerminal/issues/243), [#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
 - Add `CommandTier` (`Player`, `Tester`, `Developer`), `Group`, and `HideFromActions` metadata across `[RegisterCommand]`, `CommandBuilder`, `CommandDefinition`, `CommandInfo`, and

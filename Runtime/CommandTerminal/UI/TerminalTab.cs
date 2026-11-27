@@ -11,5 +11,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         Log = 1,
 
         Actions = 2,
+
+        Watches = 3,
     }
 }

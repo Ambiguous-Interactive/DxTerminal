@@ -589,6 +589,75 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
         }
 
+        [RegisterCommand(isDefault: true, Name = "watch", Help = "Pins a watch to the HUD", MinArgCount = 1, MaxArgCount = 1, Tier = CommandTier.Player)]
+        public static void CommandWatch(CommandArg[] args)
+        {
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (watches == null)
+            {
+                Terminal.Log(TerminalLogType.Warning, "No watch registry is ready.");
+                return;
+            }
+
+            string name = args[0].contents;
+            if (watches.SetPinned(name, true))
+            {
+                Terminal.Log(TerminalLogType.Message, $"Watch '{name}' pinned.");
+                return;
+            }
+
+            Terminal.Log(TerminalLogType.Error, $"No watch named '{name}'. Run 'watches' to list the registered watches.");
+        }
+
+        [RegisterCommand(isDefault: true, Name = "unwatch", Help = "Unpins a watch from the HUD", MinArgCount = 1, MaxArgCount = 1, Tier = CommandTier.Player)]
+        public static void CommandUnwatch(CommandArg[] args)
+        {
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (watches == null)
+            {
+                Terminal.Log(TerminalLogType.Warning, "No watch registry is ready.");
+                return;
+            }
+
+            string name = args[0].contents;
+            if (watches.SetPinned(name, false))
+            {
+                Terminal.Log(TerminalLogType.Message, $"Watch '{name}' unpinned.");
+                return;
+            }
+
+            Terminal.Log(TerminalLogType.Error, $"No watch named '{name}'. Run 'watches' to list the registered watches.");
+        }
+
+        [RegisterCommand(
+            isDefault: true,
+            Name = "watches",
+            Help = "Lists the registered watches and their last sampled values",
+            MinArgCount = 0,
+            MaxArgCount = 0,
+            Tier = CommandTier.Player
+        )]
+        public static void CommandListWatches(CommandArg[] args)
+        {
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (watches == null)
+            {
+                Terminal.Log(TerminalLogType.Warning, "No watch registry is ready.");
+                return;
+            }
+
+            CommandShell shell = Terminal.Shell;
+            CommandTier activeTier = shell != null ? shell.ActiveTier : CommandTier.Developer;
+            watches.Sample(activeTier);
+            List<CommandWatchRegistry.WatchEntry> entries = new(watches.Count);
+            watches.CollectVisibleEntries(activeTier, entries);
+            int entryCount = entries.Count;
+            for (int index = 0; index < entryCount; ++index)
+            {
+                Terminal.Log(TerminalLogType.Message, TerminalWatchesModel.FormatListLine(entries[index]));
+            }
+        }
+
         [RegisterCommand(isDefault: true, Name = "no-op", Help = "No operation")]
         public static void CommandNoOperation(CommandArg[] args)
         {

@@ -510,6 +510,15 @@ namespace UnityEngine
     {
         /* `time` reads the scale so a substituted variable can carry it. */
         public static float timeScale { get; set; } = 1f;
+
+        /*
+            The built-in fps and frame watches read these. The stub keeps
+            settable stand-ins: fixtures that pin registry sampling set
+            them directly instead of driving real frames.
+         */
+        public static float unscaledDeltaTime { get; set; } = 1f / 60f;
+
+        public static int frameCount { get; set; } = 1;
     }
 
     public static class Input

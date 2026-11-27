@@ -21,6 +21,17 @@
 
         private const string TerminalRootName = "TerminalRoot";
 
+#if UNITY_EDITOR
+        /*
+            SessionState-backed pin storage: per project, survives play
+            mode sessions (domain reload included) until the editor quits,
+            which is the exact lifetime the pins acceptance criterion asks
+            for. Internal so the PlayMode pins test can reset it between
+            runs.
+         */
+        internal static readonly string WatchesPinsSessionKey = "DxCommandTerminal.WatchPins";
+#endif
+
         /*
             Log refreshes a queued search jump waits for the view to lay out
             the line it is aiming at. The layout runs after the pass that
@@ -187,6 +198,21 @@
 
         public bool makeHintsClickable = true;
 
+        [Header("Watches")]
+        [Tooltip("Show the corner HUD with the pinned watches while the terminal is closed.")]
+        public bool watchesHudEnabled = true;
+
+        [Tooltip("Screen corner the Watches HUD anchors to.")]
+        public TerminalHudCorner watchesHudCorner = TerminalHudCorner.BottomRight;
+
+        [Tooltip("Maximum rows the Watches HUD shows; extra pinned watches stay in the tab.")]
+        [Min(1)]
+        public int watchesHudMaxRows = 6;
+
+        [Tooltip("Times per second watch getters run on the main thread; clamped to 0.5-30 Hz.")]
+        [Min(0.5f)]
+        public float watchesSampleRate = 4f;
+
         public ConsoleKeyBindings keyBindings = new();
 
         [SerializeField]
@@ -198,6 +224,9 @@
 
         [SerializeField]
         internal string _persistedTheme = "dark-theme";
+
+        /* Internal so the PlayMode suite can query the HUD document. */
+        internal UIDocument _watchesHudDocument;
 
         [Header("Input")]
         [SerializeField]
@@ -238,6 +267,8 @@
 #if UNITY_EDITOR
         [SerializeField]
         private bool _trackChangesInEditor = true;
+
+        private CommandWatchRegistry _watchesPinHookedRegistry;
 #endif
 
         [Tooltip("Will reset static command state in OnEnable and Start when set to true")]
@@ -410,6 +441,18 @@
         private Button _actionsTabButton;
         private Label _logTabCount;
         private TerminalActionsView _actionsView;
+        private TerminalWatchesView _watchesView;
+        private Button _watchesTabButton;
+        private Label _watchesTabCount;
+        private int? _lastWatchesTabCount;
+        private long _lastWatchesVersion = -1;
+        private CommandTier _lastWatchesTabTier;
+        private readonly List<CommandWatchRegistry.WatchEntry> _watchesVisibleBuffer = new();
+        private float _watchesSampleInterval = 0.25f;
+        private float _lastWatchesSampleTime;
+        private string _lastHudTheme;
+        private string _lastHudThemeClass;
+        private GameObject _watchesHudObject;
         private VisualElement _inputContainer;
         private Button _jumpLatestButton;
         private Label _logCopyStatus;
@@ -696,6 +739,16 @@
         {
             LiveTerminals.Remove(this);
 
+            /*
+                The HUD document lives on its own scene-root object (it must
+                not nest under this document's tree), so the terminal's
+                destruction reclaims it explicitly.
+             */
+            if (_watchesHudObject != null)
+            {
+                Destroy(_watchesHudObject);
+            }
+
             if (Instance != this)
             {
                 return;
@@ -773,6 +826,8 @@
                 RefreshUI();
             }
 
+            UpdateWatchesSampling();
+
             _commandIssuedThisFrame = false;
         }
 
@@ -784,6 +839,7 @@
          */
         private void ApplySharedSettings()
         {
+            _watchesSampleInterval = 1f / Mathf.Clamp(watchesSampleRate, 0.5f, 30f);
             if (_settings == null)
             {
                 return;
@@ -802,6 +858,11 @@
             _disabledCommands = CopyList(_settings.disabledCommands);
             _logUnityMessages = _settings.logUnityMessages;
             _stackTraceMode = _settings.stackTraceMode;
+            watchesHudEnabled = _settings.watchesHudEnabled;
+            watchesHudCorner = _settings.watchesHudCorner;
+            watchesHudMaxRows = _settings.watchesHudMaxRows;
+            watchesSampleRate = _settings.watchesSampleRate;
+            _watchesSampleInterval = 1f / Mathf.Clamp(watchesSampleRate, 0.5f, 30f);
         }
 
         private void RefreshStaticState(bool force)
@@ -822,6 +883,15 @@
             {
                 ResetAutoComplete();
             }
+
+#if UNITY_EDITOR
+            /*
+                Load stored pins as early as the registry exists, so a pin a
+                caller makes right after apply survives the first sampler
+                pass instead of losing to the stored set.
+             */
+            EnsureWatchesPinHook();
+#endif
         }
 
 #if UNITY_EDITOR
@@ -848,12 +918,19 @@
                 SetupUI();
             }
 
+            /*
+                The editor re-themes through InitializeTheme; mirror the
+                sheets and class onto the HUD at the same boundary.
+             */
             if (CheckForRefresh(_themeProperties))
             {
                 if (_uiDocument != null && _terminalContainer != null)
                 {
                     InitializeTheme(_uiDocument.rootVisualElement?.Q<VisualElement>(TerminalRootName));
                 }
+
+                _lastHudTheme = null;
+                SyncHudTheme();
             }
 
             if (CheckForRefresh(_cursorBlinkProperties))
@@ -1919,10 +1996,10 @@
             }
         }
 
-        /// <summary>Switches between the Log and Actions tabs.</summary>
+        /// <summary>Switches to the given tab: Log, Actions, or Watches.</summary>
         public void SelectTab(TerminalTab tab)
         {
-            TerminalTab normalized = tab is TerminalTab.Log or TerminalTab.Actions ? tab : TerminalTab.Log;
+            TerminalTab normalized = tab is TerminalTab.Log or TerminalTab.Actions or TerminalTab.Watches ? tab : TerminalTab.Log;
             if (_activeTab == normalized && _actionsView != null)
             {
                 ApplyActiveTabVisibility(moveFocus: true);
@@ -1941,7 +2018,14 @@
                 return;
             }
 
-            SelectTab(_activeTab == TerminalTab.Log ? TerminalTab.Actions : TerminalTab.Log);
+            SelectTab(
+                _activeTab switch
+                {
+                    TerminalTab.Log => TerminalTab.Actions,
+                    TerminalTab.Actions => TerminalTab.Watches,
+                    _ => TerminalTab.Log,
+                }
+            );
         }
 
         /// <summary>Moves to the previous enabled tab.</summary>
@@ -1952,7 +2036,14 @@
                 return;
             }
 
-            SelectTab(_activeTab == TerminalTab.Actions ? TerminalTab.Log : TerminalTab.Actions);
+            SelectTab(
+                _activeTab switch
+                {
+                    TerminalTab.Log => TerminalTab.Watches,
+                    TerminalTab.Actions => TerminalTab.Log,
+                    _ => TerminalTab.Actions,
+                }
+            );
         }
 
         /// <summary>Focuses the first editable control in the active Actions card.</summary>
@@ -2273,6 +2364,55 @@
             Internal for test coverage of the first-open tree build
             measurement (see WallstopStudios.DxCommandTerminal.Tests.Runtime).
          */
+        /*
+            The 4 Hz watch sampler. Sampling gates on the HUD setting and
+            the active tab, so a terminal with no watch surfaces pays one
+            registry null check per frame; the view refresh after the gate
+            is compare-only and catches setting changes made while closed.
+            Internal so the allocation pins drive the exact per-frame path.
+         */
+        internal void UpdateWatchesSampling()
+        {
+#if UNITY_EDITOR
+            EnsureWatchesPinHook();
+#endif
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (watches == null || watches.Count == 0)
+            {
+                return;
+            }
+
+            bool watchesTabActive = IsOpenState(_state) && _activeTab == TerminalTab.Watches;
+            if (watchesHudEnabled || watchesTabActive)
+            {
+                float now = Time.unscaledTime;
+                if (!(0f < _lastWatchesSampleTime && now - _lastWatchesSampleTime < _watchesSampleInterval))
+                {
+                    _lastWatchesSampleTime = now;
+                    SampleWatchesNow();
+                    return;
+                }
+            }
+
+            RefreshWatchesView();
+        }
+
+        internal void SampleWatchesNow()
+        {
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (watches == null)
+            {
+                return;
+            }
+
+            CommandShell shell = Terminal.Shell;
+            watches.Sample(shell != null ? shell.ActiveTier : CommandTier.Developer);
+            EnsureWatchesView();
+            RefreshWatchesView();
+            _watchesView?.RefreshValues();
+            RefreshWatchesTabCount(watches);
+        }
+
         internal void EnsureUI()
         {
             if (_terminalContainer != null)
@@ -2311,6 +2451,40 @@
             _lastTabCount = null;
             _logTabButton = null;
             _actionsTabButton = null;
+            _watchesTabButton = null;
+            _watchesTabCount = null;
+            _lastWatchesTabCount = null;
+            _lastWatchesVersion = -1;
+            _watchesView = null;
+            if (_watchesHudDocument != null && _watchesHudDocument.rootVisualElement != null)
+            {
+                _watchesHudDocument.rootVisualElement.Clear();
+            }
+
+            /*
+                The HUD belongs to this component: a disabled terminal stops
+                sampling, so the panel must not outlive the component's
+                enabled state.
+             */
+            if (_watchesHudDocument != null)
+            {
+                _watchesHudDocument.enabled = false;
+            }
+
+            _lastHudTheme = null;
+            _lastHudThemeClass = null;
+#if UNITY_EDITOR
+            /*
+                A disabled terminal leaves the shared registry, so its save
+                callback must not accumulate across enable/disable cycles.
+                The next RefreshStaticState re-hooks and reloads stored pins.
+             */
+            if (_watchesPinHookedRegistry != null)
+            {
+                _watchesPinHookedRegistry.PinsChanged -= SaveWatchesPins;
+                _watchesPinHookedRegistry = null;
+            }
+#endif
             _logTabCount = null;
             _actionsView = null;
             _expandedSequence = null;
@@ -2386,23 +2560,26 @@
             _terminalContainer.style.height = _currentWindowHeight;
             _logToolbar.style.display = IsOpenState(_state) ? DisplayStyle.Flex : DisplayStyle.None;
             bool showingActions = IsOpenState(_state) && _activeTab == TerminalTab.Actions;
-            DisplayStyle commandInputStyle = _currentWindowHeight <= 30 || showingActions ? DisplayStyle.None : DisplayStyle.Flex;
+            bool showingWatches = IsOpenState(_state) && _activeTab == TerminalTab.Watches;
+            bool showingLog = !showingActions && !showingWatches;
+            DisplayStyle commandInputStyle = _currentWindowHeight <= 30 || showingActions || showingWatches ? DisplayStyle.None : DisplayStyle.Flex;
 
-            _needsFocus |= !showingActions && _inputContainer.resolvedStyle.display != commandInputStyle && commandInputStyle == DisplayStyle.Flex;
+            _needsFocus |= showingLog && _inputContainer.resolvedStyle.display != commandInputStyle && commandInputStyle == DisplayStyle.Flex;
             _inputContainer.style.display = commandInputStyle;
             if (_logScrollView != null)
             {
-                _logScrollView.style.display = showingActions ? DisplayStyle.None : DisplayStyle.Flex;
+                _logScrollView.style.display = showingLog ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
+            _actionsView?.SetVisible(showingActions);
+            _watchesView?.SetVisible(showingWatches);
             if (showingActions)
             {
-                _actionsView?.SetVisible(true);
                 _actionsView?.RefreshIfNeeded(Terminal.Shell, CommandExecutionContext.Current, _syntaxPalette.Version);
             }
-            else
+            else if (showingWatches)
             {
-                _actionsView?.SetVisible(false);
+                RefreshWatchesView();
             }
 
             if (_commandIssuedThisFrame)
@@ -3287,6 +3464,8 @@
             _logTail.Attach();
 
             _actionsView = new TerminalActionsView(_terminalContainer, RunActionsCommand, FormatSyntaxPreview);
+            EnsureWatchesView();
+            _watchesView?.AttachTabTo(_terminalContainer);
 
             EnsureMotionPresetMigrated();
             _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint, CurrentTextSize);
@@ -3610,28 +3789,45 @@
             _actionsTabButton.text = "Actions";
             tabs.Add(_actionsTabButton);
 
-            Button watchesTab = new Button { name = "TerminalWatchesTab", tooltip = "Lands with the Watches milestone (#244)." };
-            watchesTab.AddToClassList("terminal-header-tab");
-            watchesTab.text = "Watches";
-            watchesTab.SetEnabled(false);
-            tabs.Add(watchesTab);
+            _watchesTabButton = new Button(() =>
+            {
+                SelectTab(TerminalTab.Watches);
+            })
+            {
+                name = "TerminalWatchesTab",
+                tooltip = "Live values sampled at the watches cadence.",
+            };
+            _watchesTabButton.AddToClassList("terminal-header-tab");
+            _watchesTabButton.EnableInClassList("terminal-header-tab--active", _activeTab == TerminalTab.Watches);
+            Label watchesTabText = new("Watches") { name = "TerminalWatchesTabText", pickingMode = PickingMode.Ignore };
+            watchesTabText.AddToClassList("terminal-header-tab-text");
+            _watchesTabButton.Add(watchesTabText);
+            _watchesTabCount = new Label { name = "TerminalWatchesTabCount", pickingMode = PickingMode.Ignore };
+            _watchesTabCount.AddToClassList("terminal-header-tab-count");
+            _watchesTabButton.Add(_watchesTabCount);
+            tabs.Add(_watchesTabButton);
         }
 
         private void ApplyActiveTabVisibility(bool moveFocus)
         {
             bool actionsActive = _activeTab == TerminalTab.Actions;
-            _logTabButton?.EnableInClassList("terminal-header-tab--active", !actionsActive);
+            bool watchesActive = _activeTab == TerminalTab.Watches;
+            _logTabButton?.EnableInClassList("terminal-header-tab--active", !actionsActive && !watchesActive);
             _actionsTabButton?.EnableInClassList("terminal-header-tab--active", actionsActive);
+            _watchesTabButton?.EnableInClassList("terminal-header-tab--active", watchesActive);
 
             if (_logScrollView != null)
             {
-                _logScrollView.style.display = actionsActive ? DisplayStyle.None : DisplayStyle.Flex;
+                _logScrollView.style.display = actionsActive || watchesActive ? DisplayStyle.None : DisplayStyle.Flex;
             }
 
             if (_inputContainer != null)
             {
-                _inputContainer.style.display = actionsActive || _currentWindowHeight <= 30 ? DisplayStyle.None : DisplayStyle.Flex;
+                _inputContainer.style.display = actionsActive || watchesActive || _currentWindowHeight <= 30 ? DisplayStyle.None : DisplayStyle.Flex;
             }
+
+            _actionsView?.SetVisible(actionsActive);
+            _watchesView?.SetVisible(watchesActive);
 
             if (actionsActive)
             {
@@ -3643,22 +3839,249 @@
 
                 ResetAutoComplete();
                 _validationView?.Refresh(Terminal.Shell, string.Empty, open: false);
-                _actionsView?.SetVisible(true);
                 _actionsView?.RefreshIfNeeded(Terminal.Shell, CommandExecutionContext.Current, _syntaxPalette.Version);
                 if (moveFocus)
                 {
                     _actionsView?.FocusInitialControl();
                 }
             }
+            else if (watchesActive)
+            {
+                _logCopyStatus?.SetEnabled(false);
+                if (_logCopyStatus != null)
+                {
+                    _logCopyStatus.style.display = DisplayStyle.None;
+                }
+
+                ResetAutoComplete();
+                _validationView?.Refresh(Terminal.Shell, string.Empty, open: false);
+                RefreshWatchesView();
+                SampleWatchesNow();
+            }
             else
             {
-                _actionsView?.SetVisible(false);
                 if (moveFocus)
                 {
                     FocusInput(allowLogFocus: true);
                 }
             }
         }
+
+        /// <summary>Toggles a watch's pin from the Watches tab row button.</summary>
+        private void HandleWatchPinToggled(string name, bool pinned)
+        {
+            Terminal.Watches?.SetPinned(name, pinned);
+        }
+
+        /*
+            One refresh pass for the Watches view: rebuild rows only on a
+            registry version, tier, or HUD-settings change, then compare-
+            write the value cells. Called when the tab activates and on
+            every watch sample so the HUD stays current while closed.
+         */
+        private void RefreshWatchesView()
+        {
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (watches == null)
+            {
+                return;
+            }
+
+            CommandShell shell = Terminal.Shell;
+            CommandTier tier = shell != null ? shell.ActiveTier : CommandTier.Developer;
+            SyncHudTheme();
+            _watchesView?.RefreshIfNeeded(watches, tier, watchesHudEnabled, watchesHudMaxRows, watchesHudCorner);
+        }
+
+        private void RefreshWatchesTabCount(CommandWatchRegistry watches)
+        {
+            if (_watchesTabCount == null)
+            {
+                return;
+            }
+
+            CommandShell shell = Terminal.Shell;
+            CommandTier tier = shell != null ? shell.ActiveTier : CommandTier.Developer;
+            if (watches.Version == _lastWatchesVersion && tier == _lastWatchesTabTier)
+            {
+                return;
+            }
+
+            _lastWatchesVersion = watches.Version;
+            _lastWatchesTabTier = tier;
+            watches.CollectVisibleEntries(tier, _watchesVisibleBuffer);
+            int visibleCount = _watchesVisibleBuffer.Count;
+            if (_lastWatchesTabCount != visibleCount)
+            {
+                _watchesTabCount.text = visibleCount.ToString(CultureInfo.InvariantCulture);
+                _lastWatchesTabCount = visibleCount;
+            }
+        }
+
+        /// <summary>Creates the Watches tab view and its HUD document once per component.</summary>
+        private void EnsureWatchesView()
+        {
+            if (_watchesView != null || _uiDocument == null)
+            {
+                return;
+            }
+
+            if (_watchesHudDocument == null)
+            {
+                /*
+                    UIDocument carries DisallowMultipleComponent, so the HUD
+                    document needs its own GameObject - and it must stay off
+                    this component's transform: Unity nests a child UIDo-
+                    cument's root inside the parent document's rootVisualEle-
+                    ment, which would count the HUD into the terminal's tree
+                    and collapse it whenever the terminal's height clamps
+                    shut. A scene-root object renders independently of the
+                    terminal's height, and OnDestroy reclaims it.
+                 */
+                _watchesHudObject = new GameObject("TerminalWatchesHudDocument");
+                _watchesHudDocument = _watchesHudObject.AddComponent<UIDocument>();
+            }
+
+            _watchesHudDocument.panelSettings = _uiDocument.panelSettings;
+            _watchesHudDocument.sortingOrder = _uiDocument.sortingOrder + 1f;
+            _watchesHudDocument.enabled = true;
+            VisualElement hudRoot = _watchesHudDocument.rootVisualElement;
+            if (hudRoot == null)
+            {
+                return;
+            }
+
+            hudRoot.pickingMode = PickingMode.Ignore;
+            _watchesView = new TerminalWatchesView(_terminalContainer, hudRoot, HandleWatchPinToggled);
+            SyncHudTheme();
+        }
+
+        /*
+            The HUD renders in its own document, so neither the theme sheets
+            (attached to the terminal's TerminalRoot element) nor the theme
+            class (swapped on theme changes) reach it. Both are mirrored
+            here. The first sync runs even before a theme is resolved (a
+            null theme still needs the sheets), and after that the signature
+            keeps it to one sync per theme change instead of per refresh.
+         */
+        private void SyncHudTheme()
+        {
+            if (_watchesHudDocument == null || _uiDocument == null)
+            {
+                return;
+            }
+
+            VisualElement hudRoot = _watchesHudDocument.rootVisualElement;
+            VisualElement themedRoot = _uiDocument.rootVisualElement?.Q<VisualElement>(TerminalRootName);
+            if (hudRoot == null || themedRoot == null)
+            {
+                return;
+            }
+
+            string theme = _runtimeTheme;
+            if (_lastHudTheme != null && string.Equals(theme, _lastHudTheme, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastHudTheme = theme;
+            hudRoot.styleSheets.Clear();
+            int sheetCount = themedRoot.styleSheets.count;
+            for (int index = 0; index < sheetCount; ++index)
+            {
+                StyleSheet sheet = themedRoot.styleSheets[index];
+                if (sheet != null)
+                {
+                    hudRoot.styleSheets.Add(sheet);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_lastHudThemeClass))
+            {
+                hudRoot.RemoveFromClassList(_lastHudThemeClass);
+            }
+
+            _lastHudThemeClass = theme;
+            if (!string.IsNullOrWhiteSpace(_lastHudThemeClass))
+            {
+                hudRoot.AddToClassList(_lastHudThemeClass);
+            }
+        }
+
+        /*
+            Wires pin persistence to the current registry once. The registry
+            instance changes on every play-session reset, so the hook re-
+            attaches and reloads stored pins then; players skip persistence
+            and keep session-local pins.
+         */
+#if UNITY_EDITOR
+        /*
+            Wires pin persistence to the current registry once. The registry
+            instance changes on every play-session reset, so the hook re-
+            attaches and reloads stored pins then; players skip persistence
+            and keep session-local pins, so the whole hook is editor-only.
+            RefreshStaticState and the sampler both call it: the load must
+            precede any pin a caller makes through the live registry.
+         */
+        private void EnsureWatchesPinHook()
+        {
+            CommandWatchRegistry watches = Terminal.Watches;
+            if (ReferenceEquals(_watchesPinHookedRegistry, watches))
+            {
+                return;
+            }
+
+            if (_watchesPinHookedRegistry != null)
+            {
+                _watchesPinHookedRegistry.PinsChanged -= SaveWatchesPins;
+            }
+
+            _watchesPinHookedRegistry = watches;
+            if (watches == null)
+            {
+                return;
+            }
+
+            watches.PinsChanged += SaveWatchesPins;
+            LoadWatchesPins(watches);
+        }
+#endif
+
+#if UNITY_EDITOR
+        private void SaveWatchesPins()
+        {
+            CommandWatchRegistry watches = _watchesPinHookedRegistry;
+            if (watches == null)
+            {
+                return;
+            }
+
+            List<string> pinned = new(watches.Count);
+            watches.CollectPinnedNames(pinned);
+            SessionState.SetString(WatchesPinsSessionKey, string.Join(";", pinned));
+        }
+
+        private void LoadWatchesPins(CommandWatchRegistry watches)
+        {
+            string stored = SessionState.GetString(WatchesPinsSessionKey, null);
+            if (string.IsNullOrEmpty(stored))
+            {
+                return;
+            }
+
+            List<string> pins = new();
+            string[] names = stored.Split(';');
+            for (int index = 0; index < names.Length; ++index)
+            {
+                if (!string.IsNullOrWhiteSpace(names[index]))
+                {
+                    pins.Add(names[index]);
+                }
+            }
+
+            watches.LoadPins(pins);
+        }
+#endif
 
         private void RunActionsCommand(string commandPath, string commandLine, string[] fieldValues)
         {

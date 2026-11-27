@@ -140,7 +140,11 @@
         {
             yield return SpawnTerminalWithDocument();
 
-            Assert.AreEqual(0, _terminal._uiDocument.rootVisualElement.childCount, "A terminal that starts closed must not build its visual tree on enable");
+            Assert.AreEqual(
+                0,
+                _terminal._uiDocument.rootVisualElement.childCount,
+                "A terminal that starts closed must not build its visual tree on enable" + DescribeExtraRootChild()
+            );
             Assert.That(_terminal._commandInput == null, "The command input must not exist before the first open");
 
             _terminal.SetState(TerminalState.OpenFull);
@@ -206,7 +210,7 @@
             _terminal.SetState(TerminalState.OpenFull);
             yield return WaitForInputVisible("Reopening after re-enable rebuilds the tree");
 
-            Assert.AreEqual(1, _terminal._uiDocument.rootVisualElement.childCount, "The rebuilt terminal root is attached after reopening");
+            Assert.AreEqual(1, _terminal._uiDocument.rootVisualElement.childCount, "The rebuilt terminal root is attached after reopening" + DescribeExtraRootChild());
         }
 
         /*
@@ -532,7 +536,7 @@
         {
             yield return SpawnTerminalWithDocument();
 
-            Assert.AreEqual(0, _terminal._uiDocument.rootVisualElement.childCount, "A closed terminal builds nothing");
+            Assert.AreEqual(0, _terminal._uiDocument.rootVisualElement.childCount, "A closed terminal builds nothing" + DescribeExtraRootChild());
 
             _terminal.SetState(TerminalState.OpenSmall);
             yield return WaitForInputVisible("Opening the terminal must build the visual tree");
@@ -1332,6 +1336,23 @@
             {
                 return tracker.Started;
             });
+        }
+
+        private string DescribeExtraRootChild()
+        {
+            /*
+                The first extra child's element identity turns a bare count
+                failure into a named suspect; with the expected count the
+                description is empty.
+             */
+            int count = _terminal._uiDocument.rootVisualElement.childCount;
+            if (count == 0)
+            {
+                return string.Empty;
+            }
+
+            VisualElement extra = _terminal._uiDocument.rootVisualElement[0];
+            return $" (first child: '{extra.name}' [{extra.GetType().Name}])";
         }
 
         private sealed class SampleBehaviourProbe : TerminalCommandBehaviour
