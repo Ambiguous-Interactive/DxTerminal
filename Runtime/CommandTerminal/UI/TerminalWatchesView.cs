@@ -29,7 +29,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         }
 
         private readonly VisualElement _root;
-        private readonly VisualElement _tabParent;
+        private VisualElement _tabParent;
         private readonly VisualElement _hudRoot;
         private readonly VisualElement _hudRows;
         private readonly ScrollView _rowsScroll;
