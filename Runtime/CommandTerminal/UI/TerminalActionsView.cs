@@ -57,13 +57,46 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
             _sidebar = new ScrollView { name = "ActionsGroupSidebar" };
             _sidebar.AddToClassList("terminal-actions-sidebar");
+            DisableScrollerFocus(_sidebar);
             _root.Add(_sidebar);
 
             _cardsScroll = new ScrollView { name = "ActionsCardsScroll" };
             _cardsScroll.AddToClassList("terminal-actions-cards");
+            DisableScrollerFocus(_cardsScroll);
             _root.Add(_cardsScroll);
 
             parent.Add(_root);
+        }
+
+        private static void DisableScrollerFocus(ScrollView scrollView)
+        {
+            scrollView.focusable = false;
+            DisableScroller(scrollView.verticalScroller);
+            DisableScroller(scrollView.horizontalScroller);
+        }
+
+        private static void DisableScroller(Scroller scroller)
+        {
+            if (scroller == null)
+            {
+                return;
+            }
+
+            scroller.focusable = false;
+            if (scroller.slider != null)
+            {
+                scroller.slider.focusable = false;
+            }
+
+            if (scroller.lowButton != null)
+            {
+                scroller.lowButton.focusable = false;
+            }
+
+            if (scroller.highButton != null)
+            {
+                scroller.highButton.focusable = false;
+            }
         }
 
         private static string FormatMenuLabel(string value)
