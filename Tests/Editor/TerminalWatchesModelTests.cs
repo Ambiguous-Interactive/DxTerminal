@@ -182,9 +182,21 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             _registry.Sample(CommandTier.Developer);
             Assert.That(entry.ValueText, Is.EqualTo("ok"), "A throwing getter keeps the last value");
 
+            /*
+                The recovered sample clears the once-flag even when its value
+                is unchanged, so a later failure logs again; the recovered
+                text is still the pinned value.
+             */
             throwNow = false;
             _registry.Sample(CommandTier.Developer);
             Assert.That(entry.ValueText, Is.EqualTo("ok"), "The recovered getter resumes sampling");
+
+#if UNITY_EDITOR
+            LogAssert.Expect(LogType.Exception, "InvalidOperationException: boom");
+#endif
+            throwNow = true;
+            _registry.Sample(CommandTier.Developer);
+            Assert.That(entry.ValueText, Is.EqualTo("ok"), "A later failure logs again instead of staying silent");
         }
 
         [Test]

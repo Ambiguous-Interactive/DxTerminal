@@ -656,6 +656,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 case WatchValueKind.Int32:
                 {
                     int value = entry.IntGetter();
+                    entry.LoggedSampleFailure = false;
                     if (entry.HasValue && value == entry.LastInt)
                     {
                         return;
@@ -668,6 +669,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 case WatchValueKind.Single:
                 {
                     float value = entry.FloatGetter();
+                    entry.LoggedSampleFailure = false;
                     if (entry.HasValue && value.Equals(entry.LastFloat))
                     {
                         return;
@@ -705,6 +707,12 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return;
             }
 
+            /*
+                The getter succeeded, so the once-flag's subject is cleared;
+                the guard below re-arms it when equality or formatting throws.
+             */
+            entry.LoggedSampleFailure = false;
+
             try
             {
                 /*
@@ -720,7 +728,6 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
                 string text = FormatEntryValue(entry, value);
                 entry.LastValue = value;
-                entry.LoggedSampleFailure = false;
                 entry.Role = ClassifyRole(value);
                 entry.ValueText = text;
                 entry.HasValue = true;
