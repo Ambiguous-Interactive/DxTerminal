@@ -9,6 +9,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
     using CommandTier = Backend.CommandTier;
     using WatchEntry = Backend.CommandWatchRegistry.WatchEntry;
     using WatchValueRole = Backend.CommandWatchRegistry.WatchValueRole;
+#if UNITY_EDITOR
+    using UnityEngine;
+    using UnityEngine.TestTools;
+#endif
+
 
     /*
         Engine-free pins for the Watches registry and model (milestone C4,
