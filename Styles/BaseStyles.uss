@@ -86,27 +86,51 @@
     color: var(--dxt-ink);
 }
 
+.terminal-header-tab-text {
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+}
+
 .terminal-header-tab-count {
     margin: 0 0 0 6px;
+    padding: 0;
     color: var(--dxt-ink-muted);
     font-size: 11px;
+    white-space: nowrap;
+}
+
+.terminal-header-controls {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
 }
 
 .terminal-header-divider {
     flex-shrink: 0;
     width: 1px;
     height: 22px;
-    margin: 0 2px;
+    margin: 0 4px;
     background-color: var(--dxt-line);
 }
 
 .terminal-header-size,
 .terminal-header-close {
     flex-shrink: 0;
+    min-height: 28px;
+    padding: 0 8px;
 }
 
-.terminal-header .terminal-search,
+.terminal-header .terminal-search {
+    flex-grow: 1;
+    flex-shrink: 1;
+    padding: 0;
+    background-color: transparent;
+}
+
 .terminal-header .terminal-severities {
+    flex-shrink: 1;
+    max-width: 100%;
     padding: 0;
     background-color: transparent;
 }
@@ -128,7 +152,7 @@
 }
 
 .terminal-search-field {
-    flex-basis: 260px;
+    flex-basis: 140px;
     flex-grow: 1;
     flex-shrink: 1;
     min-width: 0;
@@ -170,7 +194,8 @@
     budget the stacked layout had and the log keeps its output space.
     #245 owns the full narrow pass.
  */
-.terminal-root--narrow .terminal-header-tab:disabled {
+.terminal-root--narrow .terminal-header-tab:disabled,
+.terminal-root--narrow .terminal-header-divider {
     display: none;
 }
 
@@ -349,10 +374,6 @@
 
 .terminal-root--narrow .terminal-log-row__time {
     display: none;
-}
-
-.terminal-root--narrow .terminal-log-row {
-    min-height: 30px;
 }
 
 .terminal-root--narrow .terminal-search-field > #unity-text-input {
@@ -1109,7 +1130,9 @@
 
 .terminal-severities .terminal-type-chip__glyph {
     margin: 0 6px 0 0;
+    padding: 0;
     color: var(--dxt-ink-muted);
+    white-space: nowrap;
 }
 
 .terminal-severities .terminal-type-chip__glyph--error {
@@ -1125,7 +1148,10 @@
 }
 
 .terminal-severities .terminal-type-chip__text {
+    margin: 0;
+    padding: 0;
     color: var(--dxt-ink);
+    white-space: nowrap;
 }
 
 .terminal-severities .terminal-type-chip--excluded {
