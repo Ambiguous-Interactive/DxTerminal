@@ -669,18 +669,18 @@
                     log.
                  */
                 HashSet<string> visited = new(StringComparer.Ordinal);
-                Focusable previousFocus = null;
+                VisualElement previousFocus = null;
                 for (int move = 0; move < 16 && !_terminal.SearchOwnsFocus; ++move)
                 {
                     yield return MoveGamepad(gamepad, Vector2.left);
-                    Focusable focused = root.panel.focusController.focusedElement;
+                    VisualElement focused = root.panel.focusController.focusedElement as VisualElement;
                     bool revisited = focused != null && !visited.Add($"{focused.name}@{focused.layout.y:0}");
                     if (focused == previousFocus || revisited)
                     {
                         yield return MoveGamepad(gamepad, Vector2.up);
                     }
 
-                    previousFocus = root.panel.focusController.focusedElement;
+                    previousFocus = root.panel.focusController.focusedElement as VisualElement;
                     LogWalkState(root, $"move {move}");
                 }
                 Assert.That(_terminal.SearchOwnsFocus, Is.True, "The pad can enter the search field from the header.");
