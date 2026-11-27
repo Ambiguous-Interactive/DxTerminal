@@ -250,6 +250,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Button pin = FindRowPin("hud.silver");
             Assert.That(pin, Is.Not.Null, "The row for hud.silver carries a pin toggle");
             Submit(pin);
+            /*
+                Sample directly instead of waiting for the 4 Hz cadence: the
+                registry state below is immediate, and the row/HUD rebuild
+                is version-gated, so one forced pass makes the visual
+                assertions deterministic.
+             */
+            _terminal.SampleWatchesNow();
             yield return WaitSeconds(0.1f);
 
             Assert.That(Terminal.Watches.IsPinned("hud.silver"), Is.True, "The row toggle pins through the registry");
@@ -265,6 +272,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(FindRowPin("hud.silver").text, Is.EqualTo("Pinned"), "The row button reflects the pinned state");
 
             Submit(FindRowPin("hud.silver"));
+            _terminal.SampleWatchesNow();
             yield return WaitSeconds(0.1f);
             Assert.That(Terminal.Watches.IsPinned("hud.silver"), Is.False, "A second toggle unpins");
             Assert.That(hudDocumentRoot.Q("TerminalWatchesHud").resolvedStyle.display, Is.EqualTo(DisplayStyle.None), "The HUD hides again");
@@ -283,7 +291,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(hudDocumentRoot.Q("TerminalWatchesHud").resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "The HUD shows before the close");
 
             _terminal.SetState(TerminalState.Closed);
+            _terminal.SampleWatchesNow();
             yield return WaitSeconds(0.1f);
+            _terminal.SampleWatchesNow();
             _terminal.SampleWatchesNow();
 
             Assert.That(_terminal.State, Is.EqualTo(TerminalState.Closed), "The terminal is closed");
@@ -362,10 +372,16 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(Terminal.Watches.SetPinned("bench.delta", true), Is.True);
 
             /*
-                The slowest legal cadence widens the frame gate's due window
-                to two seconds, so the measured call below cannot land on a
-                due sample even on a paused CI host: the pin is about the
-                per-frame gate path, not the 4 Hz sample pass.
+                The measured call is a gate-skipped frame by construction:
+                the eight warmup iterations feed the gate, and the profiler
+                window opens microseconds after the last one. Setting
+                watchesSampleRate here documents the intent; the serialized
+                field only re-derives the interval at apply, so the warmup
+                cadence is what keeps the window deterministic. A due frame
+                costs one small text allocation per changed displayed value
+                (the fps and frame built-ins move); that is a sample-cadence
+                cost, not a per-frame one, and the registry doc comment
+                records it.
              */
             _terminal.watchesSampleRate = 0.5f;
             _terminal.SampleWatchesNow();
