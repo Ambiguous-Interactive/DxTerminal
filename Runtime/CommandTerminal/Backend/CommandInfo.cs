@@ -9,6 +9,11 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             get { return group; }
         }
 
+        internal string DefaultGroup
+        {
+            get { return defaultGroup; }
+        }
+
         internal CommandBuilder.SubcommandRoute SyntaxRoute { get; }
 
         public readonly Action<CommandArg[]> proc;
@@ -55,6 +60,8 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// <summary>When true, omits the command from the Actions surface.</summary>
         public readonly bool hideFromActions;
 
+        internal readonly string defaultGroup;
+
         public CommandInfo(Action<CommandArg[]> proc, int minArgCount, int? maxArgCount, string help, string hint, bool addToHistory = true)
             : this(proc, handler: null, completionProvider: null, CommandExecutionContextSets.All, minArgCount, maxArgCount, help, hint, addToHistory) { }
 
@@ -98,11 +105,13 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             CommandBuilder.SubcommandRoute syntaxRoute,
             string group = null,
             CommandTier tier = CommandTier.Developer,
-            bool hideFromActions = false
+            bool hideFromActions = false,
+            string defaultGroup = null
         )
         {
             SyntaxRoute = syntaxRoute;
             this.group = group;
+            this.defaultGroup = defaultGroup;
             this.tier = NormalizeTier(tier);
             this.hideFromActions = hideFromActions;
             this.proc = proc;

@@ -61,10 +61,32 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// </summary>
         internal virtual bool IsRemaining => false;
 
+        internal virtual string[] StaticChoiceTexts
+        {
+            get { return null; }
+        }
+
+        internal virtual bool HasDynamicChoices
+        {
+            get { return false; }
+        }
+
+        internal virtual bool HasExplicitDefault
+        {
+            get { return false; }
+        }
+
         internal CommandArgument(string name, string typeName)
         {
             Name = name;
             TypeName = typeName;
+        }
+
+        internal virtual bool TryGetNumericRange(out double min, out double max)
+        {
+            min = 0d;
+            max = 0d;
+            return false;
         }
 
         internal abstract bool TryParse(CommandArg input, out object parsed);

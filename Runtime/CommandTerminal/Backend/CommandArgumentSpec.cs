@@ -119,7 +119,20 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         internal override bool IsRemaining => _isRemaining;
 
         /// <summary>True when an explicit default was configured for this argument.</summary>
-        internal bool HasExplicitDefault => _hasExplicitDefault;
+        internal override bool HasExplicitDefault
+        {
+            get { return _hasExplicitDefault; }
+        }
+
+        internal override string[] StaticChoiceTexts
+        {
+            get { return _staticChoiceTexts; }
+        }
+
+        internal override bool HasDynamicChoices
+        {
+            get { return _dynamicChoices != null; }
+        }
 
         private readonly bool _required;
         private readonly bool _isRemaining;
@@ -675,6 +688,33 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 argumentName: Name,
                 argumentType: typeof(T)
             );
+        }
+
+        internal override bool TryGetNumericRange(out double min, out double max)
+        {
+            if (_rangeValidator != null && !string.IsNullOrWhiteSpace(_rangeText))
+            {
+                string trimmed = _rangeText.Trim();
+                int separator = trimmed.IndexOf('\u2013');
+                if (0 < separator && separator < trimmed.Length - 1)
+                {
+                    string minPart = trimmed.Substring(0, separator);
+                    string maxPart = trimmed.Substring(separator + 1);
+                    if (
+                        double.TryParse(minPart, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsedMin)
+                        && double.TryParse(maxPart, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsedMax)
+                    )
+                    {
+                        min = parsedMin;
+                        max = parsedMax;
+                        return true;
+                    }
+                }
+            }
+
+            min = 0d;
+            max = 0d;
+            return false;
         }
 
         internal override bool TryParse(CommandArg input, out object parsed)

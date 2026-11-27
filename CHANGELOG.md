@@ -13,6 +13,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Added
 
+- Add the Actions tab with grouped typed command forms, syntax-colored previews, tier/context unavailability reasons, Recent runs, and gamepad tab/edit navigation
+  ([#243](https://github.com/Ambiguous-Interactive/DxTerminal/issues/243), [#245](https://github.com/Ambiguous-Interactive/DxTerminal/issues/245)).
 - Add `CommandTier` (`Player`, `Tester`, `Developer`), `Group`, and `HideFromActions` metadata across `[RegisterCommand]`, `CommandBuilder`, `CommandDefinition`, `CommandInfo`, and
   built-in commands ([#237](https://github.com/Ambiguous-Interactive/DxTerminal/issues/237)).
 - Add `Terminal.Reset`, `TerminalCommandBehaviour`, early Play Mode session bootstrap at `SubsystemRegistration` with deferred command discovery, and typed `Terminal.Log` overloads

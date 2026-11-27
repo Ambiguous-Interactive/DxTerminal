@@ -58,6 +58,12 @@ namespace WallstopStudios.DxCommandTerminal.Input
 
         public string cancelActionName = "Cancel";
 
+        public string nextTabActionName = "NextTab";
+
+        public string previousTabActionName = "PreviousTab";
+
+        public string editValuesActionName = "EditValues";
+
         protected bool _enabled;
 
         [SerializeField]
@@ -139,6 +145,21 @@ namespace WallstopStudios.DxCommandTerminal.Input
         public virtual void OnCancel(InputValue inputValue)
         {
             Cancel(inputValue != null && inputValue.isPressed);
+        }
+
+        public virtual void OnNextTab(InputValue inputValue)
+        {
+            NextTab();
+        }
+
+        public virtual void OnPreviousTab(InputValue inputValue)
+        {
+            PreviousTab();
+        }
+
+        public virtual void OnEditValues(InputValue inputValue)
+        {
+            EditValues();
         }
 
         protected virtual void HandlePrevious()
@@ -229,6 +250,33 @@ namespace WallstopStudios.DxCommandTerminal.Input
                 return;
             }
             terminal.EnterCommand();
+        }
+
+        protected virtual void NextTab()
+        {
+            if (!ShouldHandleMessage(nextTabActionName, allowLogFocus: true))
+            {
+                return;
+            }
+            terminal.NextTab();
+        }
+
+        protected virtual void PreviousTab()
+        {
+            if (!ShouldHandleMessage(previousTabActionName, allowLogFocus: true))
+            {
+                return;
+            }
+            terminal.PreviousTab();
+        }
+
+        protected virtual void EditValues()
+        {
+            if (!ShouldHandleMessage(editValuesActionName, allowLogFocus: true))
+            {
+                return;
+            }
+            terminal.EditActionsValues();
         }
 
         protected virtual void Awake()
@@ -448,6 +496,18 @@ namespace WallstopStudios.DxCommandTerminal.Input
             else if (action == FindAction(cancelActionName))
             {
                 Cancel(InputSystem.settings.defaultButtonPressPoint <= context.ReadValue<float>());
+            }
+            else if (action == FindAction(nextTabActionName))
+            {
+                NextTab();
+            }
+            else if (action == FindAction(previousTabActionName))
+            {
+                PreviousTab();
+            }
+            else if (action == FindAction(editValuesActionName))
+            {
+                EditValues();
             }
         }
 
