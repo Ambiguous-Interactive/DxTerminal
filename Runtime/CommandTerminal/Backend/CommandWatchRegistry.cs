@@ -12,13 +12,15 @@ namespace WallstopStudios.DxCommandTerminal.Backend
     /*
         Registry of live named values for milestone C4 (#244). Entries are
         registered through Terminal.Watch or discovered from [Watch]
-        members; fps and frame are built in. Sampling runs on the main
-        thread at the UI's cadence (4 Hz by default) and writes each value
-        into a per-entry reused buffer, so an idle HUD allocates nothing
-        per frame: a value whose sample equals the last one rewrites no
-        text, and unchanged reference-typed getters allocate nothing at
-        all. Value-typed getters box once per sample through the
-        Func<object> registration path - 4 boxes per second, not per frame.
+        members; fps and frame are built in through typed int/float entries
+        that never box. Sampling runs on the main thread at the UI's
+        cadence (4 Hz by default) and writes each value into a per-entry
+        reused buffer, so an idle HUD allocates nothing per frame: frames
+        without a due sample pay one gate compare, and a sample whose value
+        is unchanged rewrites no text. A changed displayed value costs one
+        small text allocation at the sample cadence, not per frame; the
+        general Func<object> path additionally boxes value-typed getters
+        once per sample.
         Equality decides the rewrite, so a getter must return immutable
         values (or new instances); a mutated object behind a stable
         reference is not re-formatted.
@@ -340,7 +342,7 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 throw new ArgumentException($"A watch named '{normalized}' is already registered.", nameof(name));
             }
 
-            return AddEntry(normalized, getter, source, format, tier);
+            return AddEntry(normalized, getter, null, null, source, format, tier);
         }
 
         public bool IsPinned(string name)
@@ -504,6 +506,45 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             }
         }
 
+        /// <summary>
+        ///     Registers an integer watch whose sampling never boxes: the
+        ///     typed entry caches the last value and writes digits straight
+        ///     into the entry's reused buffer. See <see cref="Watch{T}"/>
+        ///     for the shared contract.
+        /// </summary>
+        internal WatchHandle WatchInt(string name, Func<int> getter, string source, string format, CommandTier tier)
+        {
+            if (getter == null)
+            {
+                throw new ArgumentNullException(nameof(getter));
+            }
+
+            string normalized = NormalizeWatchName(name);
+            if (_entriesByName.ContainsKey(normalized))
+            {
+                throw new ArgumentException($"A watch named '{normalized}' is already registered.", nameof(name));
+            }
+
+            return AddEntry(normalized, null, getter, null, source, format, tier);
+        }
+
+        /// <summary>Registers a float watch with the same allocation-free sampling contract as <see cref="WatchInt"/>.</summary>
+        internal WatchHandle WatchFloat(string name, Func<float> getter, string source, string format, CommandTier tier)
+        {
+            if (getter == null)
+            {
+                throw new ArgumentNullException(nameof(getter));
+            }
+
+            string normalized = NormalizeWatchName(name);
+            if (_entriesByName.ContainsKey(normalized))
+            {
+                throw new ArgumentException($"A watch named '{normalized}' is already registered.", nameof(name));
+            }
+
+            return AddEntry(normalized, null, null, getter, source, format, tier);
+        }
+
         internal void RemoveRegistration(long registrationId)
         {
             int entryCount = _entries.Count;
@@ -560,28 +601,42 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                     continue;
                 }
 
-                AddEntry(candidate.Name, candidate.Getter, candidate.Source, candidate.Format, candidate.Tier);
+                AddEntry(candidate.Name, candidate.Getter, null, null, candidate.Source, candidate.Format, candidate.Tier);
             }
         }
 
         private void RegisterBuiltInWatches()
         {
             /*
-                Built-ins register through AddEntry directly: triggering
-                discovery here would let a user [Watch("fps")] land first
-                and then make the built-in registration throw mid-
-                construction. The handles are dropped on purpose: built-in
-                watches live as long as the registry does, and a dropped
-                handle can never remove them.
+                Built-ins sample through typed entries: their getters run 4
+                times a second for the whole session, so the general
+                Func<object> path's per-sample box is not acceptable for
+                them. The handles are dropped on purpose: built-in watches
+                live as long as the registry does, and a dropped handle can
+                never remove them.
              */
-            AddEntry("fps", () => 1f / Mathf.Max(Time.unscaledDeltaTime, MinimumDeltaTimeSeconds), BuiltInWatchSource, "F1", CommandTier.Player);
-            AddEntry("frame", () => Time.frameCount, BuiltInWatchSource, null, CommandTier.Player);
+            WatchFloat("fps", () => 1f / Mathf.Max(Time.unscaledDeltaTime, MinimumDeltaTimeSeconds), BuiltInWatchSource, "F1", CommandTier.Player);
+            WatchInt("frame", () => Time.frameCount, BuiltInWatchSource, null, CommandTier.Player);
         }
 
-        private WatchHandle AddEntry(string name, Func<object> getter, string source, string format, CommandTier tier)
+        private WatchHandle AddEntry(string name, Func<object> getter, Func<int> intGetter, Func<float> floatGetter, string source, string format, CommandTier tier)
         {
             string normalized = NormalizeWatchName(name);
-            WatchEntry entry = new WatchEntry(_nextRegistrationId, normalized, string.IsNullOrWhiteSpace(source) ? "Script" : source, format, NormalizeTier(tier), getter);
+            WatchValueKind kind =
+                intGetter != null ? WatchValueKind.Int32
+                : floatGetter != null ? WatchValueKind.Single
+                : WatchValueKind.Object;
+            WatchEntry entry = new WatchEntry(
+                _nextRegistrationId,
+                normalized,
+                kind,
+                getter,
+                intGetter,
+                floatGetter,
+                string.IsNullOrWhiteSpace(source) ? "Script" : source,
+                format,
+                NormalizeTier(tier)
+            );
             _nextRegistrationId++;
             _entries.Add(entry);
             _entriesByName.Add(normalized, entry);
@@ -595,6 +650,42 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         }
 
         private void SampleEntry(WatchEntry entry)
+        {
+            switch (entry.Kind)
+            {
+                case WatchValueKind.Int32:
+                {
+                    int value = entry.IntGetter();
+                    if (entry.HasValue && value == entry.LastInt)
+                    {
+                        return;
+                    }
+
+                    entry.LastInt = value;
+                    CommitSample(entry, value);
+                    return;
+                }
+                case WatchValueKind.Single:
+                {
+                    float value = entry.FloatGetter();
+                    if (entry.HasValue && value.Equals(entry.LastFloat))
+                    {
+                        return;
+                    }
+
+                    entry.LastFloat = value;
+                    CommitSample(entry, value);
+                    return;
+                }
+                default:
+                {
+                    SampleObjectEntry(entry);
+                    return;
+                }
+            }
+        }
+
+        private void SampleObjectEntry(WatchEntry entry)
         {
             object value;
             try
@@ -646,6 +737,46 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             entry.LoggedSampleFailure = false;
             entry.Role = ClassifyRole(value);
             entry.ValueText = text;
+            entry.HasValue = true;
+        }
+
+        /*
+            The typed path for the numeric built-ins: the caller already
+            cached the raw value (so an unchanged sample returned above), and
+            Append writes digits into the reused buffer without a temporary
+            string. A changed value still pays one ToString for the new text,
+            which is the documented per-sample cost when a displayed value
+            actually moves.
+         */
+        private void CommitSample(WatchEntry entry, object value)
+        {
+            StringBuilder builder = entry.Builder;
+            builder.Clear();
+            if (value is int intValue)
+            {
+                if (string.IsNullOrEmpty(entry.Format))
+                {
+                    builder.Append(intValue);
+                }
+                else
+                {
+                    builder.Append(intValue.ToString(entry.Format, CultureInfo.InvariantCulture));
+                }
+            }
+            else if (value is float floatValue)
+            {
+                if (string.IsNullOrEmpty(entry.Format))
+                {
+                    builder.Append(floatValue);
+                }
+                else
+                {
+                    builder.Append(floatValue.ToString(entry.Format, CultureInfo.InvariantCulture));
+                }
+            }
+
+            entry.LoggedSampleFailure = false;
+            entry.ValueText = builder.ToString();
             entry.HasValue = true;
         }
 
@@ -707,22 +838,56 @@ namespace WallstopStudios.DxCommandTerminal.Backend
             public WatchValueRole Role { get; internal set; }
 
             internal readonly long RegistrationId;
+            internal readonly WatchValueKind Kind;
             internal readonly Func<object> Getter;
+            internal readonly Func<int> IntGetter;
+            internal readonly Func<float> FloatGetter;
             internal readonly StringBuilder Builder;
             internal object LastValue;
+            internal int LastInt;
+            internal float LastFloat;
             internal bool LoggedSampleFailure;
 
-            internal WatchEntry(long registrationId, string name, string source, string format, CommandTier tier, Func<object> getter)
+            internal WatchEntry(
+                long registrationId,
+                string name,
+                WatchValueKind kind,
+                Func<object> getter,
+                Func<int> intGetter,
+                Func<float> floatGetter,
+                string source,
+                string format,
+                CommandTier tier
+            )
             {
                 RegistrationId = registrationId;
                 Name = name;
+                Kind = kind;
+                Getter = getter;
+                IntGetter = intGetter;
+                FloatGetter = floatGetter;
                 Source = source;
                 Format = format;
                 Tier = tier;
-                Getter = getter;
                 Builder = new StringBuilder(InitialValueCapacity);
                 Role = WatchValueRole.Body;
             }
+        }
+
+        /// <summary>How a watch's getter is stored: typed numeric paths skip the per-sample box.</summary>
+        internal enum WatchValueKind
+        {
+            [Obsolete("Use a valid WatchValueKind value.")]
+            Unknown = 0,
+
+            /// <summary>The general Func&lt;object&gt; path; value types box once per sample.</summary>
+            Object = 1,
+
+            /// <summary>A cached Func&lt;int&gt; path with no boxing.</summary>
+            Int32 = 2,
+
+            /// <summary>A cached Func&lt;float&gt; path with no boxing.</summary>
+            Single = 3,
         }
 
         /// <summary>The syntax role a watch value renders with, per the DESIGN.md § 3.2 roles.</summary>

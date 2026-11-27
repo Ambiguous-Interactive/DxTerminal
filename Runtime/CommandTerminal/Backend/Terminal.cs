@@ -48,6 +48,16 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         /// </summary>
         public static WatchHandle Watch<T>(string name, Func<T> getter, string source = null, string format = null, CommandTier tier = CommandTier.Developer)
         {
+            if (name == null)
+            {
+                throw new ArgumentNullException(nameof(name));
+            }
+
+            if (getter == null)
+            {
+                throw new ArgumentNullException(nameof(getter));
+            }
+
             CommandWatchRegistry watches = TerminalSession.Current.Watches;
             if (watches == null)
             {
