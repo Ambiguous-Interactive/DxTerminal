@@ -19,6 +19,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
         text, and unchanged reference-typed getters allocate nothing at
         all. Value-typed getters box once per sample through the
         Func<object> registration path - 4 boxes per second, not per frame.
+        Equality decides the rewrite, so a getter must return immutable
+        values (or new instances); a mutated object behind a stable
+        reference is not re-formatted.
 
         Discovery and registration are main-thread operations, mirroring
         shell command registration.
