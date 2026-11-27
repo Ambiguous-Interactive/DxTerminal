@@ -10,6 +10,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
     using UnityEngine;
     using UnityEngine.TestTools;
     using UnityEngine.UIElements;
+    using AllocationAssertions = WallstopStudios.DxCommandTerminal.Tests.Runtime.Allocation.AllocationAssertions;
     using Object = UnityEngine.Object;
     using WatchEntry = Backend.CommandWatchRegistry.WatchEntry;
 #if UNITY_EDITOR
@@ -59,9 +60,26 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             return new WaitForSeconds(seconds);
         }
 
+        /*
+            CommandLog.Logs is obsolete (a count-then-index read can race the
+            ring); CopyTo is the supported one-call consistent read.
+         */
+        private static List<LogItem> CopiedLogs()
+        {
+            LogItem[] window = new LogItem[Terminal.Buffer.Count];
+            int count = Terminal.Buffer.CopyTo(window);
+            List<LogItem> lines = new(count);
+            for (int index = 0; index < count; ++index)
+            {
+                lines.Add(window[index]);
+            }
+
+            return lines;
+        }
+
         private static string LastLoggedMessage()
         {
-            IReadOnlyList<LogItem> logs = Terminal.Buffer.Logs;
+            List<LogItem> logs = CopiedLogs();
             for (int index = logs.Count - 1; 0 <= index; --index)
             {
                 if (logs[index].type == TerminalLogType.Message)
@@ -75,7 +93,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
         private static string LastLoggedError()
         {
-            IReadOnlyList<LogItem> logs = Terminal.Buffer.Logs;
+            List<LogItem> logs = CopiedLogs();
             for (int index = logs.Count - 1; 0 <= index; --index)
             {
                 if (logs[index].type == TerminalLogType.Error)
@@ -89,8 +107,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
         private static List<string> LoggedMessages()
         {
-            List<string> lines = new();
-            IReadOnlyList<LogItem> logs = Terminal.Buffer.Logs;
+            List<LogItem> logs = CopiedLogs();
+            List<string> lines = new(logs.Count);
             for (int index = 0; index < logs.Count; ++index)
             {
                 lines.Add(logs[index].message);
@@ -284,9 +302,24 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return SpawnTerminal(open: true);
             _terminal.SampleWatchesNow();
 
+            VisualElement terminalRoot = _terminal._uiDocument.rootVisualElement;
             VisualElement hudDocumentRoot = _terminal._watchesHudDocument.rootVisualElement;
             Assert.That(hudDocumentRoot.styleSheets.count, Is.GreaterThan(0), "The HUD document mirrors the terminal's theme sheets");
-            Assert.That(hudDocumentRoot.ClassListContains(_terminal._runtimeTheme), "The HUD document carries the active theme class so the dxt role variables resolve");
+
+            List<string> themeClasses = new();
+            foreach (string cssClass in terminalRoot.GetClasses())
+            {
+                if (ThemeNameHelper.IsThemeName(cssClass))
+                {
+                    themeClasses.Add(cssClass);
+                }
+            }
+
+            Assert.That(themeClasses, Is.Not.Empty, "Sanity: the terminal root carries the active theme class");
+            foreach (string themeClass in themeClasses)
+            {
+                Assert.That(hudDocumentRoot.ClassListContains(themeClass), $"The HUD document carries the active theme class '{themeClass}' so the dxt role variables resolve");
+            }
         }
 
         [UnityTest]
