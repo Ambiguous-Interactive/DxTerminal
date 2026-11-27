@@ -102,6 +102,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [SetUp]
         public void SetUp()
         {
+#if UNITY_EDITOR
+            /*
+                A run that died before TearDown leaves pins behind; a stale
+                pin would flip the HUD-visibility assertions below.
+             */
+            SessionState.SetString(TerminalUI.WatchesPinsSessionKey, string.Empty);
+#endif
             _originalBuffer = Terminal.Buffer;
             _originalShell = Terminal.Shell;
             _originalHistory = Terminal.History;
