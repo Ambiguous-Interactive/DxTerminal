@@ -165,6 +165,27 @@
             }
         }
 
+        /*
+            Temporary walk telemetry for the pad-to-search route on the wrapped
+            header: name, classes, and rect of whatever holds focus after each
+            move, so the runner log shows the path the navigation actually
+            takes. Removed once the walk converges.
+         */
+        private static void LogWalkState(VisualElement root, string step)
+        {
+            Focusable focused = root.panel?.focusController?.focusedElement;
+            if (focused is not VisualElement element)
+            {
+                Debug.Log($"[pad-walk] {step}: focused=<null>");
+                return;
+            }
+
+            string classes = string.Join(",", element.GetClasses());
+            Debug.Log(
+                $"[pad-walk] {step}: focused={element.name} classes=[{classes}] rect={element.layout.width:0}x{element.layout.height:0}@{element.layout.x:0},{element.layout.y:0} rootWidth={root.layout.width:0}"
+            );
+        }
+
         [SetUp]
         public void SetUp()
         {
@@ -657,6 +678,7 @@
                     }
 
                     previousFocus = root.panel.focusController.focusedElement;
+                    LogWalkState(root, $"move {move}");
                 }
                 Assert.That(_terminal.SearchOwnsFocus, Is.True, "The pad can enter the search field from the header.");
 
@@ -923,6 +945,36 @@
                 SendNativeSubmit(size);
                 Assert.That(_terminal.State, Is.Not.EqualTo(before), $"Unresolved identifier '{unresolved}' leaves native navigation available.");
             }
+        }
+
+        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
+        {
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+        }
+
+        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
+        {
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+        }
+
+        private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
+        {
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, new GamepadState { leftStick = direction });
+            yield return Settle();
+            InputSystem.QueueStateEvent(gamepad, default(GamepadState));
+            yield return Settle();
         }
 
         private IEnumerator MoveGamepad(Gamepad gamepad, Vector2 direction)
