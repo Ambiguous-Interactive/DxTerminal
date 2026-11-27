@@ -125,9 +125,8 @@ namespace WallstopStudios.DxCommandTerminal.UI
         /// <summary>
         ///     Binds the tab grid to the terminal container. The view can be
         ///     created before the first open (the HUD builds while closed),
-        ///     so the container binding lands here rather than at
-        ///     construction time and every rebuild re-binds to the current
-        ///     container.
+        ///     and a SetupUI rebuild can produce a fresh container, so the
+        ///     binding re-resolves and the grid re-homes on every rebuild.
         /// </summary>
         internal void AttachTabTo(VisualElement tabParent)
         {
@@ -136,6 +135,12 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 return;
             }
 
+            if (_root.parent != null)
+            {
+                _root.Remove();
+            }
+
+            _tabAttached = false;
             _tabParent = tabParent;
             EnsureAttached();
         }

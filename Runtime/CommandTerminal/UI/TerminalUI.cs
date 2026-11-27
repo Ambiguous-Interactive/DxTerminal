@@ -3895,6 +3895,11 @@
 
         private void RefreshWatchesTabCount(CommandWatchRegistry watches)
         {
+            if (_watchesTabCount == null)
+            {
+                return;
+            }
+
             CommandShell shell = Terminal.Shell;
             CommandTier tier = shell != null ? shell.ActiveTier : CommandTier.Developer;
             if (watches.Version == _lastWatchesVersion && tier == _lastWatchesTabTier)
@@ -3904,11 +3909,6 @@
 
             _lastWatchesVersion = watches.Version;
             _lastWatchesTabTier = tier;
-            if (_watchesTabCount == null)
-            {
-                return;
-            }
-
             watches.CollectVisibleEntries(tier, _watchesVisibleBuffer);
             int visibleCount = _watchesVisibleBuffer.Count;
             if (_lastWatchesTabCount != visibleCount)
