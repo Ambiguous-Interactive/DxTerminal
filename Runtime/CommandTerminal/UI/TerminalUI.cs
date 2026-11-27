@@ -2335,11 +2335,11 @@
             measurement (see WallstopStudios.DxCommandTerminal.Tests.Runtime).
          */
         /*
-            The 4 Hz watch sampler. Gated by the HUD setting and the active
-            tab, so a terminal with no watch surfaces pays one registry null
-            check per frame; sampling itself runs on the due cadence into
-            the registry's reused entry buffers. Internal so the allocation
-            pins drive the exact per-frame path.
+            The 4 Hz watch sampler. Sampling gates on the HUD setting and
+            the active tab, so a terminal with no watch surfaces pays one
+            registry null check per frame; the view refresh after the gate
+            is compare-only and catches setting changes made while closed.
+            Internal so the allocation pins drive the exact per-frame path.
          */
         internal void UpdateWatchesSampling()
         {
@@ -2351,19 +2351,18 @@
             }
 
             bool watchesTabActive = IsOpenState(_state) && _activeTab == TerminalTab.Watches;
-            if (!watchesHudEnabled && !watchesTabActive)
+            if (watchesHudEnabled || watchesTabActive)
             {
-                return;
+                float now = Time.unscaledTime;
+                if (!(0f < _lastWatchesSampleTime && now - _lastWatchesSampleTime < _watchesSampleInterval))
+                {
+                    _lastWatchesSampleTime = now;
+                    SampleWatchesNow();
+                    return;
+                }
             }
 
-            float now = Time.unscaledTime;
-            if (0f < _lastWatchesSampleTime && now - _lastWatchesSampleTime < _watchesSampleInterval)
-            {
-                return;
-            }
-
-            _lastWatchesSampleTime = now;
-            SampleWatchesNow();
+            RefreshWatchesView();
         }
 
         internal void SampleWatchesNow()
