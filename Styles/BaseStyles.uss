@@ -165,21 +165,11 @@
 }
 
 /*
-    Narrow header (below the breakpoint): the window controls join the
-    title line and the disabled Actions/Watches placeholders disappear, so
-    the wrapped toolbar keeps the same line budget the stacked layout had
-    and the log keeps its output space. #245 owns the full narrow pass.
+    Narrow header (below the breakpoint): the disabled Actions/Watches
+    placeholders disappear so the wrapped toolbar keeps the same line
+    budget the stacked layout had and the log keeps its output space.
+    #245 owns the full narrow pass.
  */
-.terminal-root--narrow .terminal-header-title {
-    order: -3;
-}
-
-.terminal-root--narrow .terminal-header-divider,
-.terminal-root--narrow .terminal-header-size,
-.terminal-root--narrow .terminal-header-close {
-    order: -2;
-}
-
 .terminal-root--narrow .terminal-header-tab:disabled {
     display: none;
 }

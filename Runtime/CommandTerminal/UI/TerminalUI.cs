@@ -2377,7 +2377,7 @@
                 _commandInput.selectIndex == _commandInput.cursorIndex ? _completionView?.Ghost : null,
                 _validationView?.UnclosedQuote
             );
-            RefreshSizeButton();
+            RefreshHeaderState();
         }
 
         internal void ApplyHint(int index)
@@ -4536,11 +4536,22 @@
             return true;
         }
 
-        private void RefreshSizeButton()
+        /*
+            Keeps the header chrome that a refresh pass can change in step
+            with the state: the size control's label follows the state, and
+            the caret label follows `inputCaret`, which a settings swap can
+            change without a rebuild.
+         */
+        private void RefreshHeaderState()
         {
             if (_sizeButton != null)
             {
                 _sizeButton.text = _state == TerminalState.OpenFull ? "Small" : "Full";
+            }
+
+            if (_inputCaretLabel != null)
+            {
+                _inputCaretLabel.text = _inputCaret;
             }
         }
 
