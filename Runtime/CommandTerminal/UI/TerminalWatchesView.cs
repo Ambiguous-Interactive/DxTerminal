@@ -90,7 +90,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 The HUD mounts in its own document root so the terminal's
                 height animation cannot move or clip it while closed.
              */
-            _hudRoot = new VisualElement { name = "TerminalWatchesHud", pickingMode = PickingMode.Position };
+            _hudRoot = new VisualElement { name = "TerminalWatchesHud", pickingMode = PickingMode.Ignore };
             _hudRoot.AddToClassList("terminal-watches-hud");
             _hudRoot.style.display = DisplayStyle.None;
 

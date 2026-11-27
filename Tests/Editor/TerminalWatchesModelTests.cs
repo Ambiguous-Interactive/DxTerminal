@@ -53,6 +53,12 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         [Watch("discovered.duplicate")]
         private static readonly string DiscoveredDuplicateField = "field-loses";
 
+        [Watch("discovered.instance")]
+        internal int DiscoveredInstanceProperty
+        {
+            get { return 1; }
+        }
+
         private CommandWatchRegistry _registry;
 
         [Watch("discovered.method")]
@@ -359,6 +365,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 DiscoveredDuplicateField,
                 Is.EqualTo("field-loses"),
                 "The dropped duplicate keeps its own value; discovery never reads it, which is why the property stage decides the winner"
+            );
+            Assert.That(
+                _registry.TryGetEntry("discovered.instance", out _),
+                Is.False,
+                "An instance member is not watchable: sampling has no instance to read, so the static-only scan skips it"
             );
         }
 

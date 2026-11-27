@@ -705,23 +705,28 @@ namespace WallstopStudios.DxCommandTerminal.Backend
                 return;
             }
 
-            if (entry.HasValue && ValuesEqual(entry.LastValue, value))
-            {
-                return;
-            }
-
-            string text;
             try
             {
-                text = FormatEntryValue(entry, value);
+                /*
+                    ValuesEqual and the formatting run under the same guard:
+                    a getter whose Equals or ToString throws must not break
+                    the frame's sampling pass, and the entry keeps its last
+                    committed state either way.
+                 */
+                if (entry.HasValue && ValuesEqual(entry.LastValue, value))
+                {
+                    return;
+                }
+
+                string text = FormatEntryValue(entry, value);
+                entry.LastValue = value;
+                entry.LoggedSampleFailure = false;
+                entry.Role = ClassifyRole(value);
+                entry.ValueText = text;
+                entry.HasValue = true;
             }
             catch (Exception e)
             {
-                /*
-                    A ToString or format failure must not break the frame's
-                    sampling pass; the entry keeps its previous text and
-                    retries when the value changes.
-                 */
                 if (entry.LoggedSampleFailure)
                 {
                     return;
@@ -729,50 +734,48 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
                 entry.LoggedSampleFailure = true;
                 Debug.LogException(e);
-                Debug.LogWarning(LogTextSanitizer.Sanitize($"[DxTerminal] Watch '{entry.Name}' value formatting threw; sampling keeps the last text."));
-                return;
+                Debug.LogWarning(LogTextSanitizer.Sanitize($"[DxTerminal] Watch '{entry.Name}' value handling threw; sampling keeps the last text."));
             }
-
-            entry.LastValue = value;
-            entry.LoggedSampleFailure = false;
-            entry.Role = ClassifyRole(value);
-            entry.ValueText = text;
-            entry.HasValue = true;
         }
 
         /*
-            The typed path for the numeric built-ins: the caller already
+            The typed paths for the numeric built-ins: the caller already
             cached the raw value (so an unchanged sample returned above), and
-            Append writes digits into the reused buffer without a temporary
-            string. A changed value still pays one ToString for the new text,
-            which is the documented per-sample cost when a displayed value
-            actually moves.
+            the typed parameters keep the changed-value commit box-free while
+            Append writes digits into the reused buffer. A changed value still
+            pays one ToString for the new text, which is the documented
+            per-sample cost when a displayed value actually moves.
          */
-        private void CommitSample(WatchEntry entry, object value)
+        private void CommitSample(WatchEntry entry, int value)
         {
             StringBuilder builder = entry.Builder;
             builder.Clear();
-            if (value is int intValue)
+            if (string.IsNullOrEmpty(entry.Format))
             {
-                if (string.IsNullOrEmpty(entry.Format))
-                {
-                    builder.Append(intValue);
-                }
-                else
-                {
-                    builder.Append(intValue.ToString(entry.Format, CultureInfo.InvariantCulture));
-                }
+                builder.Append(value);
             }
-            else if (value is float floatValue)
+            else
             {
-                if (string.IsNullOrEmpty(entry.Format))
-                {
-                    builder.Append(floatValue);
-                }
-                else
-                {
-                    builder.Append(floatValue.ToString(entry.Format, CultureInfo.InvariantCulture));
-                }
+                builder.Append(value.ToString(entry.Format, CultureInfo.InvariantCulture));
+            }
+
+            entry.LoggedSampleFailure = false;
+            entry.Role = WatchValueRole.Number;
+            entry.ValueText = builder.ToString();
+            entry.HasValue = true;
+        }
+
+        private void CommitSample(WatchEntry entry, float value)
+        {
+            StringBuilder builder = entry.Builder;
+            builder.Clear();
+            if (string.IsNullOrEmpty(entry.Format))
+            {
+                builder.Append(value);
+            }
+            else
+            {
+                builder.Append(value.ToString(entry.Format, CultureInfo.InvariantCulture));
             }
 
             entry.LoggedSampleFailure = false;
