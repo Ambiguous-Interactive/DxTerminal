@@ -114,7 +114,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(label != null, $"{button.name} should render its text via child label {labelName}");
             Assert.That(button.text, Is.Empty, $"{button.name} must not combine button.text with child elements");
             Vector2 measured = label.MeasureTextSize(label.text, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
-            Assert.That(button.layout.width + 0.5f, Is.GreaterThanOrEqualTo(measured.x), $"{button.name} must fit '{label.text}'");
+            Assert.That(label.contentRect.width + 0.5f, Is.GreaterThanOrEqualTo(measured.x), $"{button.name} label {labelName} must fit '{label.text}'");
+            Assert.That(label.worldBound.xMin, Is.GreaterThanOrEqualTo(button.worldBound.xMin - 0.5f), $"{labelName} must stay inside {button.name} left bound");
+            Assert.That(label.worldBound.xMax, Is.LessThanOrEqualTo(button.worldBound.xMax + 0.5f), $"{labelName} must stay inside {button.name} right bound");
         }
 
         [SetUp]
@@ -190,6 +192,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Label logTabText = logTab.Q<Label>("TerminalLogTabText");
             Label logTabCount = logTab.Q<Label>("TerminalLogTabCount");
             Assert.That(logTabText.worldBound.xMax, Is.LessThanOrEqualTo(logTabCount.worldBound.xMin + 0.5f), "Log tab title and count must sit side by side without overlapping");
+            Assert.That(logTabCount.worldBound.xMax, Is.LessThanOrEqualTo(logTab.worldBound.xMax + 0.5f), "Log tab count must stay inside Log tab right bound");
 
             Button collapse = header.Q<Button>("LogCollapse");
             AssertButtonFitsText(collapse, "TerminalChipText");
