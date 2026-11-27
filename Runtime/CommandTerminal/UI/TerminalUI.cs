@@ -3543,24 +3543,30 @@
             AddSeverityButton(types, 0, TerminalLogType.Message, "LogMessages");
             AddSeverityButton(types, 1, TerminalLogType.Warning, "LogWarnings");
             AddSeverityButton(types, 2, TerminalLogType.Error, "LogErrors");
-            _collapseButton = AddToolbarButton(types, "LogCollapse", "Collapse", () =>
+            _collapseButton = AddToolbarButton(types, "LogCollapse", string.Empty, () =>
             {
                 _collapseLogs = !_collapseLogs;
                 DropFindScroll();
             });
             _collapseButton.AddToClassList("terminal-type-chip");
             _collapseButton.tooltip = "Group consecutive entries with the same message, type, and trace.";
+            Label collapseText = new("Collapse") { name = "TerminalChipText", pickingMode = PickingMode.Ignore };
+            collapseText.AddToClassList("terminal-type-chip__text");
+            _collapseButton.Add(collapseText);
             AddChipStrike(_collapseButton);
+            VisualElement controls = new() { name = "TerminalHeaderControls" };
+            controls.AddToClassList("terminal-header-controls");
+            header.Add(controls);
             VisualElement divider = new() { name = "TerminalHeaderDivider" };
             divider.AddToClassList("terminal-header-divider");
-            header.Add(divider);
-            _sizeButton = AddToolbarButton(header, "TerminalSizeButton", "Full", () =>
+            controls.Add(divider);
+            _sizeButton = AddToolbarButton(controls, "TerminalSizeButton", "Full", () =>
             {
                 SetState(_state == TerminalState.OpenFull ? TerminalState.OpenSmall : TerminalState.OpenFull);
             });
             _sizeButton.AddToClassList("terminal-header-size");
             _sizeButton.tooltip = "Toggle small and full height.";
-            AddToolbarButton(header, "TerminalCloseButton", "×", () =>
+            AddToolbarButton(controls, "TerminalCloseButton", "×", () =>
                 {
                     SetState(TerminalState.Closed);
                 })
@@ -3583,7 +3589,9 @@
             };
             _logTabButton.AddToClassList("terminal-header-tab");
             _logTabButton.EnableInClassList("terminal-header-tab--active", _activeTab == TerminalTab.Log);
-            _logTabButton.text = "Log";
+            Label logTabText = new("Log") { name = "TerminalLogTabText", pickingMode = PickingMode.Ignore };
+            logTabText.AddToClassList("terminal-header-tab-text");
+            _logTabButton.Add(logTabText);
             _logTabCount = new Label { name = "TerminalLogTabCount", pickingMode = PickingMode.Ignore };
             _logTabCount.AddToClassList("terminal-header-tab-count");
             _logTabButton.Add(_logTabCount);

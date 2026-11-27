@@ -78,6 +78,8 @@ lines. Details live in the docs and the linked issue.
 
 ### Fixed
 
+- Fix squished Collapse chip text, overlapping Log tab count, and cramped header wrapping in the terminal toolbar
+  ([#384](https://github.com/Ambiguous-Interactive/DxTerminal/issues/384)).
 - Fix One Dark Pro and Dracula sharing a single theme choice ([#331](https://github.com/Ambiguous-Interactive/DxTerminal/issues/331)).
 - Fix caret placement after completion, paste, and cut in Unity 2021.3 ([#349](https://github.com/Ambiguous-Interactive/DxTerminal/issues/349)).
 - Fix stale log rows and severity counts after a session buffer reset ([#322](https://github.com/Ambiguous-Interactive/DxTerminal/issues/322)).

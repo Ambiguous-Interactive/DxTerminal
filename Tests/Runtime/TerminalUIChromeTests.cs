@@ -59,6 +59,66 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 #endif
         }
 
+        private static void AssertHeaderLayoutClean(VisualElement header)
+        {
+            string[] controlNames =
+            {
+                "TerminalLogTab",
+                "TerminalActionsTab",
+                "TerminalWatchesTab",
+                "LogSearchInput",
+                "LogSearchPrevious",
+                "LogSearchNext",
+                "LogSearchClear",
+                "LogMessages",
+                "LogWarnings",
+                "LogErrors",
+                "LogCollapse",
+                "TerminalSizeButton",
+                "TerminalCloseButton",
+            };
+
+            List<VisualElement> visible = new();
+            foreach (string controlName in controlNames)
+            {
+                VisualElement control = header.Q(controlName);
+                Assert.That(control != null, $"Expected header control {controlName}");
+                if (control.resolvedStyle.display == DisplayStyle.None)
+                {
+                    continue;
+                }
+
+                Assert.That(0f < control.layout.width && 0f < control.layout.height, $"{controlName} must resolve to a non-empty layout box");
+                visible.Add(control);
+            }
+
+            int visibleCount = visible.Count;
+            for (int i = 0; i < visibleCount; ++i)
+            {
+                VisualElement first = visible[i];
+                Rect firstBounds = first.worldBound;
+                for (int j = i + 1; j < visibleCount; ++j)
+                {
+                    VisualElement second = visible[j];
+                    Rect secondBounds = second.worldBound;
+                    bool overlapsX = secondBounds.xMin + 0.5f < firstBounds.xMax && firstBounds.xMin + 0.5f < secondBounds.xMax;
+                    bool overlapsY = secondBounds.yMin + 0.5f < firstBounds.yMax && firstBounds.yMin + 0.5f < secondBounds.yMax;
+                    Assert.That(!(overlapsX && overlapsY), $"{first.name} ({firstBounds}) overlaps {second.name} ({secondBounds})");
+                }
+            }
+        }
+
+        private static void AssertButtonFitsText(Button button, string labelName)
+        {
+            Label label = button.Q<Label>(labelName);
+            Assert.That(label != null, $"{button.name} should render its text via child label {labelName}");
+            Assert.That(button.text, Is.Empty, $"{button.name} must not combine button.text with child elements");
+            Vector2 measured = label.MeasureTextSize(label.text, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
+            Assert.That(label.contentRect.width + 0.5f, Is.GreaterThanOrEqualTo(measured.x), $"{button.name} label {labelName} must fit '{label.text}'");
+            Assert.That(label.worldBound.xMin, Is.GreaterThanOrEqualTo(button.worldBound.xMin - 0.5f), $"{labelName} must stay inside {button.name} left bound");
+            Assert.That(label.worldBound.xMax, Is.LessThanOrEqualTo(button.worldBound.xMax + 0.5f), $"{labelName} must stay inside {button.name} right bound");
+        }
+
         [SetUp]
         public void SetUp()
         {
@@ -109,6 +169,48 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(header.Q<Button>("TerminalCloseButton") != null, "The header close control replaces showGUIButtons");
             Assert.That(header.Q<Button>("TerminalCloseButton").text, Is.EqualTo("×"), "The close control is an icon button");
             Assert.That(root.Q("StateButtonContainer") == null, "The on-screen button cluster is gone");
+        }
+
+        [UnityTest]
+        public IEnumerator HeaderControlsFitTheirTextWithoutOverlapping()
+        {
+            yield return SpawnOpenTerminal();
+            Terminal.Buffer.Clear();
+            Terminal.Log("layout check");
+            yield return WaitForRefresh();
+
+            VisualElement root = _terminal._uiDocument.rootVisualElement;
+            VisualElement terminalRoot = root.Q("TerminalRoot");
+            VisualElement header = root.Q("TerminalHeader");
+            Assert.That(terminalRoot != null && header != null, "The terminal root and header exist");
+
+            terminalRoot.style.width = 640f;
+            yield return WaitForRefresh();
+
+            Button logTab = header.Q<Button>("TerminalLogTab");
+            AssertButtonFitsText(logTab, "TerminalLogTabText");
+            Label logTabText = logTab.Q<Label>("TerminalLogTabText");
+            Label logTabCount = logTab.Q<Label>("TerminalLogTabCount");
+            Assert.That(logTabText.worldBound.xMax, Is.LessThanOrEqualTo(logTabCount.worldBound.xMin + 0.5f), "Log tab title and count must sit side by side without overlapping");
+            Assert.That(logTabCount.worldBound.xMax, Is.LessThanOrEqualTo(logTab.worldBound.xMax + 0.5f), "Log tab count must stay inside Log tab right bound");
+
+            Button collapse = header.Q<Button>("LogCollapse");
+            AssertButtonFitsText(collapse, "TerminalChipText");
+
+            AssertHeaderLayoutClean(header);
+
+            Button size = header.Q<Button>("TerminalSizeButton");
+            Button close = header.Q<Button>("TerminalCloseButton");
+            Assert.That(Mathf.Abs(size.worldBound.yMin - close.worldBound.yMin), Is.LessThanOrEqualTo(2f), "Size and close controls stay on the same row");
+
+            terminalRoot.style.width = 300f;
+            yield return WaitForRefresh();
+
+            Assert.That(terminalRoot.ClassListContains("terminal-root--narrow"), Is.True, "300 px activates narrow header layout");
+            AssertButtonFitsText(collapse, "TerminalChipText");
+            AssertHeaderLayoutClean(header);
+            VisualElement divider = header.Q("TerminalHeaderDivider");
+            Assert.That(divider != null && divider.resolvedStyle.display == DisplayStyle.None, "Narrow header hides the vertical divider so it cannot orphan onto its own row");
         }
 
         [UnityTest]
@@ -265,6 +367,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
         {
 #if UNITY_EDITOR
             _panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+            _panelSettings.themeStyleSheet = LoadAsset<ThemeStyleSheet>("Styles/TerminalThemeSettings-Base.tss");
             _terminalObject = new GameObject("TerminalUIChrome");
             _terminalObject.SetActive(false);
             UIDocument document = _terminalObject.AddComponent<UIDocument>();
