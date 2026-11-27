@@ -333,6 +333,11 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(duplicate.Source, Does.Contain(nameof(DiscoveredDuplicate)), "The property scan stage wins the duplicate");
             _registry.Sample(CommandTier.Developer);
             Assert.That(duplicate.ValueText, Is.EqualTo("11"));
+            Assert.That(
+                DiscoveredDuplicateField,
+                Is.EqualTo("field-loses"),
+                "The dropped duplicate keeps its own value; discovery never reads it, which is why the property stage decides the winner"
+            );
         }
 
         [Test]
