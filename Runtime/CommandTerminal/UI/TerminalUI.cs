@@ -3633,8 +3633,8 @@
                     _logCopyStatus.style.display = DisplayStyle.None;
                 }
 
-                _completionView?.Hide();
-                _validationView?.Hide();
+                ResetAutoComplete();
+                _validationView?.Refresh(Terminal.Shell, string.Empty, open: false);
                 _actionsView?.SetVisible(true);
                 _actionsView?.RefreshIfNeeded(Terminal.Shell, CommandExecutionContext.Current, _syntaxPalette.Version);
                 if (moveFocus)
@@ -3652,7 +3652,7 @@
             }
         }
 
-        private void RunActionsCommand(string commandPath, string commandLine)
+        private void RunActionsCommand(string commandPath, string commandLine, string[] fieldValues)
         {
             if (string.IsNullOrWhiteSpace(commandLine))
             {
@@ -3662,7 +3662,7 @@
             Terminal.Log(TerminalLogType.Input, commandLine);
             Terminal.Shell?.RunCommand(commandLine);
             ConsumeAndLogErrors();
-            _actionsView?.RecordRecent(commandPath, commandLine);
+            _actionsView?.RecordRecent(commandPath, commandLine, fieldValues);
         }
 
         private string FormatSyntaxPreview(string line)

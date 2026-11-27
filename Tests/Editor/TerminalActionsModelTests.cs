@@ -256,6 +256,38 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(recent[3].CommandPath, Is.EqualTo("b"));
         }
 
+        [Test]
+        public void RecentGroupPreservesSavedFieldValuesForReplay()
+        {
+            _shell.AddCommand(
+                CommandBuilder
+                    .Create("heal")
+                    .Group("Cheats")
+                    .Arg<int>("amount", arg =>
+                    {
+                        return arg.Range(1, 500).Default(50);
+                    })
+                    .Arg<bool>("full", arg =>
+                    {
+                        return arg.BoolChoices().Default(false);
+                    })
+                    .Handler((_, _) => { }),
+                out _
+            );
+
+            List<RecentEntry> recent = new();
+            TerminalActionsModel.RecordRecent(recent, "heal", "heal 250 true", new[] { "250", "true" });
+
+            List<ActionGroup> groups = new();
+            TerminalActionsModel.BuildGroups(_shell, new CommandExecutionContext(CommandExecutionContexts.EditorPlayMode), CommandTier.Developer, recent, groups);
+
+            Assert.That(groups[0].IsRecent, Is.True);
+            ActionCard recentCard = groups[0].Cards[0];
+            Assert.That(recentCard.Fields[0].InitialValue, Is.EqualTo("250"));
+            Assert.That(recentCard.Fields[1].InitialValue, Is.EqualTo("true"));
+            Assert.That(TerminalActionsModel.BuildCommandLine(recentCard, null), Is.EqualTo("heal 250 true"));
+        }
+
         private enum SampleMode
         {
             [Obsolete("Use a valid SampleMode value.")]

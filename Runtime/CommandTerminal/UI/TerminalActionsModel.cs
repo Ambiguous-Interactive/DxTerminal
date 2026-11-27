@@ -75,7 +75,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                     RecentEntry entry = recent[i];
                     if (cardsByPath.TryGetValue(entry.CommandPath, out ActionCard match))
                     {
-                        recentCards.Add(match);
+                        recentCards.Add(match.WithInitialValues(entry.FieldValues));
                     }
                 }
 
@@ -296,7 +296,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return builder.ToString();
         }
 
-        internal static void RecordRecent(List<RecentEntry> recent, string commandPath, string commandLine)
+        internal static void RecordRecent(List<RecentEntry> recent, string commandPath, string commandLine, IReadOnlyList<string> fieldValues = null)
         {
             if (recent == null || string.IsNullOrWhiteSpace(commandPath))
             {
@@ -311,7 +311,18 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 }
             }
 
-            recent.Insert(0, new RecentEntry(commandPath, commandLine ?? commandPath));
+            string[] snapshot = null;
+            if (fieldValues != null && 0 < fieldValues.Count)
+            {
+                int count = fieldValues.Count;
+                snapshot = new string[count];
+                for (int i = 0; i < count; ++i)
+                {
+                    snapshot[i] = fieldValues[i] ?? string.Empty;
+                }
+            }
+
+            recent.Insert(0, new RecentEntry(commandPath, commandLine ?? commandPath, snapshot));
             while (MaxRecentEntries < recent.Count)
             {
                 recent.RemoveAt(recent.Count - 1);
@@ -668,6 +679,37 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 Fields = fields ?? Array.Empty<ActionField>();
                 IsRawArguments = isRawArguments;
             }
+
+            internal ActionCard WithInitialValues(string[] values)
+            {
+                if (values == null || values.Length == 0 || Fields.Length == 0)
+                {
+                    return this;
+                }
+
+                int fieldCount = Fields.Length;
+                ActionField[] cloned = new ActionField[fieldCount];
+                for (int i = 0; i < fieldCount; ++i)
+                {
+                    ActionField source = Fields[i];
+                    string initial = i < values.Length ? values[i] : source.InitialValue;
+                    cloned[i] = new ActionField(
+                        source.Name,
+                        source.Description,
+                        source.Kind,
+                        source.IsRequired,
+                        initial,
+                        source.Spec,
+                        source.StaticChoices,
+                        source.HasRange,
+                        source.RangeMin,
+                        source.RangeMax,
+                        source.IsIntegral
+                    );
+                }
+
+                return new ActionCard(CommandPath, Description, Group, UnavailableReason, cloned, IsRawArguments);
+            }
         }
 
         internal sealed class ActionGroup
@@ -688,11 +730,13 @@ namespace WallstopStudios.DxCommandTerminal.UI
         {
             public readonly string CommandPath;
             public readonly string CommandLine;
+            public readonly string[] FieldValues;
 
-            public RecentEntry(string commandPath, string commandLine)
+            public RecentEntry(string commandPath, string commandLine, string[] fieldValues = null)
             {
                 CommandPath = commandPath;
                 CommandLine = commandLine;
+                FieldValues = fieldValues;
             }
         }
     }

@@ -19,8 +19,6 @@ namespace WallstopStudios.DxCommandTerminal.UI
      */
     internal sealed class TerminalActionsView
     {
-        private static readonly List<CommandArg> EmptyArgs = new();
-
         internal VisualElement Root
         {
             get { return _root; }
@@ -29,13 +27,14 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private readonly VisualElement _root;
         private readonly ScrollView _sidebar;
         private readonly ScrollView _cardsScroll;
-        private readonly Action<string, string> _onRun;
+        private readonly Action<string, string, string[]> _onRun;
         private readonly Func<string, string> _formatPreview;
         private readonly List<ActionGroup> _groups = new();
         private readonly List<RecentEntry> _recent = new();
         private readonly List<Button> _groupButtons = new();
         private readonly List<CardBinding> _cardBindings = new();
         private readonly List<CommandCompletion> _dynamicBuffer = new();
+        private readonly List<CommandArg> _precedingArgs = new();
 
         private string _selectedGroup;
         private CommandShell _lastShell;
@@ -44,10 +43,10 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private CommandExecutionContexts _lastEnvironment;
         private int _recentVersion;
         private int _lastRecentVersion = -1;
-        private int _lastPaletteVersion = -1;
+        private long _lastPaletteVersion = -1;
         private bool _visible;
 
-        internal TerminalActionsView(VisualElement parent, Action<string, string> onRun, Func<string, string> formatPreview)
+        internal TerminalActionsView(VisualElement parent, Action<string, string, string[]> onRun, Func<string, string> formatPreview)
         {
             _onRun = onRun;
             _formatPreview = formatPreview;
@@ -120,13 +119,13 @@ namespace WallstopStudios.DxCommandTerminal.UI
             _root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
-        internal void RecordRecent(string commandPath, string commandLine)
+        internal void RecordRecent(string commandPath, string commandLine, string[] fieldValues)
         {
-            TerminalActionsModel.RecordRecent(_recent, commandPath, commandLine);
+            TerminalActionsModel.RecordRecent(_recent, commandPath, commandLine, fieldValues);
             ++_recentVersion;
         }
 
-        internal void RefreshIfNeeded(CommandShell shell, CommandExecutionContext context, int paletteVersion)
+        internal void RefreshIfNeeded(CommandShell shell, CommandExecutionContext context, long paletteVersion)
         {
             if (!_visible || shell == null)
             {
@@ -399,7 +398,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 if (TerminalActionsModel.CanRun(binding.Card, binding.Values))
                 {
                     string line = TerminalActionsModel.BuildCommandLine(binding.Card, binding.Values);
-                    _onRun(binding.Card.CommandPath, line);
+                    _onRun(binding.Card.CommandPath, line, binding.Values);
                 }
             };
 
@@ -546,7 +545,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             label.AddToClassList("terminal-actions-field-label");
             row.Add(label);
 
-            string[] choices = ResolveMenuChoices(field, shell, context);
+            string[] choices = ResolveMenuChoices(binding, index, field, shell, context);
             if (string.IsNullOrWhiteSpace(binding.Values[index]) && 0 < choices.Length)
             {
                 binding.Values[index] = choices[0];
@@ -557,7 +556,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             menuButton.AddToClassList("terminal-actions-menu");
             menuButton.clicked += () =>
             {
-                string[] liveChoices = field.Spec != null && field.Spec.HasDynamicChoices ? ResolveMenuChoices(field, shell, context) : choices;
+                string[] liveChoices = field.Spec != null && field.Spec.HasDynamicChoices ? ResolveMenuChoices(binding, index, field, shell, context) : choices;
                 if (liveChoices.Length == 0)
                 {
                     return;
@@ -584,6 +583,11 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         private VisualElement BuildRangeControl(CardBinding binding, int index, ActionField field, VisualElement row)
         {
+            if (field.IsIntegral && (field.RangeMin < int.MinValue || int.MaxValue < field.RangeMax))
+            {
+                return BuildTextControl(binding, index, field, row);
+            }
+
             Label label = new(field.Name);
             label.AddToClassList("terminal-actions-field-label");
             row.Add(label);
@@ -701,7 +705,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             pickButton.AddToClassList("terminal-actions-menu");
             pickButton.clicked += () =>
             {
-                string[] choices = ResolveMenuChoices(field, shell, context);
+                string[] choices = ResolveMenuChoices(binding, index, field, shell, context);
                 if (choices.Length == 0)
                 {
                     return;
@@ -742,7 +746,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
             return textField;
         }
 
-        private string[] ResolveMenuChoices(ActionField field, CommandShell shell, CommandExecutionContext context)
+        private string[] ResolveMenuChoices(CardBinding binding, int fieldIndex, ActionField field, CommandShell shell, CommandExecutionContext context)
         {
             if (field.StaticChoices != null && 0 < field.StaticChoices.Length)
             {
@@ -754,8 +758,27 @@ namespace WallstopStudios.DxCommandTerminal.UI
                 return Array.Empty<string>();
             }
 
+            _precedingArgs.Clear();
+            int precedingCount = Math.Min(fieldIndex, binding.Values.Length);
+            for (int i = 0; i < precedingCount; ++i)
+            {
+                _precedingArgs.Add(new CommandArg(binding.Values[i] ?? string.Empty));
+            }
+
+            string line = TerminalActionsModel.BuildCommandLine(binding.Card, binding.Values);
             _dynamicBuffer.Clear();
-            CommandCompletionContext completionContext = new(context, string.Empty, 0, 0, EmptyArgs, string.Empty, 0, 0, isQuoted: false, quoteCharacter: null);
+            CommandCompletionContext completionContext = new(
+                context,
+                line,
+                line.Length,
+                fieldIndex,
+                _precedingArgs,
+                string.Empty,
+                line.Length,
+                0,
+                isQuoted: false,
+                quoteCharacter: null
+            );
             field.Spec.AppendCompletions(in completionContext, _dynamicBuffer);
             int count = _dynamicBuffer.Count;
             if (count == 0)
