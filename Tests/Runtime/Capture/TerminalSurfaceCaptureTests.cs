@@ -708,7 +708,9 @@
             int rowCount = content.childCount;
             for (int index = 0; index < rowCount; ++index)
             {
-                if (content[index] is TextField row && logView.scrollOffset.y <= row.layout.y && row.layout.yMax <= logView.scrollOffset.y + logView.contentViewport.layout.height)
+                VisualElement rowContainer = content[index];
+                TextField row = rowContainer.Q<TextField>();
+                if (row != null && logView.scrollOffset.y <= rowContainer.layout.y && rowContainer.layout.yMax <= logView.scrollOffset.y + logView.contentViewport.layout.height)
                 {
                     selected = row;
                     break;
@@ -826,13 +828,15 @@
                 yield return SettleRenders();
                 VisualElement logContent = root.Q<ScrollView>("LogScrollView").contentContainer;
                 Assert.That(logContent.childCount, Is.EqualTo(2), "The repeat group and wrapped message remain visible");
-                TextField repeat = (TextField)logContent[0];
-                Assert.That(repeat.label, Does.EndWith(" x2"));
-                Assert.That(repeat.ClassListContains("terminal-output-label--current-match"), Is.True);
-                Assert.That(repeat.resolvedStyle.borderLeftWidth, Is.EqualTo(3));
-                Assert.That(repeat.resolvedStyle.borderLeftColor.a, Is.GreaterThan(0));
-                Vector2 metadataSize = repeat.labelElement.MeasureTextSize(repeat.label, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
-                Assert.That(repeat.labelElement.layout.width + 0.5f, Is.GreaterThanOrEqualTo(metadataSize.x), "The repeat badge fits");
+                VisualElement repeatRow = logContent[0];
+                Assert.That(repeatRow.ClassListContains("terminal-log-row--current-match"), Is.True);
+                Assert.That(repeatRow.resolvedStyle.borderLeftWidth, Is.EqualTo(3));
+                Assert.That(repeatRow.resolvedStyle.borderLeftColor.a, Is.GreaterThan(0));
+                Label repeatBadge = repeatRow.Q<Label>("TerminalLogBadge");
+                Assert.That(repeatBadge.text, Is.EqualTo("×2"), "The merged row counts its repeats");
+                Assert.That(repeatBadge.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex), "The repeat badge shows");
+                Vector2 badgeSize = repeatBadge.MeasureTextSize(repeatBadge.text, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
+                Assert.That(repeatBadge.layout.width + 0.5f, Is.GreaterThanOrEqualTo(badgeSize.x), "The repeat badge fits its text");
                 Assert.That(root.Q("TerminalRoot").ClassListContains("terminal-root--bottom"), Is.True);
                 Assert.That(root.worldBound.yMax, Is.EqualTo(root.panel.visualTree.worldBound.yMax).Within(0.5f), "Auto pins the narrow sheet to the viewport bottom");
                 Button sizeControl = root.Q<Button>("TerminalSizeButton");

@@ -20,6 +20,7 @@
         public Shortcut[] logEnd = { new(KeyCode.End, controlOrCommand: true) };
         public Shortcut[] findNext = { new(KeyCode.F3) };
         public Shortcut[] findPrevious = { new(KeyCode.F3, EventModifiers.Shift) };
+        public Shortcut[] focusSearch = { new(KeyCode.Slash) };
         public Shortcut[] paletteNext = { new(KeyCode.DownArrow) };
         public Shortcut[] palettePrevious = { new(KeyCode.UpArrow) };
         public Shortcut[] paletteSubmit = { new(KeyCode.Return), new(KeyCode.KeypadEnter) };

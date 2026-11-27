@@ -162,7 +162,7 @@
             yield return null;
 
             VisualElement content = LogView().contentContainer;
-            TextField row = (TextField)content[content.childCount - 1];
+            TextField row = content[content.childCount - 1].Q<TextField>();
             row.Focus();
             int frameBudget = FrameBudget;
             while (0 < frameBudget-- && !_terminal.LogOwnsFocus)
@@ -466,7 +466,7 @@
                 return string.Empty;
             }
 
-            return (content[content.childCount - 1] as TextField)?.value ?? string.Empty;
+            return content[content.childCount - 1].Q<TextField>()?.value ?? string.Empty;
         }
 
         private IEnumerator SendKey(KeyCode keyCode, EventModifiers modifiers = EventModifiers.None)

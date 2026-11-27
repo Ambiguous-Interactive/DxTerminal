@@ -161,10 +161,10 @@
             _terminal.SetLogFilter("alpha", false);
             _terminal.RefreshUI();
             yield return Settle();
-            TextField first = (TextField)LogContent()[0];
-            TextField second = (TextField)LogContent()[1];
-            Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.True);
-            Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.False);
+            TextField first = LogContent()[0].Q<TextField>();
+            TextField second = LogContent()[1].Q<TextField>();
+            Assert.That(first.parent.ClassListContains("terminal-log-row--current-match"), Is.True);
+            Assert.That(second.parent.ClassListContains("terminal-log-row--current-match"), Is.False);
             first.Focus();
             TextSelectionFixture.PrepareCaret(first);
             first.SelectRange(1, 4);
@@ -172,14 +172,14 @@
             Assert.That(first.selectIndex, Is.EqualTo(4));
             _terminal.StepLogFilter(true, false);
             _terminal.RefreshUI();
-            Assert.That(first.ClassListContains("terminal-output-label--current-match"), Is.False);
-            Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.True);
+            Assert.That(first.parent.ClassListContains("terminal-log-row--current-match"), Is.False);
+            Assert.That(second.parent.ClassListContains("terminal-log-row--current-match"), Is.True);
             Assert.That(first.value, Is.EqualTo("alpha one"));
             Assert.That(first.cursorIndex, Is.EqualTo(1));
             Assert.That(first.selectIndex, Is.EqualTo(4));
             _terminal.ClearLogFilter(false);
             _terminal.RefreshUI();
-            Assert.That(second.ClassListContains("terminal-output-label--current-match"), Is.False);
+            Assert.That(second.parent.ClassListContains("terminal-log-row--current-match"), Is.False);
             _terminal.SetLogFilter("missing", false);
             _terminal.RefreshUI();
             Assert.That(LogContent().childCount, Is.Zero);
@@ -198,18 +198,18 @@
             Submit(_terminal._uiDocument.rootVisualElement.Q<Button>("LogCollapse"));
             _terminal.RefreshUI();
             Assert.That(LogContent().childCount, Is.EqualTo(2));
-            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.True);
+            Assert.That(LogContent()[0].ClassListContains("terminal-log-row--current-match"), Is.True);
             _terminal.StepLogFilter(true, false);
             _terminal.RefreshUI();
-            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.True, "The second match belongs to the same repeat group");
+            Assert.That(LogContent()[0].ClassListContains("terminal-log-row--current-match"), Is.True, "The second match belongs to the same repeat group");
             _terminal.StepLogFilter(true, false);
             _terminal.RefreshUI();
-            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.False);
-            Assert.That(LogContent()[1].ClassListContains("terminal-output-label--current-match"), Is.True);
+            Assert.That(LogContent()[0].ClassListContains("terminal-log-row--current-match"), Is.False);
+            Assert.That(LogContent()[1].ClassListContains("terminal-log-row--current-match"), Is.True);
             _terminal.TeardownUI();
             _terminal.EnsureUI();
             _terminal.RefreshUI();
-            Assert.That(LogContent()[1].ClassListContains("terminal-output-label--current-match"), Is.True, "A fresh tree restores the active marker");
+            Assert.That(LogContent()[1].ClassListContains("terminal-log-row--current-match"), Is.True, "A fresh tree restores the active marker");
             int capacity = Terminal.Buffer.Capacity;
             for (int i = 0; i < capacity - 1; ++i)
             {
@@ -218,9 +218,9 @@
             Terminal.Buffer.HandleLog("alpha final replacement", "trace", TerminalLogType.Message);
             _terminal.RefreshUI();
             Assert.That(LogContent().childCount, Is.EqualTo(2));
-            Assert.That(LogContent()[0].ClassListContains("terminal-output-label--current-match"), Is.True, "The current ordinal maps into the replacement repeat group");
-            Assert.That(LogContent()[1].ClassListContains("terminal-output-label--current-match"), Is.False);
-            Assert.That(((TextField)LogContent()[1]).value, Is.EqualTo("alpha final replacement"));
+            Assert.That(LogContent()[0].ClassListContains("terminal-log-row--current-match"), Is.True, "The current ordinal maps into the replacement repeat group");
+            Assert.That(LogContent()[1].ClassListContains("terminal-log-row--current-match"), Is.False);
+            Assert.That(LogContent()[1].Q<TextField>().value, Is.EqualTo("alpha final replacement"));
         }
 
         [UnityTest]
@@ -289,18 +289,37 @@
             Assert.That(root.Q<TextField>("LogSearchInput").value, Is.EqualTo("alpha"));
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"));
 #if UNITY_EDITOR
-            TextField previousSearch = root.Q<TextField>("LogSearchInput");
+            UIDocument previousDocument = _terminal._uiDocument;
+            TextField previousSearch = previousDocument.rootVisualElement.Q<TextField>("LogSearchInput");
+            GameObject swapObject = new("TerminalRebuildSwapDocument");
+            UIDocument swapDocument = swapObject.AddComponent<UIDocument>();
+            swapDocument.panelSettings = previousDocument.panelSettings;
             SerializedObject inspector = new(_terminal);
-            inspector.FindProperty(nameof(TerminalUI.showGUIButtons)).boolValue = true;
+            inspector.FindProperty(nameof(TerminalUI._uiDocument)).objectReferenceValue = swapDocument;
             inspector.ApplyModifiedPropertiesWithoutUndo();
             int attempts = FrameBudget;
-            while (0 < attempts-- && ReferenceEquals(root.Q<TextField>("LogSearchInput"), previousSearch))
+            while (0 < attempts-- && ReferenceEquals(_terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput"), previousSearch))
             {
                 yield return null;
             }
-            Assert.That(root.Q<TextField>("LogSearchInput"), Is.Not.SameAs(previousSearch), "The inspector rebuilt the toolbar");
+            Assert.That(
+                _terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput"),
+                Is.Not.SameAs(previousSearch),
+                "The inspector rebuilt the toolbar in the swapped document"
+            );
             yield return Settle();
+            root = _terminal._uiDocument.rootVisualElement;
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 3 (1/2)"), "A new toolbar repopulates unchanged counts");
+            inspector.FindProperty(nameof(TerminalUI._uiDocument)).objectReferenceValue = previousDocument;
+            inspector.ApplyModifiedPropertiesWithoutUndo();
+            attempts = FrameBudget;
+            while (0 < attempts-- && ReferenceEquals(_terminal._uiDocument.rootVisualElement.Q<TextField>("LogSearchInput"), previousSearch))
+            {
+                yield return null;
+            }
+            Assert.That(_terminal._uiDocument, Is.SameAs(previousDocument), "The swap-back restores the original document");
+            root = previousDocument.rootVisualElement;
+            UnityEngine.Object.Destroy(swapObject);
 #endif
             _terminal.TeardownUI();
             _terminal.EnsureUI();
@@ -327,15 +346,15 @@
             long version = Terminal.Buffer.Version;
             Submit(collapse);
             yield return WaitForDrawnCount(2, "Consecutive repeats use one row");
-            TextField row = (TextField)LogContent()[0];
+            VisualElement repeatRow = LogContent()[0];
+            TextField row = repeatRow.Q<TextField>();
             Assert.That(row.value, Is.EqualTo("repeat"));
-            Assert.That(row.label, Does.EndWith(" x2"));
+            Label badge = repeatRow.Q<Label>("TerminalLogBadge");
+            Assert.That(badge.text, Is.EqualTo("×2"));
+            Assert.That(badge.resolvedStyle.display, Is.EqualTo(DisplayStyle.Flex));
             yield return Settle();
-            Vector2 textSize = row.labelElement.MeasureTextSize(row.label, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
-            if (0f < row.labelElement.layout.width)
-            {
-                Assert.That(row.labelElement.layout.width + 0.5f, Is.GreaterThanOrEqualTo(textSize.x), "The repeat badge fits beside the message");
-            }
+            Vector2 textSize = badge.MeasureTextSize(badge.text, 0f, VisualElement.MeasureMode.Undefined, 0f, VisualElement.MeasureMode.Undefined);
+            Assert.That(badge.layout.width + 0.5f, Is.GreaterThanOrEqualTo(textSize.x), "The repeat badge fits beside the message");
             row.Focus();
             TextSelectionFixture.PrepareCaret(row);
             row.SelectRange(1, 4);
@@ -346,8 +365,8 @@
             Assert.That(row.cursorIndex, Is.EqualTo(1));
             Assert.That(row.selectIndex, Is.EqualTo(4));
             yield return Settle();
-            Assert.That(((TextField)LogContent()[1]).label, Does.EndWith(" x2"));
-            Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("4 lines"));
+            Assert.That(LogContent()[1].Q<Label>("TerminalLogBadge").text, Is.EqualTo("×2"));
+            Assert.That(root.Q<Label>("TerminalLogTabCount").text, Is.EqualTo("4"));
             Assert.That(Terminal.Buffer.Version, Is.EqualTo(version + 1), "Collapse never rewrites the buffer");
             root.Q<TextField>("LogSearchInput").value = "repeat";
             yield return WaitForDrawnCount(1, "Search works on collapsed entries");
@@ -383,7 +402,6 @@
                 TerminalLogType.Input,
                 TerminalLogType.ShellMessage,
             };
-            string[] markers = { "E", "A", "W", "I", "X", ">", "<" };
             foreach (TerminalLogType type in types)
             {
                 Terminal.Buffer.HandleLog(type.ToString(), string.Empty, type);
@@ -393,9 +411,10 @@
             Assert.That(content.childCount, Is.EqualTo(types.Length));
             for (int i = 0; i < types.Length; ++i)
             {
-                TextField row = (TextField)content[i];
-                Assert.That(row.label, Is.EqualTo($"12:34:56Z [{markers[i]}]"));
-                Assert.That(row.value, Is.EqualTo(types[i].ToString()), "Selection and copying use the original message");
+                VisualElement row = content[i];
+                Assert.That(row.Q<Label>("TerminalLogTime").text, Is.EqualTo("12:34:56.000"), "The capture time renders with milliseconds");
+                Assert.That(row.Q<Label>("TerminalLogGlyph").text, Is.EqualTo(TerminalLogRowFormat.GlyphOf(types[i])), "Every type carries its glyph");
+                Assert.That(row.Q<TextField>().value, Is.EqualTo(types[i].ToString()), "Selection and copying use the original message");
             }
         }
 
@@ -408,13 +427,13 @@
             yield return Settle();
             long version = Terminal.Buffer.Version;
             VisualElement root = _terminal._uiDocument.rootVisualElement;
-            Assert.That(root.Q<Button>("LogMessages").text, Is.EqualTo("Messages 1"));
+            Assert.That(root.Q<Button>("LogMessages").Q<Label>("TerminalChipText").text, Is.EqualTo("1 Messages"));
             TerminalSession.Current.Apply(TerminalSession.Config.Default, true);
             Terminal.Buffer.HandleLog("new warning", string.Empty, TerminalLogType.Warning);
             Assert.That(Terminal.Buffer.Version, Is.EqualTo(version));
             yield return Settle();
-            Assert.That(root.Q<Button>("LogMessages").text, Is.EqualTo("Messages 0"));
-            Assert.That(root.Q<Button>("LogWarnings").text, Is.EqualTo("Warnings 1"));
+            Assert.That(root.Q<Button>("LogMessages").Q<Label>("TerminalChipText").text, Is.EqualTo("0 Messages"));
+            Assert.That(root.Q<Button>("LogWarnings").Q<Label>("TerminalChipText").text, Is.EqualTo("1 Warnings"));
             Assert.That(DrawnText(), Does.Contain("new warning"));
             Assert.That(DrawnText(), Does.Not.Contain("old message"));
         }
@@ -432,7 +451,7 @@
             VisualElement root = _terminal._uiDocument.rootVisualElement;
             Button errors = root.Q<Button>("LogErrors");
             Assert.That(errors, Is.Not.Null, "The header exposes severity filters");
-            Assert.That(errors.text, Is.EqualTo("Errors 2"));
+            Assert.That(errors.Q<Label>("TerminalChipText").text, Is.EqualTo("2 Errors"));
             long version = Terminal.Buffer.Version;
             Submit(errors);
             root.Q<TextField>("LogSearchInput").value = "alpha";
@@ -440,7 +459,7 @@
             Assert.That(root.Q<Label>("LogSearchCount").text, Is.EqualTo("2 of 2 (1/2)"));
             Assert.That(root.Q<ScrollView>("LogScrollView").contentContainer.childCount, Is.EqualTo(2));
             Assert.That(errors.ClassListContains("terminal-type-chip--excluded"), Is.True);
-            Assert.That(errors.text, Is.EqualTo("Errors 2"), "Counts describe retained logs, independent of search and visibility");
+            Assert.That(errors.Q<Label>("TerminalChipText").text, Is.EqualTo("2 Errors"), "Counts describe retained logs, independent of search and visibility");
             root.Q<TextField>("LogSearchInput").value = string.Empty;
             yield return Settle();
             Assert.That(root.Q<ScrollView>("LogScrollView").contentContainer.childCount, Is.EqualTo(2), "Erasing text preserves severity choices");
@@ -597,7 +616,7 @@
             Terminal.Buffer.Clear();
             Terminal.Log("select part of this line");
             yield return WaitForDrawnCount(1, "The log row exists");
-            TextField row = LogContent()[0] as TextField;
+            TextField row = LogContent()[0].Q<TextField>();
             Assert.That(row, Is.Not.Null);
             VisualElement textInput = row.Q("unity-text-input");
             int attempts = FrameBudget;
@@ -659,7 +678,7 @@
             Terminal.Buffer.Clear();
             Terminal.Log("select part of this line");
             yield return WaitForDrawnCount(1, "The log row exists");
-            TextField row = LogContent()[0] as TextField;
+            TextField row = LogContent()[0].Q<TextField>();
             Assert.That(row, Is.Not.Null, "A log row supports native text selection");
             Assert.That(row.isReadOnly);
             Assert.That(row.multiline);
@@ -686,7 +705,7 @@
             Assert.That(row.selectIndex, Is.EqualTo(selection));
             Terminal.Log("a later line");
             yield return WaitForDrawnCount(2, "The later line is drawn");
-            Assert.That(LogContent()[0], Is.SameAs(row));
+            Assert.That(LogContent()[0].Q<TextField>(), Is.SameAs(row));
             Assert.That(row.value, Is.EqualTo("select part of this line"));
             Assert.That(row.cursorIndex, Is.EqualTo(cursor));
             Assert.That(row.selectIndex, Is.EqualTo(selection));
@@ -726,7 +745,7 @@
             Terminal.Log(message);
             yield return WaitForDrawnCount(3, "The ring is full");
 
-            TextField row = (TextField)LogContent()[1];
+            TextField row = LogContent()[1].Q<TextField>();
             int attempts = FrameBudget;
             while (0 < attempts--)
             {
@@ -761,7 +780,7 @@
             Assert.That(status.text, Is.EqualTo("Clipboard copy could not be verified."));
             Assert.That(Terminal.Buffer.Version, Is.EqualTo(version), "Copy feedback must not evict a log entry");
             Assert.That(Terminal.Buffer.Count, Is.EqualTo(3));
-            Assert.That(LogContent()[1], Is.SameAs(row));
+            Assert.That(LogContent()[1].Q<TextField>(), Is.SameAs(row));
             Assert.That(row.cursorIndex, Is.EqualTo(7));
             Assert.That(row.selectIndex, Is.EqualTo(11));
             using (KeyDownEvent key = KeyDownEvent.GetPooled('\0', KeyCode.C, EventModifiers.Control))
@@ -777,12 +796,12 @@
 
             Terminal.Log(message);
             attempts = FrameBudget;
-            while (0 < attempts-- && LogContent()[0] != row)
+            while (0 < attempts-- && LogContent()[0].Q<TextField>() != row)
             {
                 yield return null;
             }
 
-            Assert.That(LogContent()[0], Is.SameAs(row), "The selected entry moves with the ring even when every message is identical");
+            Assert.That(LogContent()[0].Q<TextField>(), Is.SameAs(row), "The selected entry moves with the ring even when every message is identical");
             Assert.That(row.cursorIndex, Is.EqualTo(7));
             Assert.That(row.selectIndex, Is.EqualTo(11));
             Assert.That(_terminal.LogOwnsFocus, Is.True, "Reordering the selected row keeps panel focus");
@@ -1329,7 +1348,7 @@
                     builder.Append('\n');
                 }
 
-                builder.Append((content[i] as TextField)?.value);
+                builder.Append(content[i].Q<TextField>()?.value);
             }
 
             return builder.ToString();

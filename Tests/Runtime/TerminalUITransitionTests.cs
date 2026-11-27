@@ -242,34 +242,10 @@
             Assert.That(root.ClassListContains("terminal-root--bottom"), Is.False, "Invalid anchors use the top edge.");
 
             _terminal.windowAnchor = TerminalAnchor.Bottom;
-            _terminal.showGUIButtons = true;
             _terminal.Close();
-            yield return WaitForClosed("The bottom sheet must close before checking its launcher.");
-            VisualElement launcher = null;
-            int frameBudget = FrameBudget;
-            while (0 < frameBudget--)
-            {
-                yield return null;
-                documentRoot = _terminal._uiDocument.rootVisualElement;
-                root = documentRoot.Q("TerminalRoot");
-                launcher = root?.Q(className: "state-button-container");
-                if (
-                    launcher != null
-                    && launcher.style.top.keyword == StyleKeyword.Auto
-                    && launcher.style.bottom.value.value == 0f
-                    && 0 < launcher.childCount
-                    && launcher[0].style.display.value == DisplayStyle.Flex
-                    && documentRoot.style.height.value.value == 0f
-                )
-                {
-                    break;
-                }
-            }
+            yield return WaitForClosed("The bottom sheet must close before checking the anchor.");
             Assert.That(documentRoot.style.height.value.value, Is.Zero);
-            Assert.That(launcher, Is.Not.Null);
-            Assert.That(launcher.style.top.keyword, Is.EqualTo(StyleKeyword.Auto));
-            Assert.That(launcher.style.bottom.value.value, Is.Zero);
-            Assert.That(launcher[0].style.display.value, Is.EqualTo(DisplayStyle.Flex));
+            Assert.That(root.ClassListContains("terminal-root--bottom"), Is.True, "The bottom anchor holds while closed.");
         }
 
         [UnityTest]

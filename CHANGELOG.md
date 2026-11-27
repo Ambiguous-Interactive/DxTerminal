@@ -50,9 +50,20 @@ lines. Details live in the docs and the linked issue.
 - Add a Jump to latest button when log following is paused ([#242](https://github.com/wallstop/DxCommandTerminal/issues/242)).
 - Add `CommandArg.AddQuote`, which appends one quote character to `Quotes` in place without touching the rest of the configuration
   ([#229](https://github.com/wallstop/DxCommandTerminal/issues/229)).
+- Add a Log tab with the live line count to the terminal header, with disabled Actions and Watches tabs ahead of their milestones
+  ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241)).
+- Add a `/` shortcut that focuses the header log search ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241)).
 
 ### Changed
 
+- Change log rows to show a timestamp with milliseconds, a per-type glyph, and a ×N repeat badge ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241),
+  [#242](https://github.com/Ambiguous-Interactive/DxTerminal/issues/242)).
+- Change selecting an error row to expand its captured trace with Copy line and Copy with trace actions ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241),
+  [#242](https://github.com/Ambiguous-Interactive/DxTerminal/issues/242)).
+- Change severity chips to show a type glyph with their count and to strike through a filter that is switched off
+  ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241), [#242](https://github.com/Ambiguous-Interactive/DxTerminal/issues/242)).
+- Change the terminal to size and close from the header controls, removing the on-screen run/close/small/full buttons and their settings
+  ([#241](https://github.com/Ambiguous-Interactive/DxTerminal/issues/241)).
 - Change the Everything theme pack to Classic Themes and show contrast for themes that retain their legacy colors
   ([#331](https://github.com/Ambiguous-Interactive/DxTerminal/issues/331)).
 - Change Convert Legacy Theme to repair contrast when lightness alone can meet the theme gate ([#331](https://github.com/Ambiguous-Interactive/DxTerminal/issues/331)).

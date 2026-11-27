@@ -165,6 +165,27 @@
             }
         }
 
+        /*
+            Temporary walk telemetry for the pad-to-search route on the wrapped
+            header: name, classes, and rect of whatever holds focus after each
+            move, so the runner log shows the path the navigation actually
+            takes. Removed once the walk converges.
+         */
+        private static void LogWalkState(VisualElement root, string step)
+        {
+            Focusable focused = root.panel?.focusController?.focusedElement;
+            if (focused is not VisualElement element)
+            {
+                Debug.Log($"[pad-walk] {step}: focused=<null>");
+                return;
+            }
+
+            string classes = string.Join(",", element.GetClasses());
+            Debug.Log(
+                $"[pad-walk] {step}: focused={element.name} classes=[{classes}] rect={element.layout.width:0}x{element.layout.height:0}@{element.layout.x:0},{element.layout.y:0} rootWidth={root.layout.width:0}"
+            );
+        }
+
         [SetUp]
         public void SetUp()
         {
@@ -636,10 +657,31 @@
 
                 yield return MoveGamepad(gamepad, Vector2.right);
                 Assert.That(root.panel.focusController.focusedElement, Is.SameAs(root.Q<Button>("TerminalSizeButton")));
-                yield return MoveGamepad(gamepad, Vector2.down);
-                for (int move = 0; move < 8 && !_terminal.SearchOwnsFocus; ++move)
+
+                /*
+                    The header is one wrapping row (direction 1a), so the pad
+                    walks LEFT from the window controls toward the search
+                    field. On a wrapped header the geometric left walk cycles
+                    between the chip line and the controls line instead of
+                    reaching the field, so the walk detects a revisit and
+                    steps UP one line (back toward the search row); the
+                    stacked-layout DOWN step would leave the header into the
+                    log.
+                 */
+                HashSet<string> visited = new(StringComparer.Ordinal);
+                VisualElement previousFocus = null;
+                for (int move = 0; move < 16 && !_terminal.SearchOwnsFocus; ++move)
                 {
                     yield return MoveGamepad(gamepad, Vector2.left);
+                    VisualElement focused = root.panel.focusController.focusedElement as VisualElement;
+                    bool revisited = focused != null && !visited.Add($"{focused.name}@{focused.layout.y:0}");
+                    if (focused == previousFocus || revisited)
+                    {
+                        yield return MoveGamepad(gamepad, Vector2.up);
+                    }
+
+                    previousFocus = root.panel.focusController.focusedElement as VisualElement;
+                    LogWalkState(root, $"move {move}");
                 }
                 Assert.That(_terminal.SearchOwnsFocus, Is.True, "The pad can enter the search field from the header.");
 

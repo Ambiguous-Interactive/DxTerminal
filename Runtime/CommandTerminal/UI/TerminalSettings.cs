@@ -1,7 +1,6 @@
 namespace WallstopStudios.DxCommandTerminal.UI
 {
     using System.Collections.Generic;
-    using Attributes;
     using Backend;
     using UnityEngine;
 
@@ -35,26 +34,6 @@ namespace WallstopStudios.DxCommandTerminal.UI
         [Min(0)]
         [Tooltip("Milliseconds between caret visibility toggles while the input is focused")]
         public int cursorBlinkRateMilliseconds = 666;
-
-        [Header("Buttons")]
-        [Tooltip("Show the run/close/small/full on-screen buttons")]
-        public bool showGUIButtons;
-
-        [DxShowIf(nameof(showGUIButtons))]
-        [Tooltip("Text of the button that runs the current command")]
-        public string runButtonText = "run";
-
-        [DxShowIf(nameof(showGUIButtons))]
-        [Tooltip("Text of the button that closes the terminal")]
-        public string closeButtonText = "close";
-
-        [DxShowIf(nameof(showGUIButtons))]
-        [Tooltip("Text of the button that shrinks the terminal")]
-        public string smallButtonText = "small";
-
-        [DxShowIf(nameof(showGUIButtons))]
-        [Tooltip("Text of the button that maximizes the terminal")]
-        public string fullButtonText = "full";
 
         [Header("Hints")]
         [Tooltip("Which completion hints the input surface shows")]
