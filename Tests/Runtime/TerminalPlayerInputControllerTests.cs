@@ -1167,6 +1167,21 @@
                 });
             }
 
+            protected override void NextTab()
+            {
+                CaptureRoute(nameof(NextTab), base.NextTab);
+            }
+
+            protected override void PreviousTab()
+            {
+                CaptureRoute(nameof(PreviousTab), base.PreviousTab);
+            }
+
+            protected override void EditValues()
+            {
+                CaptureRoute(nameof(EditValues), base.EditValues);
+            }
+
             protected override void Update() { }
 
             private void CaptureRoute(string route, Action fallback)

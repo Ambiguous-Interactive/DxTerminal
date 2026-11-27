@@ -87,6 +87,11 @@
             get { return TerminalMotionPresetMetrics.Normalize(_runtimeMotionPreset ?? _persistedMotionPreset); }
         }
 
+        public TerminalTab ActiveTab
+        {
+            get { return _activeTab; }
+        }
+
         /*
             Internal for test coverage: a transition assertion needs the state
             a frame left behind, and IsClosed cannot answer that while the
@@ -400,8 +405,11 @@
         private int? _lastSearchPosition;
         private bool _lastSearchActive;
         private int? _lastTabCount;
+        private TerminalTab _activeTab = TerminalTab.Log;
         private Button _logTabButton;
+        private Button _actionsTabButton;
         private Label _logTabCount;
+        private TerminalActionsView _actionsView;
         private VisualElement _inputContainer;
         private Button _jumpLatestButton;
         private Label _logCopyStatus;
@@ -1848,7 +1856,14 @@
             }
             if (InputOwnsFocus || target == _terminalContainer)
             {
-                _sizeButton.Focus();
+                if (_activeTab == TerminalTab.Actions)
+                {
+                    _actionsView?.FocusInitialControl();
+                }
+                else
+                {
+                    _sizeButton.Focus();
+                }
                 return;
             }
             DispatchNavigationEvent(target, NavigationMoveEvent.GetPooled(direction));
@@ -1880,11 +1895,20 @@
         /// <summary>Returns to command input, then closes on the next cancel.</summary>
         public void CancelNavigation()
         {
-            if (!TryGetNavigationTarget(out _))
+            if (!TryGetNavigationTarget(out VisualElement target))
             {
                 return;
             }
             ++NavigationCancellationVersion;
+            if (_activeTab == TerminalTab.Actions)
+            {
+                if (_actionsView?.TryHandleCancel(target) != true)
+                {
+                    Close();
+                }
+
+                return;
+            }
             if (InputOwnsFocus)
             {
                 Close();
@@ -1893,6 +1917,53 @@
             {
                 FocusInput(allowLogFocus: true);
             }
+        }
+
+        /// <summary>Switches between the Log and Actions tabs.</summary>
+        public void SelectTab(TerminalTab tab)
+        {
+            TerminalTab normalized = tab is TerminalTab.Log or TerminalTab.Actions ? tab : TerminalTab.Log;
+            if (_activeTab == normalized && _actionsView != null)
+            {
+                ApplyActiveTabVisibility(moveFocus: true);
+                return;
+            }
+
+            _activeTab = normalized;
+            ApplyActiveTabVisibility(moveFocus: true);
+        }
+
+        /// <summary>Advances to the next enabled tab.</summary>
+        public void NextTab()
+        {
+            if (!IsOpenState(_state))
+            {
+                return;
+            }
+
+            SelectTab(_activeTab == TerminalTab.Log ? TerminalTab.Actions : TerminalTab.Log);
+        }
+
+        /// <summary>Moves to the previous enabled tab.</summary>
+        public void PreviousTab()
+        {
+            if (!IsOpenState(_state))
+            {
+                return;
+            }
+
+            SelectTab(_activeTab == TerminalTab.Actions ? TerminalTab.Log : TerminalTab.Actions);
+        }
+
+        /// <summary>Focuses the first editable control in the active Actions card.</summary>
+        public void EditActionsValues()
+        {
+            if (!IsOpenState(_state) || _activeTab != TerminalTab.Actions)
+            {
+                return;
+            }
+
+            _actionsView?.FocusActiveCardFirstField();
         }
 
         public void CompleteCommand(bool searchForward = true)
@@ -2239,7 +2310,9 @@
             _lastSearchTotal = null;
             _lastTabCount = null;
             _logTabButton = null;
+            _actionsTabButton = null;
             _logTabCount = null;
+            _actionsView = null;
             _expandedSequence = null;
             _lastSeenBuffer = null;
             _lastSeenFilterGeneration = null;
@@ -2312,10 +2385,25 @@
             _uiDocument.rootVisualElement.style.height = _currentWindowHeight;
             _terminalContainer.style.height = _currentWindowHeight;
             _logToolbar.style.display = IsOpenState(_state) ? DisplayStyle.Flex : DisplayStyle.None;
-            DisplayStyle commandInputStyle = _currentWindowHeight <= 30 ? DisplayStyle.None : DisplayStyle.Flex;
+            bool showingActions = IsOpenState(_state) && _activeTab == TerminalTab.Actions;
+            DisplayStyle commandInputStyle = _currentWindowHeight <= 30 || showingActions ? DisplayStyle.None : DisplayStyle.Flex;
 
-            _needsFocus |= _inputContainer.resolvedStyle.display != commandInputStyle && commandInputStyle == DisplayStyle.Flex;
+            _needsFocus |= !showingActions && _inputContainer.resolvedStyle.display != commandInputStyle && commandInputStyle == DisplayStyle.Flex;
             _inputContainer.style.display = commandInputStyle;
+            if (_logScrollView != null)
+            {
+                _logScrollView.style.display = showingActions ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (showingActions)
+            {
+                _actionsView?.SetVisible(true);
+                _actionsView?.RefreshIfNeeded(Terminal.Shell, CommandExecutionContext.Current, _syntaxPalette.Version);
+            }
+            else
+            {
+                _actionsView?.SetVisible(false);
+            }
 
             if (_commandIssuedThisFrame)
             {
@@ -3198,6 +3286,8 @@
             /* A fresh view starts at zero, so no earlier pin describes it. */
             _logTail.Attach();
 
+            _actionsView = new TerminalActionsView(_terminalContainer, RunActionsCommand, FormatSyntaxPreview);
+
             EnsureMotionPresetMigrated();
             _completionView = new TerminalCompletionView(root, _terminalContainer, ApplyHint, CurrentTextSize);
             ApplyTextSize(root, CurrentTextSize, updateWindow: false);
@@ -3483,35 +3573,107 @@
             tabs.AddToClassList("terminal-header-tabs");
             header.Add(tabs);
 
-            /*
-                The Log view is the only one that exists; the pressed tab
-                carries the line count the search field used to print while
-                idle. A no-op click answers with the view that is already on
-                screen rather than a state change, and the tab takes no
-                navigation stop - a dead stop between the search and the
-                chips would strand pad navigation (#245).
-             */
-            _logTabButton = new Button { name = "TerminalLogTab", tooltip = "Log output." };
+            _logTabButton = new Button(() =>
+            {
+                SelectTab(TerminalTab.Log);
+            })
+            {
+                name = "TerminalLogTab",
+                tooltip = "Log output.",
+            };
             _logTabButton.AddToClassList("terminal-header-tab");
-            _logTabButton.AddToClassList("terminal-header-tab--active");
+            _logTabButton.EnableInClassList("terminal-header-tab--active", _activeTab == TerminalTab.Log);
             _logTabButton.text = "Log";
-            _logTabButton.focusable = false;
             _logTabCount = new Label { name = "TerminalLogTabCount", pickingMode = PickingMode.Ignore };
             _logTabCount.AddToClassList("terminal-header-tab-count");
             _logTabButton.Add(_logTabCount);
             tabs.Add(_logTabButton);
 
-            Button actionsTab = new Button { name = "TerminalActionsTab", tooltip = "Lands with the Actions milestone (#243)." };
-            actionsTab.AddToClassList("terminal-header-tab");
-            actionsTab.text = "Actions";
-            actionsTab.SetEnabled(false);
-            tabs.Add(actionsTab);
+            _actionsTabButton = new Button(() =>
+            {
+                SelectTab(TerminalTab.Actions);
+            })
+            {
+                name = "TerminalActionsTab",
+                tooltip = "Run registered commands from typed forms.",
+            };
+            _actionsTabButton.AddToClassList("terminal-header-tab");
+            _actionsTabButton.EnableInClassList("terminal-header-tab--active", _activeTab == TerminalTab.Actions);
+            _actionsTabButton.text = "Actions";
+            tabs.Add(_actionsTabButton);
 
             Button watchesTab = new Button { name = "TerminalWatchesTab", tooltip = "Lands with the Watches milestone (#244)." };
             watchesTab.AddToClassList("terminal-header-tab");
             watchesTab.text = "Watches";
             watchesTab.SetEnabled(false);
             tabs.Add(watchesTab);
+        }
+
+        private void ApplyActiveTabVisibility(bool moveFocus)
+        {
+            bool actionsActive = _activeTab == TerminalTab.Actions;
+            _logTabButton?.EnableInClassList("terminal-header-tab--active", !actionsActive);
+            _actionsTabButton?.EnableInClassList("terminal-header-tab--active", actionsActive);
+
+            if (_logScrollView != null)
+            {
+                _logScrollView.style.display = actionsActive ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (_inputContainer != null)
+            {
+                _inputContainer.style.display = actionsActive || _currentWindowHeight <= 30 ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (actionsActive)
+            {
+                _logCopyStatus?.SetEnabled(false);
+                if (_logCopyStatus != null)
+                {
+                    _logCopyStatus.style.display = DisplayStyle.None;
+                }
+
+                _completionView?.Hide();
+                _validationView?.Hide();
+                _actionsView?.SetVisible(true);
+                _actionsView?.RefreshIfNeeded(Terminal.Shell, CommandExecutionContext.Current, _syntaxPalette.Version);
+                if (moveFocus)
+                {
+                    _actionsView?.FocusInitialControl();
+                }
+            }
+            else
+            {
+                _actionsView?.SetVisible(false);
+                if (moveFocus)
+                {
+                    FocusInput(allowLogFocus: true);
+                }
+            }
+        }
+
+        private void RunActionsCommand(string commandPath, string commandLine)
+        {
+            if (string.IsNullOrWhiteSpace(commandLine))
+            {
+                return;
+            }
+
+            Terminal.Log(TerminalLogType.Input, commandLine);
+            Terminal.Shell?.RunCommand(commandLine);
+            ConsumeAndLogErrors();
+            _actionsView?.RecordRecent(commandPath, commandLine);
+        }
+
+        private string FormatSyntaxPreview(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return string.Empty;
+            }
+
+            _echoClassifier.Classify(line, Terminal.Shell, _echoSpans);
+            return _syntaxPalette.FormatEchoLine(line, _echoSpans, _commandInputHighlight?.MonoTag);
         }
 
         private void SetupLogSearch(VisualElement header)

@@ -102,7 +102,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             );
             Assert.That(header.Q<Label>("TerminalLogTabCount") != null, "The Log tab carries the line count");
             Assert.That(header.Q<Button>("TerminalActionsTab") != null, "The Actions tab exists for #243");
-            Assert.That(header.Q<Button>("TerminalActionsTab").enabledSelf, Is.False, "The Actions tab is disabled until #243");
+            Assert.That(header.Q<Button>("TerminalActionsTab").enabledSelf, Is.True, "The Actions tab is enabled");
             Assert.That(header.Q<Button>("TerminalWatchesTab") != null, "The Watches tab exists for #244");
             Assert.That(header.Q<Button>("TerminalWatchesTab").enabledSelf, Is.False, "The Watches tab is disabled until #244");
             Assert.That(header.Q<Button>("TerminalSizeButton") != null, "The header size control replaces showGUIButtons");

@@ -155,6 +155,17 @@
 
         public bool HasErrors => 0 < _errorMessages.Count;
 
+        /// <summary>
+        ///     Active audience tier for this shell. Defaults to
+        ///     <see cref="CommandTier.Developer"/>; build profiles and UI
+        ///     surfaces use this to surface or restrict commands by tier.
+        /// </summary>
+        public CommandTier ActiveTier
+        {
+            get { return _activeTier; }
+            set { _activeTier = value is CommandTier.Player or CommandTier.Tester or CommandTier.Developer ? value : CommandTier.Developer; }
+        }
+
         /*
             Sorted iteration for in-assembly callers (auto-complete walks it
             when the version changes). Reading through the public Commands
@@ -197,6 +208,8 @@
         private long _commandVersion;
 
         private readonly Queue<string> _errorMessages = new();
+
+        private CommandTier _activeTier = CommandTier.Developer;
 
         private readonly CommandHistory _history;
         private readonly HashSet<string> _ignoredCommands = new(StringComparer.OrdinalIgnoreCase);
@@ -1959,7 +1972,8 @@
                     syntaxRoute: null,
                     group: command.Group,
                     tier: command.Tier,
-                    hideFromActions: command.HideFromActions
+                    hideFromActions: command.HideFromActions,
+                    defaultGroup: command.DefaultGroup
                 );
 
                 if (_commands.TryAdd(commandName, info))
@@ -2258,6 +2272,7 @@
             public readonly CommandTier Tier;
             public readonly string Group;
             public readonly bool HideFromActions;
+            public readonly string DefaultGroup;
 
             /*
                Non-null for valid (CommandArg[]) signatures. Null marks a
@@ -2303,7 +2318,8 @@
                 CommandCatalogEntry catalogEntry = null,
                 CommandTier tier = CommandTier.Developer,
                 string group = null,
-                bool hideFromActions = false
+                bool hideFromActions = false,
+                string defaultGroup = null
             )
             {
                 Name = name;
@@ -2320,6 +2336,7 @@
                 Tier = tier;
                 Group = group;
                 HideFromActions = hideFromActions;
+                DefaultGroup = defaultGroup;
                 Binder = binder;
                 MethodAccessor = methodAccessor;
                 DeferredProc = deferredProc;
@@ -2346,7 +2363,8 @@
                     entry,
                     entry.Tier,
                     entry.Group,
-                    entry.HideFromActions
+                    entry.HideFromActions,
+                    ExtractSimpleTypeName(entry.DeclaringTypeName)
                 );
             }
 
@@ -2372,8 +2390,20 @@
                     null,
                     attribute.Tier,
                     attribute.Group,
-                    attribute.HideFromActions
+                    attribute.HideFromActions,
+                    method.DeclaringType?.Name
                 );
+            }
+
+            private static string ExtractSimpleTypeName(string fullName)
+            {
+                if (string.IsNullOrWhiteSpace(fullName))
+                {
+                    return null;
+                }
+
+                int dot = fullName.LastIndexOf(".", StringComparison.Ordinal);
+                return 0 <= dot && dot < fullName.Length - 1 ? fullName.Substring(dot + 1) : fullName;
             }
 
             private static bool IsValidSignature(MethodInfo method)

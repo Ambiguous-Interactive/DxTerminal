@@ -104,7 +104,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             int healCount = 0;
             int lastAmount = 0;
             bool lastFull = false;
-            CommandRegistrationHandle handle = Terminal.Shell.AddCommand(
+            Terminal.Shell.AddCommand(
                 CommandBuilder
                     .Create("heal")
                     .Help("Heals the active target.")
@@ -125,7 +125,8 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                             lastFull = args.Get<bool>("full");
                             Terminal.Log($"healed {lastAmount} full={lastFull}");
                         }
-                    )
+                    ),
+                out CommandRegistrationHandle handle
             );
 
             try
@@ -169,7 +170,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                 Assert.That(Terminal.Buffer.Logs.Count, Is.GreaterThanOrEqualTo(2), "Actions Run echoes the command and logs output.");
                 Assert.That(Terminal.Buffer.Logs[0].type, Is.EqualTo(TerminalLogType.Input));
                 Assert.That(Terminal.Buffer.Logs[0].message, Is.EqualTo("heal 50 false"));
-                Assert.That(Terminal.History.Previous(), Is.EqualTo("heal 50 false"), "Actions Run records the command line in history.");
+                Assert.That(Terminal.History.Previous(false), Is.EqualTo("heal 50 false"), "Actions Run records the command line in history.");
             }
             finally
             {
@@ -184,8 +185,9 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
             CommandTier originalTier = Terminal.Shell.ActiveTier;
             Terminal.Shell.ActiveTier = CommandTier.Player;
-            CommandRegistrationHandle handle = Terminal.Shell.AddCommand(
-                CommandBuilder.Create("godmode").Help("Toggles invulnerability.").Group("Cheats").Tier(CommandTier.Tester).Handler((_, _) => { })
+            Terminal.Shell.AddCommand(
+                CommandBuilder.Create("godmode").Help("Toggles invulnerability.").Group("Cheats").Tier(CommandTier.Tester).Handler((_, _) => { }),
+                out CommandRegistrationHandle handle
             );
 
             try
@@ -229,7 +231,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             try
             {
                 yield return SpawnTerminalWithPlayerInput();
-                handle = Terminal.Shell.AddCommand(
+                Terminal.Shell.AddCommand(
                     CommandBuilder
                         .Create("heal")
                         .Help("Heals the active target.")
@@ -249,12 +251,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
                                 healedAmount = args.Get<int>("amount");
                                 healedFull = args.Get<bool>("full");
                             }
-                        )
+                        ),
+                    out handle
                 );
 
                 // Open terminal with gamepad ToggleFull (Start / Menu).
                 yield return PressGamepadButton(gamepad, GamepadButton.Start);
-                Assert.That(_terminal.CurrentState, Is.EqualTo(TerminalState.OpenFull), "Pad opens the terminal.");
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.OpenFull), "Pad opens the terminal.");
 
                 VisualElement root = _terminal._uiDocument.rootVisualElement;
                 Assert.That(root.panel.focusController.focusedElement, Is.Not.Null, "Focus is visible after open.");
@@ -314,7 +317,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
 
                 // Close with pad Cancel (East / B).
                 yield return PressGamepadButton(gamepad, GamepadButton.East);
-                Assert.That(_terminal.CurrentState, Is.EqualTo(TerminalState.Closed), "Pad Cancel closes the terminal from Actions.");
+                Assert.That(_terminal.State, Is.EqualTo(TerminalState.Closed), "Pad Cancel closes the terminal from Actions.");
             }
             finally
             {
