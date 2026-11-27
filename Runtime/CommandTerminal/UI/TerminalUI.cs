@@ -3946,11 +3946,11 @@
 
         /*
             The HUD renders in its own document, so neither the theme sheets
-            (attached to the terminal's root) nor the theme class (swapped on
-            theme changes) reach it. Both are mirrored here. The first sync
-            runs even before a theme is resolved (a null theme still needs
-            the sheets), and after that the signature keeps it to one sync
-            per theme change instead of per refresh.
+            (attached to the terminal's TerminalRoot element) nor the theme
+            class (swapped on theme changes) reach it. Both are mirrored
+            here. The first sync runs even before a theme is resolved (a
+            null theme still needs the sheets), and after that the signature
+            keeps it to one sync per theme change instead of per refresh.
          */
         private void SyncHudTheme()
         {
@@ -3960,7 +3960,7 @@
             }
 
             VisualElement hudRoot = _watchesHudDocument.rootVisualElement;
-            VisualElement themedRoot = _uiDocument.rootVisualElement;
+            VisualElement themedRoot = _uiDocument.rootVisualElement?.Q<VisualElement>(TerminalRootName);
             if (hudRoot == null || themedRoot == null)
             {
                 return;

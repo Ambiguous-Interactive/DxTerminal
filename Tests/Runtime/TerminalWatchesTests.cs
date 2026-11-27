@@ -312,7 +312,7 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             yield return SpawnTerminal(open: true);
             _terminal.SampleWatchesNow();
 
-            VisualElement terminalRoot = _terminal._uiDocument.rootVisualElement;
+            VisualElement terminalRoot = _terminal._uiDocument.rootVisualElement.Q<VisualElement>("TerminalRoot");
             VisualElement hudDocumentRoot = _terminal._watchesHudDocument.rootVisualElement;
             Assert.That(hudDocumentRoot.styleSheets.count, Is.GreaterThan(0), "The HUD document mirrors the terminal's theme sheets");
 
