@@ -211,9 +211,13 @@ namespace WallstopStudios.DxCommandTerminal.Tests.Runtime
             Assert.That(entry.HasValue, Is.False, "A formatting throw keeps the entry unsampled instead of breaking the pass");
 
             /*
-                The once-flag suppresses the second sample's log, so no second
-                expectation is registered; the entry stays unsampled.
+                The once-flag only suppresses consecutive failures within one
+                attempt; a recovered getter re-arms it, so this second failed
+                attempt logs its own exception.
              */
+#if UNITY_EDITOR
+            LogAssert.Expect(LogType.Exception, "InvalidOperationException: no text for you");
+#endif
             _registry.Sample(CommandTier.Developer);
             Assert.That(entry.HasValue, Is.False, "The formatting throw stays skipped on later samples");
         }
