@@ -739,6 +739,16 @@
         {
             LiveTerminals.Remove(this);
 
+            /*
+                The HUD document lives on its own scene-root object (it must
+                not nest under this document's tree), so the terminal's
+                destruction reclaims it explicitly.
+             */
+            if (_watchesHudObject != null)
+            {
+                Destroy(_watchesHudObject);
+            }
+
             if (Instance != this)
             {
                 return;
@@ -3908,13 +3918,15 @@
             {
                 /*
                     UIDocument carries DisallowMultipleComponent, so the HUD
-                    document needs its own GameObject. A child of this one
-                    dies with the terminal, and its panel root never takes
-                    the terminal's height clamp, so the HUD stays put while
-                    the terminal is closed.
+                    document needs its own GameObject - and it must stay off
+                    this component's transform: Unity nests a child UIDo-
+                    cument's root inside the parent document's rootVisualEle-
+                    ment, which would count the HUD into the terminal's tree
+                    and collapse it whenever the terminal's height clamps
+                    shut. A scene-root object renders independently of the
+                    terminal's height, and OnDestroy reclaims it.
                  */
                 _watchesHudObject = new GameObject("TerminalWatchesHudDocument");
-                _watchesHudObject.transform.SetParent(transform, worldPositionStays: false);
                 _watchesHudDocument = _watchesHudObject.AddComponent<UIDocument>();
             }
 
