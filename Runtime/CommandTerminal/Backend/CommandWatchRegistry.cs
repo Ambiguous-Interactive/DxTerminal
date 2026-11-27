@@ -442,9 +442,9 @@ namespace WallstopStudios.DxCommandTerminal.Backend
 
         public bool TryGetEntry(string name, out WatchEntry entry)
         {
-            entry = null;
             if (string.IsNullOrWhiteSpace(name))
             {
+                entry = null;
                 return false;
             }
 

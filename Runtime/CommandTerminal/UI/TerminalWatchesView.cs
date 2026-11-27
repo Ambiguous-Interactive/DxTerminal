@@ -29,6 +29,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         }
 
         private readonly VisualElement _root;
+        private readonly VisualElement _tabParent;
         private readonly VisualElement _hudRoot;
         private readonly VisualElement _hudRows;
         private readonly ScrollView _rowsScroll;
@@ -38,6 +39,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         private readonly List<WatchEntry> _hudEntries = new();
         private readonly List<WatchRowBinding> _rowBindings = new();
         private readonly List<HudRowBinding> _hudBindings = new();
+        private bool _tabAttached;
 
         private CommandWatchRegistry _lastRegistry;
         private long _lastVersion = -1;
@@ -50,6 +52,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         internal TerminalWatchesView(VisualElement tabParent, VisualElement hudParent, Action<string, bool> onPinToggled)
         {
             _onPinToggled = onPinToggled;
+            _tabParent = tabParent;
 
             _root = new VisualElement { name = "TerminalWatchesView" };
             _root.AddToClassList("terminal-watches");
@@ -73,7 +76,15 @@ namespace WallstopStudios.DxCommandTerminal.UI
             _emptyLabel.style.display = DisplayStyle.None;
             _root.Add(_emptyLabel);
 
-            tabParent.Add(_root);
+            /*
+                The tab tree may not exist yet (the HUD builds while the
+                terminal has never opened); attach lazily on first use.
+             */
+            if (_tabParent != null)
+            {
+                _tabParent.Add(_root);
+                _tabAttached = true;
+            }
 
             /*
                 The HUD mounts in its own document root so the terminal's
@@ -106,6 +117,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         internal void SetVisible(bool visible)
         {
+            EnsureAttached();
             _visible = visible;
             _root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         }
@@ -117,6 +129,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         /// </summary>
         internal void RefreshIfNeeded(CommandWatchRegistry watches, CommandTier tier, bool hudEnabled, int hudMaxRows, TerminalHudCorner hudCorner)
         {
+            EnsureAttached();
             if (watches == null)
             {
                 return;
@@ -155,6 +168,7 @@ namespace WallstopStudios.DxCommandTerminal.UI
         /// </summary>
         internal void RefreshValues()
         {
+            EnsureAttached();
             int bindingCount = _rowBindings.Count;
             for (int index = 0; index < bindingCount; ++index)
             {
@@ -170,6 +184,12 @@ namespace WallstopStudios.DxCommandTerminal.UI
 
         private void RebuildRows()
         {
+            EnsureAttached();
+            if (!_tabAttached)
+            {
+                return;
+            }
+
             _rowsScroll.Clear();
             _rowBindings.Clear();
 
@@ -246,6 +266,17 @@ namespace WallstopStudios.DxCommandTerminal.UI
             _hudRoot.EnableInClassList("terminal-watches-hud--top-right", corner == TerminalHudCorner.TopRight);
             _hudRoot.EnableInClassList("terminal-watches-hud--top-left", corner == TerminalHudCorner.TopLeft);
             _hudRoot.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        private void EnsureAttached()
+        {
+            if (_tabAttached || _tabParent == null)
+            {
+                return;
+            }
+
+            _tabParent.Add(_root);
+            _tabAttached = true;
         }
 
         /*

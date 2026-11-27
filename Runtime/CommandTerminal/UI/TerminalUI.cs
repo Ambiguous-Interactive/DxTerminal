@@ -267,6 +267,8 @@
 #if UNITY_EDITOR
         [SerializeField]
         private bool _trackChangesInEditor = true;
+
+        private CommandWatchRegistry _watchesPinHookedRegistry;
 #endif
 
         [Tooltip("Will reset static command state in OnEnable and Start when set to true")]
@@ -445,12 +447,12 @@
         private int? _lastWatchesTabCount;
         private long _lastWatchesVersion = -1;
         private CommandTier _lastWatchesTabTier;
-        private CommandWatchRegistry _watchesPinHookedRegistry;
         private readonly List<CommandWatchRegistry.WatchEntry> _watchesVisibleBuffer = new();
         private float _watchesSampleInterval = 0.25f;
         private float _lastWatchesSampleTime;
         private string _lastHudTheme;
         private string _lastHudThemeClass;
+        private GameObject _watchesHudObject;
         private VisualElement _inputContainer;
         private Button _jumpLatestButton;
         private Label _logCopyStatus;
@@ -871,6 +873,15 @@
             {
                 ResetAutoComplete();
             }
+
+#if UNITY_EDITOR
+            /*
+                Load stored pins as early as the registry exists, so a pin a
+                caller makes right after apply survives the first sampler
+                pass instead of losing to the stored set.
+             */
+            EnsureWatchesPinHook();
+#endif
         }
 
 #if UNITY_EDITOR
@@ -897,12 +908,19 @@
                 SetupUI();
             }
 
+            /*
+                The editor re-themes through InitializeTheme; mirror the
+                sheets and class onto the HUD at the same boundary.
+             */
             if (CheckForRefresh(_themeProperties))
             {
                 if (_uiDocument != null && _terminalContainer != null)
                 {
                     InitializeTheme(_uiDocument.rootVisualElement?.Q<VisualElement>(TerminalRootName));
                 }
+
+                _lastHudTheme = null;
+                SyncHudTheme();
             }
 
             if (CheckForRefresh(_cursorBlinkProperties))
@@ -2345,7 +2363,9 @@
          */
         internal void UpdateWatchesSampling()
         {
+#if UNITY_EDITOR
             EnsureWatchesPinHook();
+#endif
             CommandWatchRegistry watches = Terminal.Watches;
             if (watches == null || watches.Count == 0)
             {
@@ -2431,6 +2451,16 @@
                 _watchesHudDocument.rootVisualElement.Clear();
             }
 
+            /*
+                The HUD belongs to this component: a disabled terminal stops
+                sampling, so the panel must not outlive the component's
+                enabled state.
+             */
+            if (_watchesHudDocument != null)
+            {
+                _watchesHudDocument.enabled = false;
+            }
+
             _lastHudTheme = null;
             _lastHudThemeClass = null;
             _logTabCount = null;
@@ -2508,23 +2538,26 @@
             _terminalContainer.style.height = _currentWindowHeight;
             _logToolbar.style.display = IsOpenState(_state) ? DisplayStyle.Flex : DisplayStyle.None;
             bool showingActions = IsOpenState(_state) && _activeTab == TerminalTab.Actions;
-            DisplayStyle commandInputStyle = _currentWindowHeight <= 30 || showingActions ? DisplayStyle.None : DisplayStyle.Flex;
+            bool showingWatches = IsOpenState(_state) && _activeTab == TerminalTab.Watches;
+            bool showingLog = !showingActions && !showingWatches;
+            DisplayStyle commandInputStyle = _currentWindowHeight <= 30 || showingActions || showingWatches ? DisplayStyle.None : DisplayStyle.Flex;
 
-            _needsFocus |= !showingActions && _inputContainer.resolvedStyle.display != commandInputStyle && commandInputStyle == DisplayStyle.Flex;
+            _needsFocus |= showingLog && _inputContainer.resolvedStyle.display != commandInputStyle && commandInputStyle == DisplayStyle.Flex;
             _inputContainer.style.display = commandInputStyle;
             if (_logScrollView != null)
             {
-                _logScrollView.style.display = showingActions ? DisplayStyle.None : DisplayStyle.Flex;
+                _logScrollView.style.display = showingLog ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
+            _actionsView?.SetVisible(showingActions);
+            _watchesView?.SetVisible(showingWatches);
             if (showingActions)
             {
-                _actionsView?.SetVisible(true);
                 _actionsView?.RefreshIfNeeded(Terminal.Shell, CommandExecutionContext.Current, _syntaxPalette.Version);
             }
-            else
+            else if (showingWatches)
             {
-                _actionsView?.SetVisible(false);
+                RefreshWatchesView();
             }
 
             if (_commandIssuedThisFrame)
@@ -3770,6 +3803,9 @@
                 _inputContainer.style.display = actionsActive || watchesActive || _currentWindowHeight <= 30 ? DisplayStyle.None : DisplayStyle.Flex;
             }
 
+            _actionsView?.SetVisible(actionsActive);
+            _watchesView?.SetVisible(watchesActive);
+
             if (actionsActive)
             {
                 _logCopyStatus?.SetEnabled(false);
@@ -3780,7 +3816,6 @@
 
                 ResetAutoComplete();
                 _validationView?.Refresh(Terminal.Shell, string.Empty, open: false);
-                _actionsView?.SetVisible(true);
                 _actionsView?.RefreshIfNeeded(Terminal.Shell, CommandExecutionContext.Current, _syntaxPalette.Version);
                 if (moveFocus)
                 {
@@ -3797,15 +3832,11 @@
 
                 ResetAutoComplete();
                 _validationView?.Refresh(Terminal.Shell, string.Empty, open: false);
-                _actionsView?.SetVisible(false);
-                _watchesView?.SetVisible(true);
                 RefreshWatchesView();
                 SampleWatchesNow();
             }
             else
             {
-                _actionsView?.SetVisible(false);
-                _watchesView?.SetVisible(false);
                 if (moveFocus)
                 {
                     FocusInput(allowLogFocus: true);
@@ -3867,7 +3898,7 @@
         /// <summary>Creates the Watches tab view and its HUD document once per component.</summary>
         private void EnsureWatchesView()
         {
-            if (_watchesView != null || _terminalContainer == null || _uiDocument == null)
+            if (_watchesView != null || _uiDocument == null)
             {
                 return;
             }
@@ -3875,16 +3906,20 @@
             if (_watchesHudDocument == null)
             {
                 /*
-                    A second document on the same panel renders above the
-                    terminal surface, and its root never takes the terminal's
-                    height clamp, so the HUD stays put while the terminal is
-                    closed.
+                    UIDocument carries DisallowMultipleComponent, so the HUD
+                    document needs its own GameObject. A child of this one
+                    dies with the terminal, and its panel root never takes
+                    the terminal's height clamp, so the HUD stays put while
+                    the terminal is closed.
                  */
-                _watchesHudDocument = gameObject.AddComponent<UIDocument>();
+                _watchesHudObject = new GameObject("TerminalWatchesHudDocument");
+                _watchesHudObject.transform.SetParent(transform, worldPositionStays: false);
+                _watchesHudDocument = _watchesHudObject.AddComponent<UIDocument>();
             }
 
             _watchesHudDocument.panelSettings = _uiDocument.panelSettings;
             _watchesHudDocument.sortingOrder = _uiDocument.sortingOrder + 1f;
+            _watchesHudDocument.enabled = true;
             VisualElement hudRoot = _watchesHudDocument.rootVisualElement;
             if (hudRoot == null)
             {
@@ -3953,6 +3988,15 @@
             attaches and reloads stored pins then; players skip persistence
             and keep session-local pins.
          */
+#if UNITY_EDITOR
+        /*
+            Wires pin persistence to the current registry once. The registry
+            instance changes on every play-session reset, so the hook re-
+            attaches and reloads stored pins then; players skip persistence
+            and keep session-local pins, so the whole hook is editor-only.
+            RefreshStaticState and the sampler both call it: the load must
+            precede any pin a caller makes through the live registry.
+         */
         private void EnsureWatchesPinHook()
         {
             CommandWatchRegistry watches = Terminal.Watches;
@@ -3972,11 +4016,10 @@
                 return;
             }
 
-#if UNITY_EDITOR
             watches.PinsChanged += SaveWatchesPins;
             LoadWatchesPins(watches);
-#endif
         }
+#endif
 
 #if UNITY_EDITOR
         private void SaveWatchesPins()
